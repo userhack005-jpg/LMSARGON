@@ -1148,3 +1148,19 @@ body.theme-obsidian {
     gap: 0.35rem;
     white-space: nowrap;
 }
+
+
+/* ==========================================
+   ADD-ON BLUEPRINT CODE PREVIEW
+   ========================================== */
+.code-blueprint {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.55;
+    background: #07080c;
+    color: #34d399;
+    padding: 0.85rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    overflow-x: auto;
+}

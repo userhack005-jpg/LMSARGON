@@ -1,0 +1,21 @@
+{
+    "slug": "payment_gateway",
+    "name": "OmniPay Gateway Suite (Razorpay / Stripe / PayPal)",
+    "category": "payment_gateway",
+    "version": "1.0.0",
+    "author": "Core Architecture Team",
+    "description": "Complete multi-currency Payment Gateway add-on with Backend API Key Configuration, Live/Sandbox toggle, Frontend Website Checkout page, and automated `payment_transactions` ledger table.",
+    "admin_route": "addons/payment-gateway",
+    "frontend_route": "pay-checkout",
+    "init_model": "App\\Models\\Addons\\PaymentGateway\\PaymentModel",
+    "default_config": {
+        "active_provider": "razorpay",
+        "environment": "sandbox",
+        "currency": "INR",
+        "razorpay_key_id": "rzp_test_YourKeyHere",
+        "razorpay_secret": "",
+        "stripe_pub_key": "pk_test_YourKeyHere",
+        "stripe_sec_key": "",
+        "paypal_client": ""
+    }
+}

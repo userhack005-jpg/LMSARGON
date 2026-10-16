@@ -46,6 +46,32 @@
         </a>
         <?php endif; ?>
 		
+<?php if (in_array(($user['role_slug'] ?? ''), ['super_admin', 'admin'], true)): ?>
+        <a href="<?= base_url('addons') ?>" class="sidebar-link <?= $currentMenu === 'addons' ? 'is-active' : '' ?>">
+            <span class="nav-icon">❖</span>
+            <span class="nav-text">Add-On Manager</span>
+            <span class="nav-pill">ZIP</span>
+        </a>
+
+        <?php
+            // Dynamically list all Active Add-Ons that have a Backend Admin Route
+            $activeAddonsList = (new \App\Models\Addons\AddonModel())->getActiveAddons();
+        ?>
+        <?php if (! empty($activeAddonsList)): ?>
+            <div class="nav-section-label">INSTALLED ADD-ON MODULES</div>
+            <?php foreach ($activeAddonsList as $addonItem): ?>
+                <?php if (! empty($addonItem['admin_route'])): ?>
+                <a href="<?= base_url(esc($addonItem['admin_route'])) ?>" class="sidebar-link <?= $currentMenu === ('addon_' . $addonItem['slug']) ? 'is-active' : '' ?>">
+                    <span class="nav-icon">⚡</span>
+                    <span class="nav-text"><?= esc($addonItem['name']) ?></span>
+                </a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        <?php endif; ?>
+        <?php endif; ?>
+		
+		
+		
     <!-- Sidebar Bottom Status -->
     <div class="sidebar-footer">
         <div class="lock-indicator">
@@ -54,3 +80,4 @@
         </div>
     </div>
 </aside>
+

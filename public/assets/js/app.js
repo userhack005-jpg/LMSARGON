@@ -434,4 +434,81 @@
     } else {
         initPortalApp();
     }
+	
+	// ==========================================
+    // 4. ADD-ON ZIP UPLOAD & TOGGLE HANDLERS
+    // ==========================================
+    document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (form && form.id === 'addon-upload-form') {
+            event.preventDefault();
+            const toast = document.getElementById('addon-toast');
+            const btn = document.getElementById('btn-install-addon');
+            const btnText = document.getElementById('install-addon-text');
+
+            if (toast) toast.className = 'alert-banner is-hidden';
+            if (btn) btn.disabled = true;
+            if (btnText) btnText.textContent = 'Unzipping & Running DB Migration...';
+
+            const formData = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (res.status === 'success') {
+                    if (toast) {
+                        toast.textContent = res.message;
+                        toast.className = 'alert-banner alert-success';
+                    }
+                    if (btnText) btnText.textContent = 'Deployed! Reloading...';
+                    setTimeout(function () { window.location.reload(); }, 900);
+                } else {
+                    if (toast) {
+                        toast.textContent = res.message || 'Add-on installation failed.';
+                        toast.className = 'alert-banner alert-error';
+                    }
+                    if (btn) btn.disabled = false;
+                    if (btnText) btnText.textContent = 'Upload, Unzip & Initialize Add-On';
+                }
+            })
+            .catch(function () {
+                if (toast) {
+                    toast.textContent = 'Server error while extracting ZIP package.';
+                    toast.className = 'alert-banner alert-error';
+                }
+                if (btn) btn.disabled = false;
+                if (btnText) btnText.textContent = 'Upload, Unzip & Initialize Add-On';
+            });
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        const toggleBtn = event.target.closest('.js-toggle-addon');
+        if (!toggleBtn) return;
+
+        const addonId = toggleBtn.getAttribute('data-addon-id');
+        const actionUrl = toggleBtn.getAttribute('data-action-url');
+        const toast = document.getElementById('addon-toast');
+
+        fetch(actionUrl, {
+            method: 'POST',
+            body: new URLSearchParams({ addon_id: addonId }),
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.status === 'success') {
+                window.location.reload();
+            } else if (toast) {
+                toast.textContent = res.message || 'Error toggling add-on.';
+                toast.className = 'alert-banner alert-error';
+            }
+        });
+    });
 })();

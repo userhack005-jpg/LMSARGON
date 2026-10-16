@@ -38,3 +38,20 @@ $routes->group('settings', ['namespace' => 'App\Controllers\Settings'], static f
     $routes->post('update', 'SettingController::update');
     $routes->post('reinitialize', 'SettingController::reinitializeSchema');
 });
+
+
+// 7. Modular Add-On & Plugin Manager Routes (Folder: Controllers/Addons)
+$routes->group('addons', ['namespace' => 'App\Controllers\Addons'], static function ($routes) {
+    $routes->get('/', 'AddonController::index');
+    $routes->post('upload', 'AddonController::uploadAndInstall');
+    $routes->post('toggle', 'AddonController::toggleAddon');
+    $routes->get('sample-gateway-zip', 'AddonController::downloadSampleGatewayZip');
+});
+
+// 8. Auto-Load Routes from All Extracted Add-On Modules
+$extractedAddonsDir = WRITEPATH . 'addons/extracted/';
+if (is_dir($extractedAddonsDir)) {
+    foreach (glob($extractedAddonsDir . '*/Routes.php') as $addonRouteFile) {
+        require $addonRouteFile;
+    }
+}
