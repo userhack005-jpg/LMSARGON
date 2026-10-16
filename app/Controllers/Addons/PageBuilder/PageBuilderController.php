@@ -190,18 +190,18 @@ class PageBuilderController extends BaseController
     /**
      * Frontend Dynamic Page Renderer (Matches `/about-us`, `/p/about-us`, or Homepage)
      */
-    public function renderFrontend(string $slug = '')
+   public function renderFrontend(string $slug = '')
     {
         $page = $this->pbModel->getPageBySlug($slug);
         if (! $page) {
-            throw PageNotFoundException::forPageNotFound('The requested page "/' . esc($slug) . '" was not found.');
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Page not found: ' . esc($slug));
         }
 
-        $settings = $this->settingModel->getSystemSettings();
-        $navPages = $this->pbModel->getPublishedNavPages();
-        $blocks   = json_decode((string) $page['blocks_json'], true) ?: [];
+        $settings     = $this->settingModel->getSystemSettings();
+        $navPages     = $this->pbModel->getPublishedNavPages();
+        $blocks       = json_decode((string) $page['blocks_json'], true) ?: [];
+        $activeFooter = $this->pbModel->getActiveFooter();
 
-        // Override SEO Meta if defined on the page
         if (! empty($page['meta_title'])) {
             $settings['meta_title'] = $page['meta_title'];
         }
@@ -210,11 +210,70 @@ class PageBuilderController extends BaseController
         }
 
         return view('addons/page_builder/frontend_page_view', [
-            'settings'  => $settings,
-            'page'      => $page,
-            'blocks'    => $blocks,
-            'navPages'  => $navPages,
-            'pageTitle' => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
+            'settings'     => $settings,
+            'page'         => $page,
+            'blocks'       => $blocks,
+            'navPages'     => $navPages,
+            'activeFooter' => $activeFooter,
+            'pageTitle'    => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
+        ]);
+    }
+	
+	/**
+     * Visual Footer Builder Workspace
+     */
+    public function footerEditor()
+    {
+        if (! $this->canManagePages()) {
+            return redirect()->to(base_url('login'));
+        }
+
+        $footers    = $this->pbModel->getAllFooters();
+        $selectedId = (int) ($this->request->getGet('template_id') ?: 0);
+        $current    = null;
+
+        foreach ($footers as $f) {
+            if (($selectedId > 0 && (int) $f['id'] === $selectedId) || ($selectedId === 0 && (int) $f['is_active'] === 1)) {
+                $current = $f;
+                break;
+            }
+        }
+        if (! $current && ! empty($footers)) {
+            $current = $footers[0];
+        }
+
+        return view('addons/page_builder/footer_editor_view', [
+            'activeMenu' => 'addon_page_builder',
+            'settings'   => $this->settingModel->getSystemSettings(),
+            'footers'    => $footers,
+            'current'    => $current,
+            'components' => $this->pbModel->getAllComponents(true),
+            'user'       => session()->get(),
+            'pageTitle'  => 'Visual Footer Builder & Templates',
+        ]);
+    }
+
+    /**
+     * AJAX: Save & Activate Footer Template
+     */
+    public function saveFooter()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        }
+
+        $ok = $this->pbModel->saveFooterTemplate([
+            'footer_id'      => (int) $this->request->getPost('footer_id'),
+            'columns_count'  => (int) ($this->request->getPost('columns_count') ?: 3),
+            'sections_json'  => (string) $this->request->getPost('sections_json'),
+            'copyright_text' => trim((string) $this->request->getPost('copyright_text')),
+            'set_active'     => (int) ($this->request->getPost('set_active') ? 1 : 0),
+            'current_active' => (int) $this->request->getPost('current_active'),
+        ]);
+
+        return $this->response->setJSON([
+            'status'  => $ok ? 'success' : 'error',
+            'message' => $ok ? 'Footer template saved & updated across frontend!' : 'Failed to save footer.',
         ]);
     }
 }

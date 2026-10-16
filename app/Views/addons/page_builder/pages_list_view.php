@@ -2,7 +2,7 @@
 
 <?= $this->section('content') ?>
 <div id="pb-toast" class="alert-banner is-hidden" role="alert"></div>
-
+<a href="<?= base_url('addons/page-builder/footer') ?>" class="btn-secondary btn-sm">⊞ Customize Website Footer</a>
 <div class="rbac-split-grid">
 
     <!-- LEFT: Database-Driven Component Registry (Enable/Disable Widgets) -->
@@ -10,7 +10,7 @@
         <div class="panel-header">
             <div>
                 <span class="mono-label">DB COMPONENT REGISTRY</span>
-                <h3 class="panel-title">Builder Widgets (`cms_components`)</h3>
+                <h3 class="panel-title">Builder Widgets </h3>
             </div>
             <span class="req-badge">MODULAR</span>
         </div>

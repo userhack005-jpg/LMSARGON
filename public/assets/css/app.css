@@ -1445,3 +1445,93 @@ body.theme-obsidian {
 .cms-quiz-opt:hover {
     border-color: var(--accent-emerald);
 }
+
+/* ==========================================
+   FULL-WIDTH ALIGNED FRONTEND FOOTER & DRAG-DROP
+   ========================================== */
+.pb-canvas-container.is-drag-over,
+.pb-footer-col-dropzone.is-drag-over {
+    border-color: var(--accent-emerald) !important;
+    background: rgba(16, 185, 129, 0.06) !important;
+}
+
+.pb-footer-builder-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.pb-footer-col-dropzone {
+    background: var(--bg-canvas);
+    border: 1px dashed var(--border-subtle);
+    border-radius: 10px;
+    padding: 0.9rem;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.cms-public-footer {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    margin-top: 4rem;
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.cms-footer-style_highlight_3col {
+    border-top: 3px solid var(--accent-emerald);
+}
+
+.cms-footer-inner {
+    max-width: 1180px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 3rem 1.5rem 1.5rem;
+}
+
+.cms-footer-grid {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 2.25rem;
+}
+
+.cms-footer-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.cms-footer-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.cms-footer-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+.cms-footer-col {
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.cms-footer-bottom {
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+@media (max-width: 860px) {
+    .cms-footer-grid.cols-2,
+    .cms-footer-grid.cols-3,
+    .cms-footer-grid.cols-4,
+    .pb-footer-builder-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.cms-footer-grid.cols-1 {
+    grid-template-columns: 1fr;
+}
+
+.pb-footer-builder-grid.cols-1 {
+    grid-template-columns: 1fr;
+}

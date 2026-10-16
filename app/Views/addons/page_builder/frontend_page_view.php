@@ -154,11 +154,112 @@
             <?php endforeach; ?>
         <?php endif; ?>
     </main>
+<?php
+        $fCols     = (int) ($activeFooter['columns_count'] ?? 3);
+        $fSections = ! empty($activeFooter['sections_json']) ? (json_decode($activeFooter['sections_json'], true) ?: []) : [];
+        $fStyle    = $activeFooter['style_key'] ?? 'style_3col';
+    ?>
+    <footer class="cms-public-footer cms-footer-<?= esc($fStyle) ?>">
+        <div class="cms-footer-inner">
+            <?php if (! empty($fSections)): ?>
+                <div class="cms-footer-grid cols-<?= $fCols ?>">
+                    <?php for ($c = 0; $c < $fCols; $c++): ?>
+                        <div class="cms-footer-col">
+                            <?php foreach (($fSections[$c] ?? []) as $fBlk): ?>
+                                <?php
+                                    $bType = $fBlk['type'] ?? 'rich_text';
+                                    $bData = $fBlk['data'] ?? [];
+                                ?>
 
-    <footer class="app-footer" style="max-width: 1180px; margin: 3rem auto 0; border-radius: 12px 12px 0 0;">
-        <span class="mono-note">© <?= date('Y') ?> <?= esc($settings['site_title'] ?? 'Platform') ?></span>
-        <span class="mono-note">POWERED BY MODULAR PAGE BUILDER</span>
+                                <?php if ($bType === 'hero_banner'): ?>
+                                    <div class="cms-footer-hero" style="margin-bottom: 1rem;">
+                                        <?php if (! empty($bData['badge'])): ?>
+                                            <div class="status-pill"><span class="pulse-dot"></span><span class="mono-label"><?= esc($bData['badge']) ?></span></div>
+                                        <?php endif; ?>
+                                        <h3 style="margin: 0.4rem 0;"><?= esc($bData['heading'] ?? '') ?></h3>
+                                        <?php if (! empty($bData['subheading'])): ?>
+                                            <p class="muted-cell" style="font-size: 0.86rem; margin-bottom: 0.75rem;"><?= esc($bData['subheading']) ?></p>
+                                        <?php endif; ?>
+                                        <?php if (! empty($bData['btn_text'])): ?>
+                                            <a href="<?= esc($bData['btn_url'] ?? '#') ?>" class="btn-primary btn-sm"><?= esc($bData['btn_text']) ?> →</a>
+                                        <?php endif; ?>
+                                    </div>
+
+                                <?php elseif ($bType === 'rich_text'): ?>
+                                    <div class="cms-prose"><?= $bData['html'] ?? '' ?></div>
+
+                                <?php elseif ($bType === 'image_media'): ?>
+                                    <?php if (! empty($bData['image_url'])): ?>
+                                        <figure class="cms-figure" style="margin-bottom: 0.75rem;">
+                                            <img src="<?= esc($bData['image_url']) ?>" alt="<?= esc($bData['alt_text'] ?? 'Image') ?>" style="max-width: <?= esc($bData['width'] ?? '100%') ?>; border-radius: 8px;">
+                                            <?php if (! empty($bData['caption'])): ?>
+                                                <figcaption class="field-hint"><?= esc($bData['caption']) ?></figcaption>
+                                            <?php endif; ?>
+                                        </figure>
+                                    <?php endif; ?>
+
+                                <?php elseif ($bType === 'cta_buttons'): ?>
+                                    <div class="cms-footer-cta" style="margin-bottom: 0.75rem;">
+                                        <?php if (! empty($bData['title'])): ?><h4 style="margin-bottom: 0.5rem;"><?= esc($bData['title']) ?></h4><?php endif; ?>
+                                        <div class="action-btn-group" style="justify-content: flex-start; flex-wrap: wrap;">
+                                            <?php if (! empty($bData['primary_text'])): ?>
+                                                <a href="<?= esc($bData['primary_url'] ?? '#') ?>" class="btn-primary btn-sm"><?= esc($bData['primary_text']) ?></a>
+                                            <?php endif; ?>
+                                            <?php if (! empty($bData['secondary_text'])): ?>
+                                                <a href="<?= esc($bData['secondary_url'] ?? '#') ?>" class="btn-secondary btn-sm"><?= esc($bData['secondary_text']) ?></a>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+
+                                <?php elseif ($bType === 'interactive_quiz'): ?>
+                                    <div class="cms-quiz-card" data-correct="<?= esc(strtoupper($bData['correct_index'] ?? 'A')) ?>" data-explanation="<?= esc($bData['explanation'] ?? 'Correct!') ?>" style="margin-bottom: 0.75rem;">
+                                        <span class="mono-label">QUICK QUIZ</span>
+                                        <h4 style="margin: 0.35rem 0 0.65rem;"><?= esc($bData['question'] ?? '') ?></h4>
+                                        <div class="cms-quiz-options" style="grid-template-columns: 1fr;">
+                                            <?php foreach (['A' => 'option_a', 'B' => 'option_b', 'C' => 'option_c', 'D' => 'option_d'] as $letter => $key): ?>
+                                                <?php if (! empty($bData[$key])): ?>
+                                                    <button type="button" class="cms-quiz-opt js-quiz-answer" data-choice="<?= $letter ?>" style="padding: 0.5rem 0.75rem; font-size: 0.82rem;">
+                                                        <span class="step-index"><?= $letter ?></span>
+                                                        <span><?= esc($bData[$key]) ?></span>
+                                                    </button>
+                                                <?php endif; ?>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <div class="alert-banner is-hidden js-quiz-feedback" style="margin-top: 0.65rem;"></div>
+                                    </div>
+
+                                <?php elseif ($bType === 'feature_grid'): ?>
+                                    <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.75rem;">
+                                        <?php if (! empty($bData['section_title'])): ?>
+                                            <h4><?= esc($bData['section_title']) ?></h4>
+                                        <?php endif; ?>
+                                        <?php foreach ([1, 2, 3] as $n): ?>
+                                            <?php if (! empty($bData["card{$n}_title"])): ?>
+                                                <div style="padding: 0.6rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: 6px;">
+                                                    <strong style="color: var(--accent-emerald); font-size: 0.84rem;"><?= esc($bData["card{$n}_title"]) ?></strong>
+                                                    <p class="muted-cell" style="font-size: 0.78rem; margin-top: 0.15rem;"><?= esc($bData["card{$n}_desc"] ?? '') ?></p>
+                                                </div>
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
+                                    </div>
+
+                                <?php elseif ($bType === 'custom_html'): ?>
+                                    <div><?= $bData['raw_code'] ?? '' ?></div>
+                                <?php endif; ?>
+
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endfor; ?>
+                </div>
+            <?php endif; ?>
+
+            <div class="cms-footer-bottom">
+                <span class="mono-note"><?= esc($activeFooter['copyright_text'] ?? ('© ' . date('Y') . ' ' . ($settings['site_title'] ?? 'Platform'))) ?></span>
+                <span class="mono-note"><?= esc($settings['site_title'] ?? 'Portal') ?> // DYNAMIC ENGINE</span>
+            </div>
+        </div>
     </footer>
+	
 
     <?php if (! empty($settings['footer_scripts'])): ?>
         <?= $settings['footer_scripts'] ?>

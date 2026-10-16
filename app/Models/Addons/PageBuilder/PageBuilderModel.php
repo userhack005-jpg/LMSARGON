@@ -427,4 +427,255 @@ class PageBuilderModel extends Model
             return ['status' => 'error', 'message' => 'Failed to toggle component.'];
         }
     }
+	
+	
+	/**
+     * ONE-TIME AUTO-INITIALIZER FOR FOOTER TEMPLATES (Runs only once)
+     */
+    public function ensureFooterSchema(): void
+    {
+          $footerLockV3 = WRITEPATH . 'schema_addon_pb_footers_v3.lock';
+        if (is_file($footerLockV3)) {
+            return;
+        }
+		
+		
+
+        try {
+            $db = \Config\Database::connect();$db->query("
+                CREATE TABLE IF NOT EXISTS `cms_footers` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `name` VARCHAR(120) NOT NULL,
+                    `style_key` VARCHAR(50) NOT NULL,
+                    `columns_count` TINYINT(1) NOT NULL DEFAULT 3,
+                    `sections_json` LONGTEXT NULL,
+                    `copyright_text` VARCHAR(255) NULL,
+                    `is_active` TINYINT(1) NOT NULL DEFAULT 0,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            if ($db->table('cms_footers')->countAllResults() === 0) {$defaultTemplates = [
+                    [
+                        'name'           => 'Style 01 // Dual Split Footer (2 Sections)',
+                        'style_key'      => 'style_2col',
+                        'columns_count'  => 2,
+                        'copyright_text' => '© ' . date('Y') . ' All Rights Reserved.',
+                        'is_active'      => 0,
+                        'sections_json'  => json_encode([
+                            [['id' => 'f1', 'type' => 'rich_text', 'data' => ['html' => '<h3>About Platform</h3><p>Modern modular web platform built for speed and scalability.</p>']]],
+                            [['id' => 'f2', 'type' => 'cta_buttons', 'data' => ['title' => 'Join Our Community', 'primary_text' => 'Sign In', 'primary_url' => '/login', 'secondary_text' => 'About Us', 'secondary_url' => '/about-us']]],
+                        ]),
+                    ],
+                    [
+                        'name'           => 'Style 02 // Balanced Grid Footer (3 Sections)',
+                        'style_key'      => 'style_3col',
+                        'columns_count'  => 3,
+                        'copyright_text' => '© ' . date('Y') . ' Enterprise Portal. Powered by CI4.',
+                        'is_active'      => 1,
+                        'sections_json'  => json_encode([
+                            [['id' => 'f3', 'type' => 'rich_text', 'data' => ['html' => '<h3>Brand Identity</h3><p>Empowering learners and organizations worldwide.</p>']]],
+                            [['id' => 'f4', 'type' => 'rich_text', 'data' => ['html' => '<h3>Quick Links</h3><ul><li><a href="/about-us">About Us</a></li><li><a href="/login">Portal Login</a></li></ul>']]],
+                            [['id' => 'f5', 'type' => 'rich_text', 'data' => ['html' => '<h3>Contact Desk</h3><p>Email: support@domain.com<br>Hours: Mon - Sat (9AM - 7PM)</p>']]],
+                        ]),
+                    ],
+                    [
+                        'name'           => 'Style 03 // Enterprise Matrix Footer (4 Sections)',
+                        'style_key'      => 'style_4col',
+                        'columns_count'  => 4,
+                        'copyright_text' => '© ' . date('Y') . ' Global Operations.',
+                        'is_active'      => 0,
+                        'sections_json'  => json_encode([
+                            [['id' => 'f6', 'type' => 'rich_text', 'data' => ['html' => '<h4>Overview</h4><p>Next-gen modular architecture.</p>']]],
+                            [['id' => 'f7', 'type' => 'rich_text', 'data' => ['html' => '<h4>Modules</h4><p>CMS, RBAC, Analytics & Gateways.</p>']]],
+                            [['id' => 'f8', 'type' => 'rich_text', 'data' => ['html' => '<h4>Resources</h4><p>Documentation, Help Center & FAQs.</p>']]],
+                            [['id' => 'f9', 'type' => 'cta_buttons', 'data' => ['title' => 'Get Started', 'primary_text' => 'Launch App', 'primary_url' => '/login', 'secondary_text' => '', 'secondary_url' => '']]],
+                        ]),
+                    ],
+                    [
+                        'name'           => 'Style 04 // Highlight Bar + 3 Sections',
+                        'style_key'      => 'style_highlight_3col',
+                        'columns_count'  => 3,
+                        'copyright_text' => '© ' . date('Y') . ' Crafted with precision.',
+                        'is_active'      => 0,
+                        'sections_json'  => json_encode([
+                            [['id' => 'f10', 'type' => 'rich_text', 'data' => ['html' => '<h4>Our Mission</h4><p>Delivering high-performance digital tools.</p>']]],
+                            [['id' => 'f11', 'type' => 'rich_text', 'data' => ['html' => '<h4>Navigation</h4><p><a href="/">Home</a> | <a href="/about-us">About</a></p>']]],
+                            [['id' => 'f12', 'type' => 'custom_html', 'data' => ['raw_code' => '<div class="status-pill"><span class="pulse-dot"></span><span class="mono-label">SYSTEMS ONLINE</span></div>']]],
+                        ]),
+                    ],
+                ];
+                $db->table('cms_footers')->insertBatch($defaultTemplates);
+            }
+
+            file_put_contents($footerLock, json_encode(['migrated_at' => date('Y-m-d H:i:s')]));
+        } catch (\Throwable $e) {
+        }
+		
+		try {
+            $db = \Config\Database::connect();$db->query("
+                CREATE TABLE IF NOT EXISTS `cms_footers` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `name` VARCHAR(120) NOT NULL,
+                    `style_key` VARCHAR(50) NOT NULL,
+                    `columns_count` TINYINT(1) NOT NULL DEFAULT 3,
+                    `sections_json` LONGTEXT NULL,
+                    `copyright_text` VARCHAR(255) NULL,
+                    `is_active` TINYINT(1) NOT NULL DEFAULT 0,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            // Check if Single Column (1-Section) template exists; if not, seed it once!
+            $hasSingle =$db->table('cms_footers')->where('style_key', 'style_1col')->countAllResults();
+            if ($hasSingle === 0) {$db->table('cms_footers')->insert([
+                    'name'           => 'Style 05 // Single Full-Width Banner (1 Section)',
+                    'style_key'      => 'style_1col',
+                    'columns_count'  => 1,
+                    'copyright_text' => '© ' . date('Y') . ' All Rights Reserved.',
+                    'is_active'      => 0,
+                    'sections_json'  => json_encode([
+                        [
+                            [
+                                'id'   => 'f_single_1',
+                                'type' => 'cta_buttons',
+                                'data' => [
+                                    'title'          => 'Ready to Transform Your Learning Experience?',
+                                    'primary_text'   => 'Get Started Now',
+                                    'primary_url'    => '/login',
+                                    'secondary_text' => 'Learn More About Us',
+                                    'secondary_url'  => '/about-us',
+                                ],
+                            ],
+                        ],
+                    ]),
+                ]);
+            }
+
+            file_put_contents($footerLockV2, json_encode(['migrated_at' => date('Y-m-d H:i:s')]));
+        } catch (\Throwable $e) {
+        }
+		
+		
+		// New v3 lock ensures the 1-Section Tab is added & ordered at #1 once!
+     
+
+        try {
+            $db = \Config\Database::connect();$db->query("
+                CREATE TABLE IF NOT EXISTS `cms_footers` (
+                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    `name` VARCHAR(120) NOT NULL,
+                    `style_key` VARCHAR(50) NOT NULL,
+                    `columns_count` TINYINT(1) NOT NULL DEFAULT 3,
+                    `sections_json` LONGTEXT NULL,
+                    `copyright_text` VARCHAR(255) NULL,
+                    `is_active` TINYINT(1) NOT NULL DEFAULT 0,
+                    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            ");
+
+            // Ensure "1 Section (Single Full-Width)" tab exists in `cms_footers`
+            $singleRow =$db->table('cms_footers')->where('style_key', 'style_1col')->get()->getRowArray();
+            if (! $singleRow) {$db->table('cms_footers')->insert([
+                    'name'           => '1 Section // Full-Width Single Footer',
+                    'style_key'      => 'style_1col',
+                    'columns_count'  => 1,
+                    'copyright_text' => '© ' . date('Y') . ' All Rights Reserved.',
+                    'is_active'      => 0,
+                    'sections_json'  => json_encode([
+                        [
+                            [
+                                'id'   => 'f_single_1',
+                                'type' => 'hero_banner',
+                                'data' => [
+                                    'badge'      => 'SINGLE SECTION FOOTER',
+                                    'heading'    => 'Ready to Transform Your Learning Experience?',
+                                    'subheading' => 'Full-width single column footer section powered by the Visual Builder.',
+                                    'btn_text'   => 'Get Started Now',
+                                    'btn_url'    => '/login',
+                                    'btn_style'  => 'primary',
+                                    'align'      => 'center',
+                                ],
+                            ],
+                        ],
+                    ]),
+                ]);
+            } else {
+                $db->table('cms_footers')->where('style_key', 'style_1col')->update([
+                    'name'          => '1 Section // Full-Width Single Footer',
+                    'columns_count' => 1,
+                ]);
+            }
+
+            // Rename existing tabs cleanly so top tabs show: 1 Section, 2 Sections, 3 Sections, 4 Sections
+            $db->table('cms_footers')->where('style_key', 'style_2col')->update(['name' => '2 Sections // Split Footer']);$db->table('cms_footers')->where('style_key', 'style_3col')->update(['name' => '3 Sections // Balanced Grid']);
+            $db->table('cms_footers')->where('style_key', 'style_4col')->update(['name' => '4 Sections // Enterprise Matrix']);$db->table('cms_footers')->where('style_key', 'style_highlight_3col')->update(['name' => 'Highlight Bar // 3 Sections']);
+
+            file_put_contents($footerLockV3, json_encode(['migrated_at' => date('Y-m-d H:i:s')]));
+        } catch (\Throwable $e) {
+        }
+		
+		
+		
+		
+    }
+
+    public function getAllFooters(): array
+    {
+      $this->ensureFooterSchema();
+        try {
+            // Order by `columns_count ASC` so "1 Section" tab ALWAYS appears FIRST in the top tabs!
+            return \Config\Database::connect()
+                ->table('cms_footers')
+                ->orderBy('columns_count', 'ASC')
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getResultArray();
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+public function getActiveFooter(): ?array
+    {
+        $this->ensureFooterSchema();
+        try {
+            $db  = \Config\Database::connect();
+            $row = $db->table('cms_footers')->where('is_active', 1)->get()->getRowArray();
+
+            // Fallback: Agar koi bhi active=1 nahi mila, toh latest updated footer dikhao (Never Blank!)
+            if (! $row) {
+                $row = $db->table('cms_footers')->orderBy('updated_at', 'DESC')->get()->getRowArray();
+            }
+            return $row ?: null;
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    public function saveFooterTemplate(array $data): bool
+    {
+        $this->ensureFooterSchema();
+        try {
+            $db = \Config\Database::connect();
+            $id = (int) $data['footer_id'];
+
+            // Agar user ne "Activate" tick kiya hai, toh baaki sab ko 0 karke isko 1 karo
+            if (! empty($data['set_active'])) {
+                $db->table('cms_footers')->update(['is_active' => 0]);
+                $activeState = 1;
+            } else {
+                $activeState = (int) $data['current_active'];
+            }
+
+            return (bool) $db->table('cms_footers')->where('id', $id)->update([
+                'columns_count'  => (int) $data['columns_count'],
+                'sections_json'  => $data['sections_json'],
+                'copyright_text' => $data['copyright_text'],
+                'is_active'      => $activeState,
+                'updated_at'     => date('Y-m-d H:i:s'),
+            ]);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
 }

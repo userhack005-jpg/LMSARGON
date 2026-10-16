@@ -1016,6 +1016,443 @@
         }
     });
 	
+	// ==========================================
+    // 6. HTML5 DRAG & DROP + FOOTER BUILDER ENGINE
+    // ==========================================
+    let draggedPaletteData = null;
+    let draggedCanvasIdx = null;
+
+    // A. Start Dragging from Left Palette OR Existing Canvas Block
+    document.addEventListener('dragstart', function (e) {
+        const paletteItem = e.target.closest('.pb-palette-item');
+        if (paletteItem) {
+            draggedCanvasIdx = null;
+            draggedPaletteData = {
+                type: paletteItem.getAttribute('data-comp-key'),
+                schema: paletteItem.getAttribute('data-comp-schema') || '{}'
+            };
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('text/plain', draggedPaletteData.type);
+            return;
+        }
+
+        const blockCard = e.target.closest('.pb-block-card');
+        if (blockCard && blockCard.hasAttribute('data-block-idx')) {
+            draggedPaletteData = null;
+            draggedCanvasIdx = parseInt(blockCard.getAttribute('data-block-idx'), 10);
+            blockCard.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(draggedCanvasIdx));
+        }
+    });
+
+    document.addEventListener('dragend', function (e) {
+        const blockCard = e.target.closest('.pb-block-card');
+        if (blockCard) blockCard.classList.remove('is-dragging');
+        document.querySelectorAll('.is-drag-over').forEach(function (el) {
+            el.classList.remove('is-drag-over');
+        });
+    });
+
+    // B. Allow Drop on Page Canvas & Footer Section Columns
+    document.addEventListener('dragover', function (e) {
+        const dropZone = e.target.closest('#pb-canvas-dropzone, .pb-footer-col-dropzone');
+        if (!dropZone) return;
+        e.preventDefault();
+        dropZone.classList.add('is-drag-over');
+    });
+
+    document.addEventListener('dragleave', function (e) {
+        const dropZone = e.target.closest('#pb-canvas-dropzone, .pb-footer-col-dropzone');
+        if (dropZone && !dropZone.contains(e.relatedTarget)) {
+            dropZone.classList.remove('is-drag-over');
+        }
+    });
+
+    // C. Handle Drop Event (Page Canvas Drop + Reorder + Footer Column Drop)
+    document.addEventListener('drop', function (e) {
+        const pageCanvas = e.target.closest('#pb-canvas-dropzone');
+        const footerColZone = e.target.closest('.pb-footer-col-dropzone');
+
+        if (!pageCanvas && !footerColZone) return;
+        e.preventDefault();
+
+        document.querySelectorAll('.is-drag-over').forEach(function (el) {
+            el.classList.remove('is-drag-over');
+        });
+
+        // 1. Dropped onto Main Page Builder Canvas
+        if (pageCanvas && typeof renderBuilderCanvas === 'function') {
+            const targetCard = e.target.closest('.pb-block-card');
+            const targetIdx = targetCard ? parseInt(targetCard.getAttribute('data-block-idx'), 10) : pbBlocks.length;
+
+            if (draggedPaletteData) {
+                let defaultData = {};
+                try { defaultData = JSON.parse(draggedPaletteData.schema); } catch (err) {}
+                const newBlk = { id: 'blk_' + Date.now(), type: draggedPaletteData.type, data: defaultData };
+                pbBlocks.splice(targetIdx, 0, newBlk);
+                renderBuilderCanvas();
+            } else if (draggedCanvasIdx !== null && !isNaN(draggedCanvasIdx)) {
+                const movedItem = pbBlocks.splice(draggedCanvasIdx, 1)[0];
+                const insertAt = isNaN(targetIdx) ? pbBlocks.length : targetIdx;
+                pbBlocks.splice(insertAt, 0, movedItem);
+                renderBuilderCanvas();
+            }
+            draggedPaletteData = null;
+            draggedCanvasIdx = null;
+            return;
+        }
+
+        // 2. Dropped onto a Footer Builder Section Column
+        if (footerColZone && draggedPaletteData) {
+            const colIndex = parseInt(footerColZone.getAttribute('data-col-idx'), 10);
+            addBlockToFooterCol(colIndex, draggedPaletteData.type, draggedPaletteData.schema);
+            draggedPaletteData = null;
+        }
+    });
+	// ==========================================
+    // D. MULTI-SECTION FOOTER BUILDER RENDERER (ALL 7 BLOCK FORMS SUPPORTED)
+    // ==========================================
+    const footerWrap = document.getElementById('pb-footer-columns-wrap');
+    const footerJsonInput = document.getElementById('pb_footer_sections_json');
+    const footerColsSelect = document.getElementById('pb_footer_cols');
+    let footerSections = [[], [], [], []];
+
+    const syncFooterJson = function () {
+        if (footerJsonInput) footerJsonInput.value = JSON.stringify(footerSections);
+    };
+
+    // Generates the exact same full form fields for all 7 component types inside Footer Columns
+    const buildFooterBlockFieldsHtml = function (blk, c, bIdx) {
+        const d = blk.data || {};
+        const attr = `data-col="${c}" data-bidx="${bIdx}"`;
+
+        if (blk.type === 'hero_banner') {
+            return `
+                <div class="field-group">
+                    <label class="field-label"><span>Top Badge Text</span></label>
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="badge" value="${escapeHtml(d.badge)}">
+                </div>
+                <div class="field-group">
+                    <label class="field-label"><span>Heading Title</span></label>
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="heading" value="${escapeHtml(d.heading)}">
+                </div>
+                <div class="field-group">
+                    <label class="field-label"><span>Subheading Description</span></label>
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="subheading" value="${escapeHtml(d.subheading)}">
+                </div>
+                <div class="grid-2-col">
+                    <div class="field-group">
+                        <label class="field-label"><span>CTA Button Label</span></label>
+                        <input type="text" class="field-input js-f-field" ${attr} data-key="btn_text" value="${escapeHtml(d.btn_text)}">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label"><span>CTA Button URL</span></label>
+                        <input type="text" class="field-input mono-input js-f-field" ${attr} data-key="btn_url" value="${escapeHtml(d.btn_url)}">
+                    </div>
+                </div>
+            `;
+        } else if (blk.type === 'rich_text') {
+            return `
+                <div class="rte-toolbar">
+                    <button type="button" class="rte-btn js-rte-cmd" data-cmd="bold"><b>B</b></button>
+                    <button type="button" class="rte-btn js-rte-cmd" data-cmd="italic"><i>I</i></button>
+                    <button type="button" class="rte-btn js-rte-cmd" data-cmd="underline"><u>U</u></button>
+                    <button type="button" class="rte-btn js-rte-cmd" data-cmd="formatBlock" data-val="H3">H3</button>
+                    <button type="button" class="rte-btn js-rte-cmd" data-cmd="formatBlock" data-val="P">P</button>
+                    <button type="button" class="rte-btn js-rte-cmd" data-cmd="insertUnorderedList">• List</button>
+                    <button type="button" class="rte-btn js-rte-cmd" data-cmd="createLink">🔗 Link</button>
+                </div>
+                <div class="rte-editable js-f-rte" contenteditable="true" ${attr}>${d.html || '<p>Type rich formatted content here...</p>'}</div>
+            `;
+        } else if (blk.type === 'image_media') {
+            return `
+                <div class="field-group">
+                    <label class="field-label"><span>Upload Image from Computer</span></label>
+                    <input type="file" class="field-input js-f-media-upload" ${attr} accept="image/*">
+                </div>
+                <div class="field-group">
+                    <label class="field-label"><span>Image URL (Auto-filled on upload)</span></label>
+                    <input type="text" class="field-input mono-input js-f-field" ${attr} data-key="image_url" value="${escapeHtml(d.image_url)}">
+                </div>
+                <div class="grid-2-col">
+                    <div class="field-group">
+                        <label class="field-label"><span>Caption</span></label>
+                        <input type="text" class="field-input js-f-field" ${attr} data-key="caption" value="${escapeHtml(d.caption)}">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label"><span>Max Width</span></label>
+                        <input type="text" class="field-input mono-input js-f-field" ${attr} data-key="width" value="${escapeHtml(d.width || '100%')}">
+                    </div>
+                </div>
+            `;
+        } else if (blk.type === 'cta_buttons') {
+            return `
+                <div class="field-group">
+                    <label class="field-label"><span>Banner Heading</span></label>
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="title" value="${escapeHtml(d.title)}">
+                </div>
+                <div class="grid-2-col">
+                    <div class="field-group">
+                        <label class="field-label"><span>Primary Button Text</span></label>
+                        <input type="text" class="field-input js-f-field" ${attr} data-key="primary_text" value="${escapeHtml(d.primary_text)}">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label"><span>Primary Button Link</span></label>
+                        <input type="text" class="field-input mono-input js-f-field" ${attr} data-key="primary_url" value="${escapeHtml(d.primary_url)}">
+                    </div>
+                </div>
+                <div class="grid-2-col">
+                    <div class="field-group">
+                        <label class="field-label"><span>Secondary Button Text</span></label>
+                        <input type="text" class="field-input js-f-field" ${attr} data-key="secondary_text" value="${escapeHtml(d.secondary_text)}">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label"><span>Secondary Button Link</span></label>
+                        <input type="text" class="field-input mono-input js-f-field" ${attr} data-key="secondary_url" value="${escapeHtml(d.secondary_url)}">
+                    </div>
+                </div>
+            `;
+        } else if (blk.type === 'interactive_quiz') {
+            return `
+                <div class="field-group">
+                    <label class="field-label"><span>Quiz Question</span></label>
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="question" value="${escapeHtml(d.question)}">
+                </div>
+                <div class="grid-2-col">
+                    <div class="field-group"><label class="field-label"><span>Option A</span></label><input type="text" class="field-input js-f-field" ${attr} data-key="option_a" value="${escapeHtml(d.option_a)}"></div>
+                    <div class="field-group"><label class="field-label"><span>Option B</span></label><input type="text" class="field-input js-f-field" ${attr} data-key="option_b" value="${escapeHtml(d.option_b)}"></div>
+                    <div class="field-group"><label class="field-label"><span>Option C</span></label><input type="text" class="field-input js-f-field" ${attr} data-key="option_c" value="${escapeHtml(d.option_c)}"></div>
+                    <div class="field-group"><label class="field-label"><span>Option D</span></label><input type="text" class="field-input js-f-field" ${attr} data-key="option_d" value="${escapeHtml(d.option_d)}"></div>
+                </div>
+                <div class="grid-2-col">
+                    <div class="field-group">
+                        <label class="field-label"><span>Correct Option (A/B/C/D)</span></label>
+                        <input type="text" class="field-input mono-input js-f-field" ${attr} data-key="correct_index" value="${escapeHtml(d.correct_index || 'A')}">
+                    </div>
+                    <div class="field-group">
+                        <label class="field-label"><span>Explanation</span></label>
+                        <input type="text" class="field-input js-f-field" ${attr} data-key="explanation" value="${escapeHtml(d.explanation)}">
+                    </div>
+                </div>
+            `;
+        } else if (blk.type === 'feature_grid') {
+            return `
+                <div class="field-group">
+                    <label class="field-label"><span>Section Heading</span></label>
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="section_title" value="${escapeHtml(d.section_title)}">
+                </div>
+                <div class="field-group">
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="card1_title" value="${escapeHtml(d.card1_title)}" placeholder="Card 1 Title" style="margin-bottom:0.35rem;">
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="card1_desc" value="${escapeHtml(d.card1_desc)}" placeholder="Card 1 Description">
+                </div>
+                <div class="field-group">
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="card2_title" value="${escapeHtml(d.card2_title)}" placeholder="Card 2 Title" style="margin-bottom:0.35rem;">
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="card2_desc" value="${escapeHtml(d.card2_desc)}" placeholder="Card 2 Description">
+                </div>
+                <div class="field-group">
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="card3_title" value="${escapeHtml(d.card3_title)}" placeholder="Card 3 Title" style="margin-bottom:0.35rem;">
+                    <input type="text" class="field-input js-f-field" ${attr} data-key="card3_desc" value="${escapeHtml(d.card3_desc)}" placeholder="Card 3 Description">
+                </div>
+            `;
+        } else {
+            return `
+                <div class="field-group">
+                    <label class="field-label"><span>Raw HTML / Custom Embed Snippet</span></label>
+                    <textarea rows="4" class="field-input code-editor js-f-field" ${attr} data-key="raw_code">${escapeHtml(d.raw_code || '')}</textarea>
+                </div>
+            `;
+        }
+    };
+
+    const renderFooterBuilder = function () {
+        if (!footerWrap || !footerColsSelect) return;
+        const colCount = parseInt(footerColsSelect.value || '3', 10);
+        syncFooterJson();
+
+        let html = '';
+        for (let c = 0; c < colCount; c++) {
+            if (!Array.isArray(footerSections[c])) footerSections[c] = [];
+            const colBlocks = footerSections[c];
+
+            const blocksHtml = colBlocks.map(function (blk, bIdx) {
+                return `
+                    <div class="pb-block-card">
+                        <div class="pb-block-header">
+                            <span class="role-badge role-admin">0${bIdx + 1} // ${escapeHtml(blk.type.toUpperCase())}</span>
+                            <div class="action-btn-group">
+                                <button type="button" class="btn-action js-f-move-up" data-col="${c}" data-bidx="${bIdx}">↑</button>
+                                <button type="button" class="btn-action js-f-move-down" data-col="${c}" data-bidx="${bIdx}">↓</button>
+                                <button type="button" class="btn-action btn-action-danger js-f-rm-blk" data-col="${c}" data-bidx="${bIdx}">✕</button>
+                            </div>
+                        </div>
+                        ${buildFooterBlockFieldsHtml(blk, c, bIdx)}
+                    </div>
+                `;
+            }).join('');
+
+            html += `
+                <div class="pb-footer-col-dropzone" data-col-idx="${c}">
+                    <div class="panel-header" style="margin-bottom:0.5rem; padding-bottom:0.5rem;">
+                        <span class="mono-label">FOOTER SECTION 0${c + 1}</span>
+                        <span class="opt-badge">${colBlocks.length} BLOCKS</span>
+                    </div>
+                    ${blocksHtml || '<div class="muted-cell" style="font-size:0.8rem; text-align:center; padding:1.5rem 0;">Drag & Drop any block here</div>'}
+                </div>
+            `;
+        }
+		footerWrap.className = 'pb-footer-builder-grid cols-' + colCount;
+        footerWrap.innerHTML = html;
+    };
+
+    const addBlockToFooterCol = function (colIdx, type, schemaStr) {
+        let defaultData = {};
+        try { defaultData = JSON.parse(schemaStr || '{}'); } catch (e) {}
+        if (!Array.isArray(footerSections[colIdx])) footerSections[colIdx] = [];
+        footerSections[colIdx].push({ id: 'fblk_' + Date.now(), type: type, data: defaultData });
+        renderFooterBuilder();
+    };
+
+    if (footerWrap && footerJsonInput) {
+        try {
+            const parsed = JSON.parse(footerJsonInput.value || '[[],[],[]]');
+            footerSections = [parsed[0] || [], parsed[1] || [], parsed[2] || [], parsed[3] || []];
+        } catch (e) {
+            footerSections = [[], [], [], []];
+        }
+        renderFooterBuilder();
+        if (footerColsSelect) {
+            footerColsSelect.addEventListener('change', renderFooterBuilder);
+        }
+    }
+
+    // Click "+ Add", Move Up/Down, or Remove inside Footer Builder
+    document.addEventListener('click', function (e) {
+        const addBtn = e.target.closest('.js-pb-add-block');
+        if (addBtn && footerWrap) {
+            const targetColSel = document.getElementById('pb_target_footer_col');
+            const colIdx = targetColSel ? parseInt(targetColSel.value || '0', 10) : 0;
+            addBlockToFooterCol(colIdx, addBtn.getAttribute('data-comp-key'), addBtn.getAttribute('data-comp-schema'));
+            return;
+        }
+
+        const fUpBtn = e.target.closest('.js-f-move-up');
+        if (fUpBtn) {
+            const c = parseInt(fUpBtn.getAttribute('data-col'), 10);
+            const b = parseInt(fUpBtn.getAttribute('data-bidx'), 10);
+            if (footerSections[c] && b > 0) {
+                const tmp = footerSections[c][b - 1];
+                footerSections[c][b - 1] = footerSections[c][b];
+                footerSections[c][b] = tmp;
+                renderFooterBuilder();
+            }
+            return;
+        }
+
+        const fDownBtn = e.target.closest('.js-f-move-down');
+        if (fDownBtn) {
+            const c = parseInt(fDownBtn.getAttribute('data-col'), 10);
+            const b = parseInt(fDownBtn.getAttribute('data-bidx'), 10);
+            if (footerSections[c] && b < footerSections[c].length - 1) {
+                const tmp = footerSections[c][b + 1];
+                footerSections[c][b + 1] = footerSections[c][b];
+                footerSections[c][b] = tmp;
+                renderFooterBuilder();
+            }
+            return;
+        }
+
+        const rmFooterBlk = e.target.closest('.js-f-rm-blk');
+        if (rmFooterBlk) {
+            const c = parseInt(rmFooterBlk.getAttribute('data-col'), 10);
+            const b = parseInt(rmFooterBlk.getAttribute('data-bidx'), 10);
+            if (footerSections[c]) {
+                footerSections[c].splice(b, 1);
+                renderFooterBuilder();
+            }
+        }
+    });
+
+    // Direct Image Upload inside Footer Builder Image Media Block
+    document.addEventListener('change', function (event) {
+        const fMediaInput = event.target.closest('.js-f-media-upload');
+        if (!fMediaInput || !fMediaInput.files || fMediaInput.files.length === 0) return;
+
+        const c = parseInt(fMediaInput.getAttribute('data-col'), 10);
+        const b = parseInt(fMediaInput.getAttribute('data-bidx'), 10);
+        const baseUrl = document.body.getAttribute('data-base-url') || '/';
+        const uploadUrl = baseUrl.replace(/\/$/, '') + '/addons/page-builder/upload-media';
+
+        const formData = new FormData();
+        formData.append('media_file', fMediaInput.files[0]);
+
+        fetch(uploadUrl, {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+            if (res.status === 'success' && footerSections[c] && footerSections[c][b]) {
+                footerSections[c][b].data.image_url = res.image_url;
+                renderFooterBuilder();
+            } else {
+                window.alert(res.message || 'Image upload failed.');
+            }
+        });
+    });
+
+    document.addEventListener('input', function (e) {
+        const fField = e.target.closest('.js-f-field');
+        if (fField) {
+            const c = parseInt(fField.getAttribute('data-col'), 10);
+            const b = parseInt(fField.getAttribute('data-bidx'), 10);
+            const k = fField.getAttribute('data-key');
+            if (footerSections[c] && footerSections[c][b]) {
+                footerSections[c][b].data[k] = fField.value;
+                syncFooterJson();
+            }
+            return;
+        }
+
+        const fRte = e.target.closest('.js-f-rte');
+        if (fRte) {
+            const c = parseInt(fRte.getAttribute('data-col'), 10);
+            const b = parseInt(fRte.getAttribute('data-bidx'), 10);
+            if (footerSections[c] && footerSections[c][b]) {
+                footerSections[c][b].data.html = fRte.innerHTML;
+                syncFooterJson();
+            }
+        }
+    });
+
+    document.addEventListener('submit', function (e) {
+        const form = e.target;
+        if (form && form.id === 'pb-footer-form') {
+            e.preventDefault();
+            syncFooterJson();
+            const toast = document.getElementById('pb-editor-toast');
+            const btnText = document.getElementById('btn-save-footer-text');
+            if (btnText) btnText.textContent = 'Saving Footer...';
+
+            fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (toast) {
+                    toast.textContent = res.message;
+                    toast.className = 'alert-banner ' + (res.status === 'success' ? 'alert-success' : 'alert-error');
+                }
+                if (btnText) btnText.textContent = 'Save Footer Template ✓';
+                if (res.status === 'success') {
+                    setTimeout(function () { window.location.reload(); }, 700);
+                }
+            });
+        }
+    });
 	
 	
 })();

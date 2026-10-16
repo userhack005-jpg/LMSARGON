@@ -10,6 +10,10 @@ $routes->group('addons/page-builder', ['namespace' => 'App\Controllers\Addons\Pa
     $routes->post('delete-page', 'PageBuilderController::deletePage');
     $routes->post('toggle-component', 'PageBuilderController::toggleComponent');
     $routes->post('upload-media', 'PageBuilderController::uploadMedia');
+	
+	// Footer Builder Routes
+    $routes->get('footer', 'PageBuilderController::footerEditor');
+    $routes->post('save-footer', 'PageBuilderController::saveFooter');
 });
 
 // 2. Frontend Dynamic Page Routes (Supports both /about-us AND nested /courses/abacus)
