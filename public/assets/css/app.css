@@ -1109,3 +1109,42 @@ body.theme-obsidian {
 .settings-pane.is-visible {
     display: block !important;
 }
+
+/* ==========================================
+   FIX: DIRECTORY TABLE & QUICK ACTIONS OVERFLOW
+   ========================================== */
+.rbac-split-grid {
+    grid-template-columns: 330px minmax(0, 1fr);
+    gap: 1.15rem;
+}
+
+.rbac-split-grid > .panel-card {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.role-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.25rem;
+}
+
+.role-table th,
+.role-table td {
+    padding: 0.7rem 0.65rem;
+    white-space: nowrap;
+}
+
+.field-select-sm {
+    min-width: 135px;
+    padding: 0.35rem 0.5rem;
+}
+
+.action-btn-group {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
