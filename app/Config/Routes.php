@@ -31,3 +31,10 @@ $routes->group('users', ['namespace' => 'App\Controllers\Users'], static functio
     $routes->post('toggle-status', 'UserController::toggleUserStatus');
     $routes->post('delete', 'UserController::deleteUser');
 });
+
+// 6. Global Site Settings, SEO & Custom Code Module (Folder: Controllers/Settings)
+$routes->group('settings', ['namespace' => 'App\Controllers\Settings'], static function ($routes) {
+    $routes->get('/', 'SettingController::index');
+    $routes->post('update', 'SettingController::update');
+    $routes->post('reinitialize', 'SettingController::reinitializeSchema');
+});

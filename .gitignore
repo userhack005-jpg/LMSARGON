@@ -124,3 +124,9 @@ _modules/*
 
 /results/
 /phpunit.xml
+
+# Custom Portal Ignore Rules
+.env
+/writable/installed.lock
+/public/uploads/branding/*
+!/public/uploads/branding/.gitkeep

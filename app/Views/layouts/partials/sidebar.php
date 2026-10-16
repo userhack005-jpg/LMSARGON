@@ -35,6 +35,17 @@
         </a>
     </nav>
 
+
+<?php if (in_array(($user['role_slug'] ?? ''), ['super_admin', 'admin'], true)): ?>
+        <div class="nav-section-label">CONFIGURATION & SEO</div>
+
+        <a href="<?= base_url('settings') ?>" class="sidebar-link <?= $currentMenu === 'settings' ? 'is-active' : '' ?>">
+            <span class="nav-icon">⚙</span>
+            <span class="nav-text">Site & SEO Settings</span>
+            <span class="nav-pill">GLOBAL</span>
+        </a>
+        <?php endif; ?>
+		
     <!-- Sidebar Bottom Status -->
     <div class="sidebar-footer">
         <div class="lock-indicator">

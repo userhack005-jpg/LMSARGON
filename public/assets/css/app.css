@@ -454,25 +454,18 @@ body.theme-obsidian {
     grid-template-columns: repeat(3, 1fr);
     gap: 0.9rem;
 }
+.upload-tile {
+    position: relative;
+    user-select: none;
+}
 
 .sr-file {
     position: absolute;
-    width: 1px;
-    height: 1px;
+    width: 0.1px;
+    height: 0.1px;
     opacity: 0;
     overflow: hidden;
-}
-
-.upload-tile {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 1rem;
-    background: var(--bg-input);
-    border: 1px dashed var(--border-subtle);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: border-color 0.15s ease, background 0.15s ease;
+    z-index: -1;
 }
 
 .upload-tile:hover {
@@ -969,4 +962,150 @@ body.theme-obsidian {
     .grid-2-col, .grid-3-col, .metrics-grid-5 {
         grid-template-columns: 1fr;
     }
+}
+
+/* ==========================================
+   SITE SETTINGS, SEO & CODE EDITOR STYLES
+   ========================================== */
+.settings-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.settings-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.6rem 1rem;
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.settings-tab:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.settings-tab.is-active {
+    background: var(--accent-emerald-glow);
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald);
+}
+
+.settings-pane {
+    display: none;
+}
+
+.settings-pane.is-visible {
+    display: block;
+}
+
+.asset-box {
+    background: var(--bg-input);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.asset-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.remove-asset-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: #fca5a5;
+    cursor: pointer;
+}
+
+.asset-current-preview {
+    min-height: 68px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem;
+}
+
+.preview-img {
+    max-height: 52px;
+    max-width: 180px;
+    object-fit: contain;
+}
+
+.preview-img-sm {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
+}
+
+.code-editor {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    background: #07080c;
+    color: #a7f3d0;
+    border-color: #1f2937;
+    resize: vertical;
+}
+
+
+/* ==========================================
+   HOTFIX: GUARANTEED FILE PICKER & TABS
+   ========================================== */
+.upload-tile {
+    position: relative !important;
+    cursor: pointer !important;
+    overflow: hidden !important;
+}
+
+.upload-tile input[type="file"].sr-file {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0 !important;
+    cursor: pointer !important;
+    z-index: 10 !important;
+    display: block !important;
+}
+
+.settings-tab {
+    position: relative;
+    z-index: 5;
+    cursor: pointer !important;
+}
+
+.settings-tab * {
+    pointer-events: none; /* Taaki span par click hone par bhi button hi click ho */
+}
+
+.settings-pane {
+    display: none !important;
+}
+
+.settings-pane.is-visible {
+    display: block !important;
 }
