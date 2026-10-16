@@ -75,14 +75,80 @@
     </script>
 <?php endif; ?>
 
-<!-- Core Fonts & Stylesheet -->
+<?php
+    $themeMode   = ($settings['active_theme_mode'] ?? 'dark') === 'light' ? 'light' : 'dark';
+    $fontSans    = $settings['font_family_sans'] ?? 'Inter';
+    $fontMono    = $settings['font_family_mono'] ?? 'JetBrains Mono';
+    $accentMain  = $settings['primary_accent_color'] ?? '#10b981';
+    $accentSec   = $settings['secondary_accent_color'] ?? '#06b6d4';
+
+    if ($themeMode === 'light') {
+        $bgCanvas    = $settings['light_bg_canvas'] ?? '#f8fafc';
+        $bgSurface   = $settings['light_bg_surface'] ?? '#ffffff';
+        $bgElevated  = '#f1f5f9';
+        $bgInput     = '#ffffff';
+        $txtPrimary  = $settings['light_text_primary'] ?? '#0f172a';
+        $txtSecond   = '#475569';
+        $txtMuted    = '#64748b';
+        $borderCol   = $settings['light_border_color'] ?? '#e2e8f0';
+    } else {
+        $bgCanvas    = $settings['dark_bg_canvas'] ?? '#090a0f';
+        $bgSurface   = $settings['dark_bg_surface'] ?? '#11131c';
+        $bgElevated  = '#171a26';
+        $bgInput     = '#0c0e16';
+        $txtPrimary  = $settings['dark_text_primary'] ?? '#f3f4f6';
+        $txtSecond   = '#9ca3af';
+        $txtMuted    = '#6b7280';
+        $borderCol   = $settings['dark_border_color'] ?? '#232738';
+    }
+
+    $googleFontUrl = 'https://fonts.googleapis.com/css2?family='
+        . urlencode($fontSans) . ':wght@400;500;600;700&family='
+        . urlencode($fontMono) . ':wght@400;500;600&display=swap';
+?>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="<?= esc($googleFontUrl) ?>" rel="stylesheet">
+<link rel="stylesheet" href="<?= base_url('assets/css/app.css?v=' . time()) ?>">
 
-<?php $assetRoot = rtrim( str_replace('/index.php', '', site_url()), '/' ); ?>
-<link rel="stylesheet" href="<?= $assetRoot ?>/assets/css/app.css?v=<?= time() ?>">
+<!-- Dynamic Theme, Color Palette & Typography Engine -->
+<style id="portal-theme-variables">
+    :root {
+        --bg-canvas: <?= esc($bgCanvas) ?>;
+        --bg-surface: <?= esc($bgSurface) ?>;
+        --bg-elevated: <?= esc($bgElevated) ?>;
+        --bg-input: <?= esc($bgInput) ?>;
+        --border-subtle: <?= esc($borderCol) ?>;
+        --border-focus: <?= esc($accentMain) ?>;
+        --text-primary: <?= esc($txtPrimary) ?>;
+        --text-secondary: <?= esc($txtSecond) ?>;
+        --text-muted: <?= esc($txtMuted) ?>;
+        --accent-emerald: <?= esc($accentMain) ?>;
+        --accent-cyan: <?= esc($accentSec) ?>;
+        --font-sans: '<?= esc($fontSans) ?>', -apple-system, BlinkMacSystemFont, sans-serif;
+        --font-mono: '<?= esc($fontMono) ?>', monospace;
+    }
+    <?php if ($themeMode === 'light'): ?>
+    .app-header, .cms-public-navbar {
+        background: rgba(255, 255, 255, 0.88) !important;
+    }
+    .ambient-grid {
+        background-image: 
+            linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px) !important;
+    }
+    <?php endif; ?>
+</style>
 
+<script src="<?= base_url('assets/js/app.js?v=' . time()) ?>" defer></script>
+
+<?php if (! empty($settings['custom_css'])): ?>
+    <style id="portal-custom-css"><?= $settings['custom_css'] ?></style>
+<?php endif; ?>
+
+<?php if (! empty($settings['header_scripts'])): ?>
+    <?= $settings['header_scripts'] ?>
+<?php endif; ?>
 
 
 <!-- Admin-Defined Custom CSS Override -->

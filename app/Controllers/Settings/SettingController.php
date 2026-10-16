@@ -151,6 +151,23 @@ class SettingController extends BaseController
             'header_scripts'           => (string) $this->request->getPost('header_scripts'),
             'body_scripts'             => (string) $this->request->getPost('body_scripts'),
             'footer_scripts'           => (string) $this->request->getPost('footer_scripts'),
+			
+			// Inside SettingController::update() -> Add these keys to $payload array:
+            'active_theme_mode'        => trim((string) $this->request->getPost('active_theme_mode')) ?: 'dark',
+            'site_layout_width'        => trim((string) $this->request->getPost('site_layout_width')) ?: 'boxed',
+            'default_block_surface'    => trim((string) $this->request->getPost('default_block_surface')) ?: 'card',
+            'font_family_sans'         => trim((string) $this->request->getPost('font_family_sans')) ?: 'Inter',
+            'font_family_mono'         => trim((string) $this->request->getPost('font_family_mono')) ?: 'JetBrains Mono',
+            'primary_accent_color'     => trim((string) $this->request->getPost('primary_accent_color')) ?: '#10b981',
+            'secondary_accent_color'   => trim((string) $this->request->getPost('secondary_accent_color')) ?: '#06b6d4',
+            'dark_bg_canvas'           => trim((string) $this->request->getPost('dark_bg_canvas')) ?: '#090a0f',
+            'dark_bg_surface'          => trim((string) $this->request->getPost('dark_bg_surface')) ?: '#11131c',
+            'dark_text_primary'        => trim((string) $this->request->getPost('dark_text_primary')) ?: '#f3f4f6',
+            'dark_border_color'        => trim((string) $this->request->getPost('dark_border_color')) ?: '#232738',
+            'light_bg_canvas'          => trim((string) $this->request->getPost('light_bg_canvas')) ?: '#f8fafc',
+            'light_bg_surface'         => trim((string) $this->request->getPost('light_bg_surface')) ?: '#ffffff',
+            'light_text_primary'       => trim((string) $this->request->getPost('light_text_primary')) ?: '#0f172a',
+            'light_border_color'       => trim((string) $this->request->getPost('light_border_color')) ?: '#e2e8f0',
         ];
 
         $saved = $this->settingModel->updateSettingsBatch($payload);

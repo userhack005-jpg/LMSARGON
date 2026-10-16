@@ -755,16 +755,50 @@
                 `;
             }
 
+            const gapMode = d._gap || 'normal';       // 'normal' or 'none' (merge with next)
+            const widthMode = d._width || 'default';  // 'default', 'boxed', 'full'
+            const bgMode = d._bg_mode || 'default';   // 'default', 'card', 'seamless', 'custom'
+            const bgCustom = d._bg_color || '#11131c';
+
             return `
-                <div class="pb-block-card" draggable="true" data-block-idx="${idx}">
-                    <div class="pb-block-header">
+                <div class="pb-block-card ${gapMode === 'none' ? 'pb-merge-next' : ''}" draggable="true" data-block-idx="${idx}">
+                    <div class="pb-block-header" style="flex-wrap: wrap; gap: 0.6rem;">
                         <div>
                             <span class="role-badge role-admin">0${idx + 1} // ${escapeHtml(blk.type.toUpperCase())}</span>
                         </div>
+
+                        <!-- Per-Block Layout Controls: Gap, Width & Background -->
+                        <div class="pb-layout-controls">
+                            <select class="field-select field-select-xs js-blk-field" data-idx="${idx}" data-key="_gap" title="Bottom Gap / Merge">
+                                <option value="normal" ${gapMode === 'normal' ? 'selected' : ''}>↕ Gap: Normal</option>
+                                <option value="none" ${gapMode === 'none' ? 'selected' : ''}>🔗 No Gap (Merge Next)</option>
+                            </select>
+
+                            <select class="field-select field-select-xs js-blk-field" data-idx="${idx}" data-key="_width" title="Section Width">
+                                <option value="default" ${widthMode === 'default' ? 'selected' : ''}>↔ Width: Global Default</option>
+                                <option value="boxed" ${widthMode === 'boxed' ? 'selected' : ''}>⊡ Centered (Boxed)</option>
+                                <option value="full" ${widthMode === 'full' ? 'selected' : ''}>⇿ 100% Full-Width</option>
+                            </select>
+
+                            <select class="field-select field-select-xs js-blk-field" data-idx="${idx}" data-key="_bg_mode" title="Background Style">
+                                <option value="default" ${bgMode === 'default' ? 'selected' : ''}>🎨 BG: Global Default</option>
+                                <option value="seamless" ${bgMode === 'seamless' ? 'selected' : ''}>✨ Seamless (Unified Page BG)</option>
+                                <option value="card" ${bgMode === 'card' ? 'selected' : ''}>▣ Boxed Card Surface</option>
+                                <option value="custom" ${bgMode === 'custom' ? 'selected' : ''}>🖌 Custom Color</option>
+                            </select>
+
+                            <input type="color"
+                                   class="color-swatch-xs js-blk-field ${bgMode === 'custom' ? '' : 'is-hidden'}"
+                                   data-idx="${idx}"
+                                   data-key="_bg_color"
+                                   value="${escapeHtml(bgCustom)}"
+                                   title="Choose Custom Block Background">
+                        </div>
+
                         <div class="action-btn-group">
-                            <button type="button" class="btn-action js-pb-move-up" data-idx="${idx}">↑ Up</button>
-                            <button type="button" class="btn-action js-pb-move-down" data-idx="${idx}">↓ Down</button>
-                            <button type="button" class="btn-action btn-action-danger js-pb-remove-block" data-idx="${idx}">✕ Remove</button>
+                            <button type="button" class="btn-action js-pb-move-up" data-idx="${idx}">↑</button>
+                            <button type="button" class="btn-action js-pb-move-down" data-idx="${idx}">↓</button>
+                            <button type="button" class="btn-action btn-action-danger js-pb-remove-block" data-idx="${idx}">✕</button>
                         </div>
                     </div>
                     ${fieldsHtml}
@@ -792,6 +826,7 @@
             if (pbBlocks[idx] && key) {
                 pbBlocks[idx].data[key] = field.value;
                 syncBlocksToHiddenInput();
+				if (key === '_bg_mode' || key === '_gap') { renderBuilderCanvas(); }
             }
             return;
         }

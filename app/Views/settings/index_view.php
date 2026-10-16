@@ -44,6 +44,11 @@
                 <span class="step-index">04</span>
                 <span>Custom CSS & JS</span>
             </button>
+			
+			<button type="button" class="settings-tab" data-tab-target="tab-appearance">
+                <span class="step-index">05</span>
+                <span>Theme, Colors & Layout</span>
+            </button>
         </div>
 
         <!-- ==========================================
@@ -301,6 +306,181 @@
                         <span class="opt-badge">CHAT WIDGETS / JS</span>
                     </label>
                     <textarea id="footer_scripts" name="footer_scripts" rows="5" class="field-input code-editor" placeholder="&lt;script&gt;&#10;  console.log('Custom Footer JS Loaded');&#10;&lt;/script&gt;"><?= esc($settings['footer_scripts'] ?? '') ?></textarea>
+                </div>
+            </div>
+        </div>
+		
+		<!-- ==========================================
+             TAB 05: APPEARANCE, THEME (DARK/LIGHT), COLORS, FONTS & LAYOUT
+             ========================================== -->
+        <div class="settings-pane" id="tab-appearance">
+            <div class="section-divider">
+                <span class="mono-label">01 // MASTER THEME MODE & GLOBAL TEMPLATE WIDTH (ADMIN CONTROLLED)</span>
+            </div>
+
+            <div class="grid-3-col">
+                <div class="field-group">
+                    <label class="field-label">
+                        <span>Active Website Theme Mode</span>
+                        <span class="req-badge">LOCKED FOR USERS</span>
+                    </label>
+                    <select name="active_theme_mode" class="field-select">
+                        <?php $tMode = $settings['active_theme_mode'] ?? 'dark'; ?>
+                        <option value="dark" <?= $tMode === 'dark' ? 'selected' : '' ?>>🌙 Dark Mode (Obsidian Enterprise)</option>
+                        <option value="light" <?= $tMode === 'light' ? 'selected' : '' ?>>☀️ Light Mode (Clean Daylight)</option>
+                    </select>
+                    <span class="field-hint">Users cannot switch this; the entire site follows your choice.</span>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">
+                        <span>Default Website Template Width</span>
+                        <span class="req-badge">GLOBAL</span>
+                    </label>
+                    <select name="site_layout_width" class="field-select">
+                        <?php $lWidth = $settings['site_layout_width'] ?? 'boxed'; ?>
+                        <option value="boxed" <?= $lWidth === 'boxed' ? 'selected' : '' ?>>Centered Container (1180px Boxed)</option>
+                        <option value="full" <?= $lWidth === 'full' ? 'selected' : '' ?>>100% Full-Width Edge-to-Edge</option>
+                    </select>
+                    <span class="field-hint">Can also be overridden per-page or per-component.</span>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label">
+                        <span>Default Component Background Style</span>
+                    </label>
+                    <select name="default_block_surface" class="field-select">
+                        <?php $bSurf = $settings['default_block_surface'] ?? 'card'; ?>
+                        <option value="card" <?= $bSurf === 'card' ? 'selected' : '' ?>>Boxed Cards (Separate Borders)</option>
+                        <option value="seamless" <?= $bSurf === 'seamless' ? 'selected' : '' ?>>Seamless Unified Background (No Box Borders)</option>
+                    </select>
+                    <span class="field-hint">Choose "Seamless" if you want the whole page to share a single background.</span>
+                </div>
+            </div>
+
+            <div class="section-divider">
+                <span class="mono-label">02 // TYPOGRAPHY & BRAND ACCENT COLORS</span>
+            </div>
+
+            <div class="grid-2-col">
+                <div class="field-group">
+                    <label class="field-label"><span>Primary UI & Heading Font Family (Google Fonts)</span></label>
+                    <select name="font_family_sans" class="field-select">
+                        <?php $fSans = $settings['font_family_sans'] ?? 'Inter'; ?>
+                        <option value="Inter" <?= $fSans === 'Inter' ? 'selected' : '' ?>>Inter (Modern Tech Standard)</option>
+                        <option value="Plus Jakarta Sans" <?= $fSans === 'Plus Jakarta Sans' ? 'selected' : '' ?>>Plus Jakarta Sans (Geometric SaaS)</option>
+                        <option value="Poppins" <?= $fSans === 'Poppins' ? 'selected' : '' ?>>Poppins (Clean & Friendly)</option>
+                        <option value="Outfit" <?= $fSans === 'Outfit' ? 'selected' : '' ?>>Outfit (Bold Contemporary)</option>
+                        <option value="Space Grotesk" <?= $fSans === 'Space Grotesk' ? 'selected' : '' ?>>Space Grotesk (Editorial & Sharp)</option>
+                    </select>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label"><span>Monospace / Technical Font Family</span></label>
+                    <select name="font_family_mono" class="field-select">
+                        <?php $fMono = $settings['font_family_mono'] ?? 'JetBrains Mono'; ?>
+                        <option value="JetBrains Mono" <?= $fMono === 'JetBrains Mono' ? 'selected' : '' ?>>JetBrains Mono</option>
+                        <option value="Fira Code" <?= $fMono === 'Fira Code' ? 'selected' : '' ?>>Fira Code</option>
+                        <option value="IBM Plex Mono" <?= $fMono === 'IBM Plex Mono' ? 'selected' : '' ?>>IBM Plex Mono</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid-2-col">
+                <div class="field-group">
+                    <label class="field-label"><span>Primary Brand Accent Color (Buttons, Highlights, Active States)</span></label>
+                    <div class="color-picker-row">
+                        <input type="color" class="color-swatch-input" value="<?= esc($settings['primary_accent_color'] ?? '#10b981') ?>" oninput="this.nextElementSibling.value = this.value">
+                        <input type="text" name="primary_accent_color" class="field-input mono-input" value="<?= esc($settings['primary_accent_color'] ?? '#10b981') ?>" oninput="this.previousElementSibling.value = this.value">
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label class="field-label"><span>Secondary Brand Accent Color (Badges & Accents)</span></label>
+                    <div class="color-picker-row">
+                        <input type="color" class="color-swatch-input" value="<?= esc($settings['secondary_accent_color'] ?? '#06b6d4') ?>" oninput="this.nextElementSibling.value = this.value">
+                        <input type="text" name="secondary_accent_color" class="field-input mono-input" value="<?= esc($settings['secondary_accent_color'] ?? '#06b6d4') ?>" oninput="this.previousElementSibling.value = this.value">
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-divider">
+                <span class="mono-label">03 // DARK THEME & LIGHT THEME COLOR COMBINATIONS</span>
+            </div>
+
+            <div class="grid-2-col">
+                <!-- Dark Theme Palette Card -->
+                <div class="asset-box">
+                    <span class="mono-label text-emerald">🌙 DARK THEME PALETTE</span>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Main Page Background (Canvas)</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['dark_bg_canvas'] ?? '#090a0f') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="dark_bg_canvas" class="field-input mono-input" value="<?= esc($settings['dark_bg_canvas'] ?? '#090a0f') ?>">
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Card / Component Surface Background</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['dark_bg_surface'] ?? '#11131c') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="dark_bg_surface" class="field-input mono-input" value="<?= esc($settings['dark_bg_surface'] ?? '#11131c') ?>">
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Primary Text Color</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['dark_text_primary'] ?? '#f3f4f6') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="dark_text_primary" class="field-input mono-input" value="<?= esc($settings['dark_text_primary'] ?? '#f3f4f6') ?>">
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Border & Divider Color</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['dark_border_color'] ?? '#232738') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="dark_border_color" class="field-input mono-input" value="<?= esc($settings['dark_border_color'] ?? '#232738') ?>">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Light Theme Palette Card -->
+                <div class="asset-box">
+                    <span class="mono-label text-cyan">☀️ LIGHT THEME PALETTE</span>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Main Page Background (Canvas)</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['light_bg_canvas'] ?? '#f8fafc') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="light_bg_canvas" class="field-input mono-input" value="<?= esc($settings['light_bg_canvas'] ?? '#f8fafc') ?>">
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Card / Component Surface Background</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['light_bg_surface'] ?? '#ffffff') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="light_bg_surface" class="field-input mono-input" value="<?= esc($settings['light_bg_surface'] ?? '#ffffff') ?>">
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Primary Text Color</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['light_text_primary'] ?? '#0f172a') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="light_text_primary" class="field-input mono-input" value="<?= esc($settings['light_text_primary'] ?? '#0f172a') ?>">
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label class="field-label"><span>Border & Divider Color</span></label>
+                        <div class="color-picker-row">
+                            <input type="color" class="color-swatch-input" value="<?= esc($settings['light_border_color'] ?? '#e2e8f0') ?>" oninput="this.nextElementSibling.value = this.value">
+                            <input type="text" name="light_border_color" class="field-input mono-input" value="<?= esc($settings['light_border_color'] ?? '#e2e8f0') ?>">
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

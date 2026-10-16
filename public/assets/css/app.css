@@ -1535,3 +1535,118 @@ body.theme-obsidian {
 .pb-footer-builder-grid.cols-1 {
     grid-template-columns: 1fr;
 }
+
+/* ==========================================
+   DYNAMIC BLOCK GAP, WIDTH, SEAMLESS BG & COLOR PICKER
+   ========================================== */
+.pb-layout-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.field-select-xs {
+    width: auto !important;
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.73rem !important;
+    font-family: var(--font-mono) !important;
+    border-radius: 6px !important;
+    background: var(--bg-surface) !important;
+}
+
+.color-swatch-xs {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    background: none;
+    cursor: pointer;
+}
+
+.color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.color-swatch-input {
+    width: 44px;
+    height: 40px;
+    padding: 2px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 8px;
+    background: var(--bg-input);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.pb-block-card.pb-merge-next {
+    border-bottom: 2px dashed var(--accent-emerald);
+}
+
+/* Frontend Layout Engine: Boxed vs Full-Width & Gap vs Merged */
+.cms-public-main {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: none !important;
+    margin: 2rem 0 !important;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    gap: 0 !important;
+}
+
+.cms-block-wrapper {
+    width: 100%;
+    margin-bottom: 2rem;
+}
+
+.cms-block-wrapper.is-boxed {
+    max-width: 1180px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 0 1.5rem;
+}
+
+.cms-block-wrapper.is-fullwidth {
+    max-width: 100%;
+    padding: 0;
+}
+
+.cms-block-wrapper.is-fullwidth .cms-block {
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+}
+
+.cms-block-wrapper.is-fullwidth .cms-inner-container {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+/* No-Gap / Merged Blocks */
+.cms-block-wrapper.has-no-bottom-gap {
+    margin-bottom: 0 !important;
+}
+
+.cms-block.merge-bottom-radius {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-bottom: none !important;
+}
+
+.cms-block.merge-top-radius {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+/* Seamless Unified Background (No Box Borders) */
+.cms-block.surface-seamless {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
