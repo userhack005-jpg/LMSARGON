@@ -30,8 +30,18 @@ class AuthController extends BaseController
      */
     public function index()
     {
-        if (! $this->isInstalled()) {
+       if (! $this->isInstalled()) {
             return redirect()->to(base_url('install'));
+        }
+
+        // If Page Builder Add-On is installed & a dynamic Homepage is set, render it at '/'!
+        if (class_exists('\App\Models\Addons\PageBuilder\PageBuilderModel')) {
+            $pbModel  = new \App\Models\Addons\PageBuilder\PageBuilderModel();
+            $homePage = $pbModel->getHomepage();
+            if ($homePage) {
+                $pbCtrl = new \App\Controllers\Addons\PageBuilder\PageBuilderController();
+                return $pbCtrl->renderFrontend($homePage['slug']);
+            }
         }
 
         if (session()->get('isLoggedIn')) {

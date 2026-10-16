@@ -6,6 +6,7 @@ use CodeIgniter\Router\RouteCollection;
  * @var RouteCollection $routes
  */
 
+$routes->setPrioritize(true);
 // 1. Root Entry Point
 $routes->get('/', 'Auth\AuthController::index');
 
@@ -45,13 +46,19 @@ $routes->group('addons', ['namespace' => 'App\Controllers\Addons'], static funct
     $routes->get('/', 'AddonController::index');
     $routes->post('upload', 'AddonController::uploadAndInstall');
     $routes->post('toggle', 'AddonController::toggleAddon');
+	  $routes->post('delete', 'AddonController::deleteAddon');
     $routes->get('sample-gateway-zip', 'AddonController::downloadSampleGatewayZip');
+	 $routes->get('sample-pagebuilder-zip', 'AddonController::downloadPageBuilderZip'); // <-- NEW LINE
 });
 
-// 8. Auto-Load Routes from All Extracted Add-On Modules
-$extractedAddonsDir = WRITEPATH . 'addons/extracted/';
-if (is_dir($extractedAddonsDir)) {
-    foreach (glob($extractedAddonsDir . '*/Routes.php') as $addonRouteFile) {
-        require $addonRouteFile;
+// 8. Auto-Load Routes ONLY for ACTIVE Add-Ons
+if (is_file(WRITEPATH . 'installed.lock') && class_exists('\App\Models\Addons\AddonModel')) {
+    $activeAddons = (new \App\Models\Addons\AddonModel())->getActiveAddons();
+    foreach ($activeAddons as $activeAddon) {
+        $routeFile = WRITEPATH . 'addons/extracted/' . $activeAddon['slug'] . '/Routes.php';
+        if (is_file($routeFile)) {
+            require $routeFile;
+        }
     }
 }
+

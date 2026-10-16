@@ -1,0 +1,16 @@
+{
+    "slug": "page_builder",
+    "name": "Visual Page Builder & Dynamic CMS",
+    "category": "frontend_cms",
+    "version": "1.0.0",
+    "author": "Core Architecture Team",
+    "description": "Database-driven Drag & Drop Visual Page Builder with Rich Text Editor, Direct Image Upload, Interactive Quiz Blocks, CTA Buttons, Custom URL Slugs (e.g. /about-us), and Dynamic Homepage routing.",
+    "admin_route": "addons/page-builder",
+    "frontend_route": "about-us",
+    "init_model": "App\\Models\\Addons\\PageBuilder\\PageBuilderModel",
+    "default_config": {
+        "enable_root_homepage": "1",
+        "show_top_navbar": "1",
+        "container_width": "1180px"
+    }
+}
