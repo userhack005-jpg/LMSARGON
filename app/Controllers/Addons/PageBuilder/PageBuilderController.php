@@ -28,31 +28,34 @@ class PageBuilderController extends BaseController
     }
 
     /**
-     * Admin Dashboard: List All Dynamic Pages & Toggle DB-Driven Components
+     * Helper: Returns JSON if AJAX request, otherwise cleanly redirects back (Never shows raw JSON page!)
      */
+    private function respondOrRedirect(array $payload, string $redirectUrl)
+    {
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON($payload);
+        }
+        return redirect()->to($redirectUrl)->with('hub_notice', $payload['message'] ?? 'Updated!');
+    }
+
     public function index()
     {
         if (! $this->canManagePages()) {
             return redirect()->to(base_url('login'));
         }
 
-        $pages      = $this->pbModel->getAllPages();
-        $components = $this->pbModel->getAllComponents(false);
-        $settings   = $this->settingModel->getSystemSettings();
-
         return view('addons/page_builder/pages_list_view', [
             'activeMenu' => 'addon_page_builder',
-            'settings'   => $settings,
-            'pages'      => $pages,
-            'components' => $components,
+            'settings'   => $this->settingModel->getSystemSettings(),
+            'pages'      => $this->pbModel->getAllPages(),
+            'components' => $this->pbModel->getAllComponents(false),
+            'faqs'       => $this->pbModel->getDynamicFaqs('all'),
+            'reviews'    => $this->pbModel->getDynamicReviews(50),
             'user'       => session()->get(),
             'pageTitle'  => 'Visual Page Builder & Component Registry',
         ]);
     }
 
-    /**
-     * Visual Drag & Drop Page Editor Workspace
-     */
     public function editor(?int $pageId = null)
     {
         if (! $this->canManagePages()) {
@@ -74,22 +77,16 @@ class PageBuilderController extends BaseController
             ];
         }
 
-        $enabledComponents = $this->pbModel->getAllComponents(true);
-        $settings          = $this->settingModel->getSystemSettings();
-
         return view('addons/page_builder/editor_view', [
             'activeMenu' => 'addon_page_builder',
-            'settings'   => $settings,
+            'settings'   => $this->settingModel->getSystemSettings(),
             'page'       => $page,
-            'components' => $enabledComponents,
+            'components' => $this->pbModel->getAllComponents(true),
             'user'       => session()->get(),
             'pageTitle'  => ($page['id'] > 0 ? 'Edit Page: ' . $page['title'] : 'Create New Dynamic Page'),
         ]);
     }
 
-    /**
-     * AJAX Endpoint: Save Page & Blocks JSON
-     */
     public function savePage()
     {
         if (! $this->canManagePages()) {
@@ -102,7 +99,6 @@ class PageBuilderController extends BaseController
         if ($title === '') {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Page Title is required.']);
         }
-
         if ($slug === '') {
             $slug = strtolower(preg_replace('/[^a-zA-Z0-9]+/', '-', $title));
         }
@@ -119,12 +115,9 @@ class PageBuilderController extends BaseController
             'show_in_nav'      => (int) ($this->request->getPost('show_in_nav') ? 1 : 0),
         ]);
 
-        return $this->response->setJSON($result);
+        return $this->respondOrRedirect($result, base_url('addons/page-builder'));
     }
 
-    /**
-     * AJAX Endpoint: Delete Dynamic Page
-     */
     public function deletePage()
     {
         if (! $this->canManagePages()) {
@@ -134,15 +127,12 @@ class PageBuilderController extends BaseController
         $id = (int) $this->request->getPost('page_id');
         $ok = $this->pbModel->deletePageById($id);
 
-        return $this->response->setJSON([
+        return $this->respondOrRedirect([
             'status'  => $ok ? 'success' : 'error',
             'message' => $ok ? 'Page deleted permanently.' : 'Unable to delete page.',
-        ]);
+        ], base_url('addons/page-builder'));
     }
 
-    /**
-     * AJAX Endpoint: Enable / Disable a Builder Component in Database
-     */
     public function toggleComponent()
     {
         if (! $this->canManagePages()) {
@@ -150,12 +140,9 @@ class PageBuilderController extends BaseController
         }
 
         $compId = (int) $this->request->getPost('component_id');
-        return $this->response->setJSON($this->pbModel->flipComponentState($compId));
+        return $this->respondOrRedirect($this->pbModel->flipComponentState($compId), base_url('addons/page-builder'));
     }
 
-    /**
-     * AJAX Endpoint: Upload Image Directly from Page Builder
-     */
     public function uploadMedia()
     {
         if (! $this->canManagePages()) {
@@ -188,20 +175,261 @@ class PageBuilderController extends BaseController
     }
 
     /**
-     * Frontend Dynamic Page Renderer (Matches `/about-us`, `/p/about-us`, or Homepage)
+     * Visual Footer Builder Workspace (Safe against both old & new views!)
      */
-   public function renderFrontend(string $slug = '')
+    public function footerEditor()
+    {
+        if (! $this->canManagePages()) {
+            return redirect()->to(base_url('login'));
+        }
+
+        $footers      = $this->pbModel->getAllFooters();
+        $footersByKey = [];
+        $activeRow    = null;
+
+        foreach ($footers as $f) {
+            $sKey = $f['style_key'] ?? ('style_' . $f['id']);
+            $footersByKey[$sKey] = $f;
+            if ((int) ($f['is_active'] ?? 0) === 1) {
+                $activeRow = $f;
+            }
+        }
+
+        $requestedStyle = trim((string) $this->request->getGet('style'));
+        $templateId     = (int) $this->request->getGet('template_id');
+        $current        = null;
+
+        if ($templateId > 0) {
+            foreach ($footers as $f) {
+                if ((int) $f['id'] === $templateId) {
+                    $current = $f;
+                    break;
+                }
+            }
+        } elseif ($requestedStyle !== '' && isset($footersByKey[$requestedStyle])) {
+            $current = $footersByKey[$requestedStyle];
+        } elseif ($requestedStyle !== '') {
+            $colsMap = [
+                'style_1col'           => 1,
+                'style_2col'           => 2,
+                'style_3col'           => 3,
+                'style_4col'           => 4,
+                'style_highlight_3col' => 3,
+            ];
+            $cCount  = $colsMap[$requestedStyle] ?? 1;
+            $current = [
+                'id'             => 0,
+                'name'           => strtoupper($requestedStyle),
+                'style_key'      => $requestedStyle,
+                'columns_count'  => $cCount,
+                'copyright_text' => '© ' . date('Y') . ' All Rights Reserved.',
+                'is_active'      => 0,
+                'sections_json'  => json_encode([
+                    [['id' => 'f_init_1', 'type' => 'rich_text', 'data' => ['html' => '<h3>Single Full-Width Footer</h3><p>Customize this footer block or drag more widgets here.</p>']]],
+                    [],
+                    [],
+                    [],
+                ]),
+            ];
+        }
+
+        if (! $current) {
+            $current = $activeRow ?: ($footers[0] ?? [
+                'id'             => 0,
+                'name'           => 'Default Footer',
+                'style_key'      => 'style_3col',
+                'columns_count'  => 3,
+                'copyright_text' => '© ' . date('Y') . ' All Rights Reserved.',
+                'is_active'      => 1,
+                'sections_json'  => '[[],[],[],[]]',
+            ]);
+        }
+
+        return view('addons/page_builder/footer_editor_view', [
+            'activeMenu'   => 'addon_pb_footer',
+            'settings'     => $this->settingModel->getSystemSettings(),
+            'footers'      => $footers,      // Passed for backward compatibility
+            'footersByKey' => $footersByKey, // Passed for 5 preset tabs
+            'current'      => $current,
+            'components'   => $this->pbModel->getAllComponents(true),
+            'user'         => session()->get(),
+            'pageTitle'    => 'Visual Footer Builder & Templates',
+        ]);
+    }
+
+    public function saveFooter()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        }
+
+        $styleKey = trim((string) $this->request->getPost('style_key')) ?: 'style_3col';
+        $ok       = $this->pbModel->saveFooterTemplate([
+            'footer_id'      => (int) $this->request->getPost('footer_id'),
+            'style_key'      => $styleKey,
+            'columns_count'  => (int) ($this->request->getPost('columns_count') ?: 3),
+            'sections_json'  => (string) $this->request->getPost('sections_json'),
+            'copyright_text' => trim((string) $this->request->getPost('copyright_text')),
+            'set_active'     => (int) ($this->request->getPost('set_active') ? 1 : 0),
+            'current_active' => (int) $this->request->getPost('current_active'),
+        ]);
+
+        return $this->respondOrRedirect([
+            'status'  => $ok ? 'success' : 'error',
+            'message' => $ok ? 'Footer template saved & updated across frontend!' : 'Failed to save footer.',
+        ], base_url('addons/page-builder/footer?style=' . $styleKey));
+    }
+
+    /**
+     * Dedicated Content Hub Page (Announcements, FAQs & Reviews)
+     */
+    public function contentHub()
+    {
+        if (! $this->canManagePages()) {
+            return redirect()->to(base_url('login'));
+        }
+
+        return view('addons/page_builder/content_hub_view', [
+            'activeMenu'    => 'addon_pb_hub',
+            'settings'      => $this->settingModel->getSystemSettings(),
+            'announcements' => $this->pbModel->getDynamicAnnouncements('category', 'all', 0),
+            'faqs'          => $this->pbModel->getDynamicFaqs('all'),
+            'reviews'       => $this->pbModel->getDynamicReviews(100),
+            'user'          => session()->get(),
+            'pageTitle'     => 'Content Hub — Announcements, FAQs & Reviews',
+        ]);
+    }
+
+    public function saveAnnouncement()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        }
+
+        $id  = (int) $this->request->getPost('id');
+        $msg = trim((string) $this->request->getPost('message'));
+        if ($msg !== '') {
+            $this->pbModel->saveAnnouncementRecord([
+                'category'  => trim((string) $this->request->getPost('category')) ?: 'General',
+                'message'   => $msg,
+                'link_text' => trim((string) $this->request->getPost('link_text')),
+                'link_url'  => trim((string) $this->request->getPost('link_url')),
+                'is_active' => 1,
+            ], $id);
+        }
+
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => $id > 0 ? 'Announcement #' . $id . ' updated!' : 'New Announcement added!',
+        ], base_url('addons/page-builder/content-hub?tab=announcements'));
+    }
+
+    public function deleteAnnouncement()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error']);
+        }
+        $this->pbModel->deleteAnnouncementRecord((int) $this->request->getPost('id'));
+
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => 'Announcement deleted permanently.',
+        ], base_url('addons/page-builder/content-hub?tab=announcements'));
+    }
+
+    public function saveFaq()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        }
+
+        $id = (int) $this->request->getPost('id');
+        $q  = trim((string) $this->request->getPost('question'));
+        $a  = trim((string) $this->request->getPost('answer'));
+        if ($q !== '' && $a !== '') {
+            $this->pbModel->addFaqRecord([
+                'category'     => trim((string) $this->request->getPost('category')) ?: 'General',
+                'question'     => $q,
+                'answer'       => $a,
+                'sort_order'   => (int) ($this->request->getPost('sort_order') ?: 1),
+                'is_published' => 1,
+            ], $id);
+        }
+
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => $id > 0 ? 'FAQ #' . $id . ' updated!' : 'New FAQ added!',
+        ], base_url('addons/page-builder/content-hub?tab=faqs'));
+    }
+
+    public function deleteFaq()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error']);
+        }
+        $this->pbModel->deleteFaqRecord((int) $this->request->getPost('id'));
+
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => 'FAQ deleted permanently.',
+        ], base_url('addons/page-builder/content-hub?tab=faqs'));
+    }
+
+    public function saveReview()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        }
+
+        $id   = (int) $this->request->getPost('id');
+        $name = trim((string) $this->request->getPost('reviewer_name'));
+        $text = trim((string) $this->request->getPost('review_text'));
+        if ($name !== '' && $text !== '') {
+            $this->pbModel->addReviewRecord([
+                'reviewer_name' => $name,
+                'designation'   => trim((string) $this->request->getPost('designation')) ?: 'Verified Student',
+                'rating'        => max(1, min(5, (int) ($this->request->getPost('rating') ?: 5))),
+                'review_text'   => $text,
+                'is_approved'   => 1,
+            ], $id);
+        }
+
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => $id > 0 ? 'Review #' . $id . ' updated!' : 'Student Review added!',
+        ], base_url('addons/page-builder/content-hub?tab=reviews'));
+    }
+
+    public function deleteReview()
+    {
+        if (! $this->canManagePages()) {
+            return $this->response->setJSON(['status' => 'error']);
+        }
+        $this->pbModel->deleteReviewRecord((int) $this->request->getPost('id'));
+
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => 'Review deleted permanently.',
+        ], base_url('addons/page-builder/content-hub?tab=reviews'));
+    }
+
+    public function subscribeLead()
+    {
+        $email = strtolower(trim((string) $this->request->getPost('email')));
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Please enter a valid email address.']);
+        }
+        return $this->response->setJSON($this->pbModel->saveLeadEmail($email));
+    }
+
+    public function renderFrontend(string $slug = '')
     {
         $page = $this->pbModel->getPageBySlug($slug);
         if (! $page) {
-            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound('Page not found: ' . esc($slug));
+            throw PageNotFoundException::forPageNotFound('Page not found: ' . esc($slug));
         }
 
-        $settings     = $this->settingModel->getSystemSettings();
-        $navPages     = $this->pbModel->getPublishedNavPages();
-        $blocks       = json_decode((string) $page['blocks_json'], true) ?: [];
-        $activeFooter = $this->pbModel->getActiveFooter();
-
+        $settings = $this->settingModel->getSystemSettings();
         if (! empty($page['meta_title'])) {
             $settings['meta_title'] = $page['meta_title'];
         }
@@ -210,70 +438,15 @@ class PageBuilderController extends BaseController
         }
 
         return view('addons/page_builder/frontend_page_view', [
-            'settings'     => $settings,
-            'page'         => $page,
-            'blocks'       => $blocks,
-            'navPages'     => $navPages,
-            'activeFooter' => $activeFooter,
-            'pageTitle'    => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
-        ]);
-    }
-	
-	/**
-     * Visual Footer Builder Workspace
-     */
-    public function footerEditor()
-    {
-        if (! $this->canManagePages()) {
-            return redirect()->to(base_url('login'));
-        }
-
-        $footers    = $this->pbModel->getAllFooters();
-        $selectedId = (int) ($this->request->getGet('template_id') ?: 0);
-        $current    = null;
-
-        foreach ($footers as $f) {
-            if (($selectedId > 0 && (int) $f['id'] === $selectedId) || ($selectedId === 0 && (int) $f['is_active'] === 1)) {
-                $current = $f;
-                break;
-            }
-        }
-        if (! $current && ! empty($footers)) {
-            $current = $footers[0];
-        }
-
-        return view('addons/page_builder/footer_editor_view', [
-            'activeMenu' => 'addon_page_builder',
-            'settings'   => $this->settingModel->getSystemSettings(),
-            'footers'    => $footers,
-            'current'    => $current,
-            'components' => $this->pbModel->getAllComponents(true),
-            'user'       => session()->get(),
-            'pageTitle'  => 'Visual Footer Builder & Templates',
-        ]);
-    }
-
-    /**
-     * AJAX: Save & Activate Footer Template
-     */
-    public function saveFooter()
-    {
-        if (! $this->canManagePages()) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
-        }
-
-        $ok = $this->pbModel->saveFooterTemplate([
-            'footer_id'      => (int) $this->request->getPost('footer_id'),
-            'columns_count'  => (int) ($this->request->getPost('columns_count') ?: 3),
-            'sections_json'  => (string) $this->request->getPost('sections_json'),
-            'copyright_text' => trim((string) $this->request->getPost('copyright_text')),
-            'set_active'     => (int) ($this->request->getPost('set_active') ? 1 : 0),
-            'current_active' => (int) $this->request->getPost('current_active'),
-        ]);
-
-        return $this->response->setJSON([
-            'status'  => $ok ? 'success' : 'error',
-            'message' => $ok ? 'Footer template saved & updated across frontend!' : 'Failed to save footer.',
+            'settings'        => $settings,
+            'page'            => $page,
+            'blocks'          => json_decode((string) $page['blocks_json'], true) ?: [],
+            'navPages'        => $this->pbModel->getPublishedNavPages(),
+            'activeFooter'    => $this->pbModel->getActiveFooter(),
+            'dbAnnouncements' => $this->pbModel->getDynamicAnnouncements('category', 'all', 0),
+            'dbReviews'       => $this->pbModel->getDynamicReviews(12),
+            'dbFaqs'          => $this->pbModel->getDynamicFaqs('all'),
+            'pageTitle'       => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
         ]);
     }
 }

@@ -27,8 +27,7 @@
         </div>
     </div>
 
-<?php $assetRoot = rtrim( str_replace('/index.php', '', site_url()), '/' ); ?>
-<script src="<?= $assetRoot ?>/assets/js/app.js?v=<?= time() ?>"></script>
+
     <?php if (! empty($settings['footer_scripts'])): ?>
         <?= $settings['footer_scripts'] ?>
     <?php endif; ?>

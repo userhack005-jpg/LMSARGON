@@ -114,4 +114,101 @@
     </section>
 
 </div>
+
+<!-- ==========================================
+     DYNAMIC REVIEWS & UNLIMITED FAQS DATABASE MANAGER
+     ========================================== -->
+<div class="grid-2-col" style="margin-top: 1.5rem;">
+
+    <!-- 1. Student Reviews / Testimonials DB Manager -->
+    <section class="panel-card">
+        <div class="panel-header">
+            <div>
+                <span class="mono-label">DYNAMIC SLIDER DATA // `cms_reviews`</span>
+                <h3 class="panel-title">Manage Student Testimonials (<?= count($reviews ?? []) ?>)</h3>
+            </div>
+            <span class="req-badge">LIVE CAROUSEL</span>
+        </div>
+
+        <form id="pb-add-review-form" action="<?= base_url('addons/page-builder/save-review') ?>" method="post" style="margin-bottom: 1.25rem;">
+            <?= csrf_field() ?>
+            <div class="grid-3-col">
+                <div class="field-group">
+                    <input type="text" name="reviewer_name" class="field-input" placeholder="Student / Parent Name" required>
+                </div>
+                <div class="field-group">
+                    <input type="text" name="designation" class="field-input" placeholder="Role / Location (e.g. Dubai, UAE)">
+                </div>
+                <div class="field-group">
+                    <select name="rating" class="field-select">
+                        <option value="5">★★★★★ (5 Stars)</option>
+                        <option value="4">★★★★☆ (4 Stars)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="field-group" style="display:flex; gap:0.6rem;">
+                <input type="text" name="review_text" class="field-input" placeholder="Write student testimonial or success story..." required>
+                <button type="submit" class="btn-primary btn-sm" style="flex-shrink:0;">+ Add Review</button>
+            </div>
+        </form>
+
+        <div class="telemetry-list" style="max-height: 260px; overflow-y: auto;">
+            <?php foreach (($reviews ?? []) as $rev): ?>
+            <div class="telemetry-item">
+                <div>
+                    <div class="identity-name">
+                        <span><?= esc($rev['reviewer_name']) ?></span>
+                        <span class="text-amber"><?= str_repeat('★', (int) $rev['rating']) ?></span>
+                    </div>
+                    <div class="identity-email"><?= esc($rev['designation']) ?> — "<?= esc($rev['review_text']) ?>"</div>
+                </div>
+                <button type="button" class="btn-action btn-action-danger js-del-db-item" data-id="<?= $rev['id'] ?>" data-url="<?= base_url('addons/page-builder/delete-review') ?>">✕</button>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+    <!-- 2. Unlimited Collapsible FAQs DB Manager -->
+    <section class="panel-card">
+        <div class="panel-header">
+            <div>
+                <span class="mono-label">DYNAMIC ACCORDION DATA // `cms_faqs`</span>
+                <h3 class="panel-title">Manage Unlimited FAQs (<?= count($faqs ?? []) ?>)</h3>
+            </div>
+            <span class="req-badge">DB DRIVEN</span>
+        </div>
+
+        <form id="pb-add-faq-form" action="<?= base_url('addons/page-builder/save-faq') ?>" method="post" style="margin-bottom: 1.25rem;">
+            <?= csrf_field() ?>
+            <div class="grid-2-col">
+                <div class="field-group">
+                    <input type="text" name="question" class="field-input" placeholder="FAQ Question..." required>
+                </div>
+                <div class="field-group">
+                    <input type="text" name="category" class="field-input" placeholder="Category (e.g. General, Pricing)" value="General">
+                </div>
+            </div>
+            <div class="field-group" style="display:flex; gap:0.6rem;">
+                <input type="text" name="answer" class="field-input" placeholder="Detailed FAQ Answer..." required>
+                <button type="submit" class="btn-primary btn-sm" style="flex-shrink:0;">+ Add FAQ</button>
+            </div>
+        </form>
+
+        <div class="telemetry-list" style="max-height: 260px; overflow-y: auto;">
+            <?php foreach (($faqs ?? []) as $fq): ?>
+            <div class="telemetry-item">
+                <div>
+                    <div class="identity-name">
+                        <span class="role-badge role-admin"><?= esc($fq['category']) ?></span>
+                        <span><?= esc($fq['question']) ?></span>
+                    </div>
+                    <div class="identity-email"><?= esc($fq['answer']) ?></div>
+                </div>
+                <button type="button" class="btn-action btn-action-danger js-del-db-item" data-id="<?= $fq['id'] ?>" data-url="<?= base_url('addons/page-builder/delete-faq') ?>">✕</button>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </section>
+
+</div>
 <?= $this->endSection() ?>
