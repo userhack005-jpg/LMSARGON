@@ -49,7 +49,6 @@ class PageBuilderController extends BaseController
             'settings'   => $this->settingModel->getSystemSettings(),
             'pages'      => $this->pbModel->getAllPages(),
             'components' => $this->pbModel->getAllComponents(false),
-            'faqs'       => $this->pbModel->getDynamicFaqs('all'),
             'reviews'    => $this->pbModel->getDynamicReviews(50),
             'user'       => session()->get(),
             'pageTitle'  => 'Visual Page Builder & Component Registry',
@@ -285,19 +284,8 @@ class PageBuilderController extends BaseController
      */
     public function contentHub()
     {
-        if (! $this->canManagePages()) {
-            return redirect()->to(base_url('login'));
-        }
-
-        return view('addons/page_builder/content_hub_view', [
-            'activeMenu'    => 'addon_pb_hub',
-            'settings'      => $this->settingModel->getSystemSettings(),
-            'announcements' => $this->pbModel->getDynamicAnnouncements('category', 'all', 0),
-            'faqs'          => $this->pbModel->getDynamicFaqs('all'),
-            'reviews'       => $this->pbModel->getDynamicReviews(100),
-            'user'          => session()->get(),
-            'pageTitle'     => 'Content Hub — Announcements, FAQs & Reviews',
-        ]);
+        return redirect()->to(base_url('addons/page-builder'))
+            ->with('pb_notice', 'Announcements, FAQs, and Reviews are now managed via their dedicated independent Add-On modules.');
     }
 
     public function saveAnnouncement()
@@ -337,43 +325,8 @@ class PageBuilderController extends BaseController
         ], base_url('addons/page-builder/content-hub?tab=announcements'));
     }
 
-    public function saveFaq()
-    {
-        if (! $this->canManagePages()) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
-        }
 
-        $id = (int) $this->request->getPost('id');
-        $q  = trim((string) $this->request->getPost('question'));
-        $a  = trim((string) $this->request->getPost('answer'));
-        if ($q !== '' && $a !== '') {
-            $this->pbModel->addFaqRecord([
-                'category'     => trim((string) $this->request->getPost('category')) ?: 'General',
-                'question'     => $q,
-                'answer'       => $a,
-                'sort_order'   => (int) ($this->request->getPost('sort_order') ?: 1),
-                'is_published' => 1,
-            ], $id);
-        }
-
-        return $this->respondOrRedirect([
-            'status'  => 'success',
-            'message' => $id > 0 ? 'FAQ #' . $id . ' updated!' : 'New FAQ added!',
-        ], base_url('addons/page-builder/content-hub?tab=faqs'));
-    }
-
-    public function deleteFaq()
-    {
-        if (! $this->canManagePages()) {
-            return $this->response->setJSON(['status' => 'error']);
-        }
-        $this->pbModel->deleteFaqRecord((int) $this->request->getPost('id'));
-
-        return $this->respondOrRedirect([
-            'status'  => 'success',
-            'message' => 'FAQ deleted permanently.',
-        ], base_url('addons/page-builder/content-hub?tab=faqs'));
-    }
+   
 
     public function saveReview()
     {
@@ -445,7 +398,6 @@ class PageBuilderController extends BaseController
             'activeFooter'    => $this->pbModel->getActiveFooter(),
             'dbAnnouncements' => $this->pbModel->getDynamicAnnouncements('category', 'all', 0),
             'dbReviews'       => $this->pbModel->getDynamicReviews(12),
-            'dbFaqs'          => $this->pbModel->getDynamicFaqs('all'),
             'pageTitle'       => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
         ]);
     }

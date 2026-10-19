@@ -58,73 +58,16 @@
     // 3. UNIFIED COMPONENT FORM GENERATOR (ALL 14 COMPONENTS)
     // ==========================================
     const buildBlockFieldsHtml = function (blk, idx, isFooter, colIdx) {
+        if (window.CMS_ADDON_BLOCK_RENDERERS && typeof window.CMS_ADDON_BLOCK_RENDERERS[blk.type] === 'function') {
+            return window.CMS_ADDON_BLOCK_RENDERERS[blk.type](blk, idx, isFooter, colIdx);
+        }
         const d = blk.data || {};
         const clsField = isFooter ? 'js-f-field' : 'js-blk-field';
         const clsRte = isFooter ? 'js-f-rte' : 'js-rte-area';
         const clsUpload = isFooter ? 'js-f-media-upload' : 'js-pb-media-upload';
         const attr = isFooter ? `data-col="${colIdx}" data-bidx="${idx}"` : `data-idx="${idx}"`;
 
-        if (blk.type === 'announcement_bar') {
-            const filterMode = d.filter_mode || 'category';
-            const scrollMode = d.scroll_mode || 'rtl';
-            const speedSec   = String(d.scroll_speed || '22');
-            return `
-                <div class="grid-3-col">
-                    <div class="field-group">
-                        <label class="field-label"><span>Left Fixed Label Badge</span></label>
-                        <input type="text" class="field-input ${clsField}" ${attr} data-key="badge_text" value="${escapeHtml(d.badge_text ?? 'NEW')}" placeholder="e.g. NEW or LIVE">
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>Data Source Mode</span><span class="req-badge">DB DRIVEN</span></label>
-                        <select class="field-select ${clsField}" ${attr} data-key="filter_mode">
-                            <option value="category" ${filterMode === 'category' ? 'selected' : ''}>📂 By Category (Multiple Loop)</option>
-                            <option value="single_id" ${filterMode === 'single_id' ? 'selected' : ''}>🎯 Single Announcement by ID</option>
-                        </select>
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>Category Name OR Single ID #</span></label>
-                        <div style="display:flex; gap:0.4rem;">
-                            <input type="text" class="field-input ${clsField}" ${attr} data-key="category" value="${escapeHtml(d.category || 'all')}" placeholder="Category (e.g. all, Admissions)">
-                            <input type="number" class="field-input mono-input ${clsField}" ${attr} data-key="announcement_id" value="${escapeHtml(d.announcement_id || '')}" placeholder="ID #" style="max-width:95px;">
-                        </div>
-                    </div>
-                </div>
-                <div class="grid-3-col">
-                    <div class="field-group">
-                        <label class="field-label"><span>Scroll Direction / Mode</span><span class="req-badge">MOTION</span></label>
-                        <select class="field-select ${clsField}" ${attr} data-key="scroll_mode">
-                            <option value="rtl" ${scrollMode === 'rtl' ? 'selected' : ''}>← Scroll Right-to-Left (Infinite Loop)</option>
-                            <option value="ltr" ${scrollMode === 'ltr' ? 'selected' : ''}>→ Scroll Left-to-Right (Infinite Loop)</option>
-                            <option value="static" ${scrollMode === 'static' ? 'selected' : ''}>⊡ Static Mode (No Scroll, Merged Link)</option>
-                        </select>
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>Scroll Speed & Close (✕) Button</span></label>
-                        <div style="display:flex; gap:0.4rem;">
-                            <select class="field-select ${clsField}" ${attr} data-key="scroll_speed">
-                                <option value="14" ${speedSec === '14' ? 'selected' : ''}>Fast (14s)</option>
-                                <option value="22" ${speedSec === '22' ? 'selected' : ''}>Normal (22s)</option>
-                                <option value="32" ${speedSec === '32' ? 'selected' : ''}>Slow (32s)</option>
-                            </select>
-                            <select class="field-select ${clsField}" ${attr} data-key="dismissible">
-                                <option value="1" ${d.dismissible !== '0' ? 'selected' : ''}>Show ✕ Button</option>
-                                <option value="0" ${d.dismissible === '0' ? 'selected' : ''}>Hide ✕ Button</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>Colors: Bar BG / Text / Badge BG / Badge Text</span></label>
-                        <div class="color-picker-row">
-                            <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="bg_color" value="${escapeHtml(d.bg_color || '#10b981')}" title="Bar Background">
-                            <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="text_color" value="${escapeHtml(d.text_color || '#04130d')}" title="Bar Text Color">
-                            <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="badge_bg" value="${escapeHtml(d.badge_bg || '#04130d')}" title="Badge Background">
-                            <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="badge_color" value="${escapeHtml(d.badge_color || '#10b981')}" title="Badge Text Color">
-                        </div>
-                    </div>
-                </div>
-                <span class="field-hint">📢 Add or Edit announcements inside <strong>Sidebar → Announcements, FAQs & Reviews</strong>. Links automatically merge and scroll with their announcement text!</span>
-            `;
-        } else if (blk.type === 'split_hero') {
+        if (blk.type === 'split_hero') {
             return `
                 <div class="grid-3-col">
                     <div class="field-group"><label class="field-label"><span>Top Badge</span></label><input type="text" class="field-input ${clsField}" ${attr} data-key="badge" value="${escapeHtml(d.badge)}"></div>
@@ -263,51 +206,6 @@
                     </div>
                 </div>
                 <span class="field-hint">★ Manage reviews inside <strong>Sidebar → Announcements, FAQs & Reviews</strong>.</span>
-            `;
-        } else if (blk.type === 'faq_accordion') {
-            const boxPos = d.box_position || 'center';
-            const txtAlign = d.text_align || 'left';
-            return `
-                <div class="grid-3-col">
-                    <div class="field-group">
-                        <label class="field-label"><span>Section Title</span></label>
-                        <input type="text" class="field-input ${clsField}" ${attr} data-key="section_title" value="${escapeHtml(d.section_title)}">
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>FAQ Tabs Box Position</span><span class="req-badge">BOX POS</span></label>
-                        <select class="field-select ${clsField}" ${attr} data-key="box_position">
-                            <option value="left" ${boxPos === 'left' ? 'selected' : ''}>⇤ Left Positioned Tabs</option>
-                            <option value="center" ${boxPos === 'center' ? 'selected' : ''}>⇿ Center Positioned Tabs</option>
-                            <option value="right" ${boxPos === 'right' ? 'selected' : ''}>⇥ Right Positioned Tabs</option>
-                        </select>
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>Inside Text Alignment</span><span class="req-badge">TEXT</span></label>
-                        <select class="field-select ${clsField}" ${attr} data-key="text_align">
-                            <option value="left" ${txtAlign === 'left' ? 'selected' : ''}>Text: Left Aligned</option>
-                            <option value="center" ${txtAlign === 'center' ? 'selected' : ''}>Text: Center Aligned</option>
-                            <option value="right" ${txtAlign === 'right' ? 'selected' : ''}>Text: Right Aligned</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="grid-3-col">
-                    <div class="field-group">
-                        <label class="field-label"><span>Subtitle Description</span></label>
-                        <input type="text" class="field-input ${clsField}" ${attr} data-key="subtitle" value="${escapeHtml(d.subtitle)}">
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>Filter by Category</span></label>
-                        <input type="text" class="field-input ${clsField}" ${attr} data-key="category" value="${escapeHtml(d.category || 'all')}" placeholder="all">
-                    </div>
-                    <div class="field-group">
-                        <label class="field-label"><span>Border & Accent Color</span></label>
-                        <div class="color-picker-row">
-                            <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="border_color" value="${escapeHtml(d.border_color || '#232738')}">
-                            <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="accent_color" value="${escapeHtml(d.accent_color || '#10b981')}">
-                        </div>
-                    </div>
-                </div>
-                <span class="field-hint">❓ Manage FAQs inside <strong>Sidebar → Announcements, FAQs & Reviews</strong>.</span>
             `;
         } else if (blk.type === 'newsletter_cta') {
             return `
@@ -714,27 +612,8 @@
             return;
         }
 
-        const editFaqBtn = event.target.closest('.js-edit-faq');
-        if (editFaqBtn) {
-            document.getElementById('faq_id').value = editFaqBtn.getAttribute('data-id');
-            document.getElementById('faq_category').value = editFaqBtn.getAttribute('data-category');
-            document.getElementById('faq_question').value = editFaqBtn.getAttribute('data-question');
-            document.getElementById('faq_answer').value = editFaqBtn.getAttribute('data-answer');
-            document.getElementById('faq-form-heading').textContent = '✎ EDITING FAQ #' + editFaqBtn.getAttribute('data-id');
-            document.getElementById('faq-submit-btn').textContent = 'Update FAQ ✓';
-            document.getElementById('faq-cancel-edit').classList.remove('is-hidden');
-            document.getElementById('faq_question').focus();
-            return;
-        }
+       
 
-        if (event.target.closest('#faq-cancel-edit')) {
-            document.getElementById('pb-add-faq-form').reset();
-            document.getElementById('faq_id').value = '0';
-            document.getElementById('faq-form-heading').textContent = '+ ADD NEW FAQ QUESTION & ANSWER';
-            document.getElementById('faq-submit-btn').textContent = '+ Add FAQ';
-            document.getElementById('faq-cancel-edit').classList.add('is-hidden');
-            return;
-        }
 
         const editRevBtn = event.target.closest('.js-edit-rev');
         if (editRevBtn) {
@@ -861,17 +740,7 @@
             return;
         }
 
-        const faqBtn = event.target.closest('.js-faq-toggle');
-        if (faqBtn) {
-            const item = faqBtn.closest('.cms-faq-item');
-            const icon = faqBtn.querySelector('.cms-faq-icon');
-            if (item) {
-                const isOpen = item.classList.toggle('is-open');
-                if (icon) icon.textContent = isOpen ? '−' : '+';
-            }
-            return;
-        }
-
+     
         const playBtn = event.target.closest('.js-open-video-modal');
         if (playBtn) {
             const videoUrl = playBtn.getAttribute('data-video-url');
@@ -1202,6 +1071,15 @@
     // ==========================================
     // 9. BOOT CANVASES, TOP LOADER, AUTO-SCROLL & LAZY REVEAL
     // ==========================================
+    document.addEventListener('cms:addon-renderer-ready', function () {
+        if (document.getElementById('pb-canvas-dropzone')) {
+            renderBuilderCanvas();
+        }
+        if (document.getElementById('pb-footer-columns-wrap')) {
+            renderFooterBuilder();
+        }
+    });
+
     const bootCanvases = function () {
         const pbBlocksInput = document.getElementById('pb_blocks_json');
         if (document.getElementById('pb-canvas-dropzone') && pbBlocksInput) {

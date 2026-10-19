@@ -70,11 +70,7 @@
                         <span class="nav-icon">⊞</span>
                         <span class="nav-text">Footer Architect</span>
                     </a>
-                    <a href="<?= base_url('addons/page-builder/content-hub') ?>" class="sidebar-link <?= $currentMenu === 'addon_pb_hub' ? 'is-active' : '' ?>" style="padding-left: 2.2rem; font-size: 0.82rem;">
-                        <span class="nav-icon">🗂</span>
-                        <span class="nav-text">Announcements, FAQs & Reviews</span>
-                    </a>
-                <?php endif; ?>
+                    <?php endif; ?>
                 <?php endif; ?>
             <?php endforeach; ?>
         <?php endif; ?>

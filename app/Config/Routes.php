@@ -61,4 +61,3 @@ if (is_file(WRITEPATH . 'installed.lock') && class_exists('\App\Models\Addons\Ad
         }
     }
 }
-

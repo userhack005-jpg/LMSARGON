@@ -1,163 +1,198 @@
-<?php
-    $metaTitle = ! empty($settings['meta_title'])
-        ? $settings['meta_title']
-        : ($pageTitle ?? ($settings['site_title'] ?? 'System Core'));
-?>
-<title><?= esc($metaTitle) ?></title>
-
-<?php if (! empty($settings['site_favicon'])): ?>
-    <link rel="icon" href="<?= base_url(esc($settings['site_favicon'])) ?>">
-<?php endif; ?>
-
-<!-- SEO Meta Tags -->
-<meta name="robots" content="<?= esc($settings['robots_txt'] ?? 'index, follow') ?>">
-<?php if (! empty($settings['meta_description'])): ?>
-    <meta name="description" content="<?= esc($settings['meta_description']) ?>">
-    <meta property="og:description" content="<?= esc($settings['meta_description']) ?>">
-<?php endif; ?>
-<?php if (! empty($settings['meta_keywords'])): ?>
-    <meta name="keywords" content="<?= esc($settings['meta_keywords']) ?>">
-<?php endif; ?>
-<meta property="og:title" content="<?= esc($metaTitle) ?>">
-<meta property="og:type" content="website">
-<?php if (! empty($settings['canonical_url'])): ?>
-    <link rel="canonical" href="<?= esc($settings['canonical_url']) ?>">
-    <meta property="og:url" content="<?= esc($settings['canonical_url']) ?>">
-<?php endif; ?>
-<?php if (! empty($settings['og_image'])): ?>
-    <meta property="og:image" content="<?= base_url(esc($settings['og_image'])) ?>">
-<?php endif; ?>
-
-<!-- Search Engine & Domain Verification Meta Tags -->
-<?php if (! empty($settings['google_site_verification'])): ?>
-    <meta name="google-site-verification" content="<?= esc($settings['google_site_verification']) ?>">
-<?php endif; ?>
-<?php if (! empty($settings['meta_domain_verification'])): ?>
-    <meta name="facebook-domain-verification" content="<?= esc($settings['meta_domain_verification']) ?>">
-<?php endif; ?>
-<?php if (! empty($settings['bing_site_verification'])): ?>
-    <meta name="msvalidate.01" content="<?= esc($settings['bing_site_verification']) ?>">
-<?php endif; ?>
-
-<!-- Google Analytics 4 (GA4) Auto-Snippet -->
-<?php if (! empty($settings['google_analytics_id'])): ?>
-    <script async src="https://www.googletagmanager.com/gtag/js?id=<?= esc($settings['google_analytics_id']) ?>"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', '<?= esc($settings['google_analytics_id']) ?>');
-    </script>
-<?php endif; ?>
-
-<!-- Google Tag Manager (GTM) Auto-Snippet -->
-<?php if (! empty($settings['google_tag_manager_id'])): ?>
-    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-    })(window,document,'script','dataLayer','<?= esc($settings['google_tag_manager_id']) ?>');</script>
-<?php endif; ?>
-
-<!-- Meta / Facebook Pixel Auto-Snippet -->
-<?php if (! empty($settings['meta_pixel_id'])): ?>
-    <script>
-    !function(f,b,e,v,n,t,s)
-    {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-    n.queue=[];t=b.createElement(e);t.async=!0;
-    t.src=v;s=b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t,s)}(window, document,'script',
-    'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', '<?= esc($settings['meta_pixel_id']) ?>');
-    fbq('track', 'PageView');
-    </script>
-<?php endif; ?>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="X-UA-Compatible" content="ie=edge">
+<meta name="csrf-token" content="<?= csrf_hash() ?>">
+<meta name="csrf-header" content="<?= csrf_header() ?>">
 
 <?php
-    $themeMode   = ($settings['active_theme_mode'] ?? 'dark') === 'light' ? 'light' : 'dark';
-    $fontSans    = $settings['font_family_sans'] ?? 'Inter';
-    $fontMono    = $settings['font_family_mono'] ?? 'JetBrains Mono';
-    $accentMain  = $settings['primary_accent_color'] ?? '#10b981';
-    $accentSec   = $settings['secondary_accent_color'] ?? '#06b6d4';
-
-    if ($themeMode === 'light') {
-        $bgCanvas    = $settings['light_bg_canvas'] ?? '#f8fafc';
-        $bgSurface   = $settings['light_bg_surface'] ?? '#ffffff';
-        $bgElevated  = '#f1f5f9';
-        $bgInput     = '#ffffff';
-        $txtPrimary  = $settings['light_text_primary'] ?? '#0f172a';
-        $txtSecond   = '#475569';
-        $txtMuted    = '#64748b';
-        $borderCol   = $settings['light_border_color'] ?? '#e2e8f0';
-    } else {
-        $bgCanvas    = $settings['dark_bg_canvas'] ?? '#090a0f';
-        $bgSurface   = $settings['dark_bg_surface'] ?? '#11131c';
-        $bgElevated  = '#171a26';
-        $bgInput     = '#0c0e16';
-        $txtPrimary  = $settings['dark_text_primary'] ?? '#f3f4f6';
-        $txtSecond   = '#9ca3af';
-        $txtMuted    = '#6b7280';
-        $borderCol   = $settings['dark_border_color'] ?? '#232738';
-    }
-
-    $googleFontUrl = 'https://fonts.googleapis.com/css2?family='
-        . urlencode($fontSans) . ':wght@400;500;600;700&family='
-        . urlencode($fontMono) . ':wght@400;500;600&display=swap';
+    $siteName    = $settings['site_name'] ?? 'LMS Enterprise Portal';
+    $rawTitle    = $pageTitle ?? ($page['page_title'] ?? ($page['title'] ?? $siteName));
+    $metaDesc    = $metaDescription ?? ($page['meta_description'] ?? ($settings['site_description'] ?? ''));
+    $faviconUrl  = ! empty($settings['favicon_url']) ? base_url($settings['favicon_url']) : base_url('favicon.ico');
 ?>
+<title><?= esc($rawTitle) ?></title>
+<?php if ($metaDesc !== ''): ?>
+<meta name="description" content="<?= esc($metaDesc) ?>">
+<?php endif; ?>
+<link rel="icon" href="<?= esc($faviconUrl) ?>">
+
+<!-- Google Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="<?= esc($googleFontUrl) ?>" rel="stylesheet">
-<link rel="stylesheet" href="<?= base_url('assets/css/app.css?v=' . time()) ?>">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<!-- Dynamic Theme, Color Palette & Typography Engine -->
-<style id="portal-theme-variables">
-    :root {
-        --bg-canvas: <?= esc($bgCanvas) ?>;
-        --bg-surface: <?= esc($bgSurface) ?>;
-        --bg-elevated: <?= esc($bgElevated) ?>;
-        --bg-input: <?= esc($bgInput) ?>;
-        --border-subtle: <?= esc($borderCol) ?>;
-        --border-focus: <?= esc($accentMain) ?>;
-        --text-primary: <?= esc($txtPrimary) ?>;
-        --text-secondary: <?= esc($txtSecond) ?>;
-        --text-muted: <?= esc($txtMuted) ?>;
-        --accent-emerald: <?= esc($accentMain) ?>;
-        --accent-cyan: <?= esc($accentSec) ?>;
-        --font-sans: '<?= esc($fontSans) ?>', -apple-system, BlinkMacSystemFont, sans-serif;
-        --font-mono: '<?= esc($fontMono) ?>', monospace;
+<!-- Core Application Stylesheet -->
+<?php
+    $coreCssFile = FCPATH . 'assets/css/app.css';
+    $coreCssVer  = is_file($coreCssFile) ? (string) @filemtime($coreCssFile) : '1.0';
+?>
+<link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>?v=<?= esc($coreCssVer) ?>">
+
+
+<!-- DYNAMIC ADD-ON EXTERNAL CSS & JS LOADER -->
+<?php
+try {
+    $dbAddonAssets = \Config\Database::connect();
+    if ($dbAddonAssets->tableExists('addons')) {
+        $addonRows = $dbAddonAssets->table('addons')->get()->getResultArray();
+        foreach ($addonRows as $actAddon) {
+            $slug = trim((string) ($actAddon['slug'] ?? ''));
+            if ($slug === '') {
+                continue;
+            }
+
+            $isActive = true;
+            if (isset($actAddon['is_active']) && (int) $actAddon['is_active'] === 0) {
+                $isActive = false;
+            } elseif (isset($actAddon['is_enabled']) && (int) $actAddon['is_enabled'] === 0) {
+                $isActive = false;
+            } elseif (isset($actAddon['status']) && strtolower((string) $actAddon['status']) !== 'active') {
+                $isActive = false;
+            }
+
+            if (! $isActive) {
+                continue;
+            }
+
+            $addonExtractDir = WRITEPATH . 'addons/extracted/' . $slug;
+            $manifestFile    = $addonExtractDir . '/addon.json';
+
+            if (is_file($manifestFile)) {
+                $rawJson      = ltrim((string) file_get_contents($manifestFile), "\xEF\xBB\xBF");
+                $manifestData = json_decode($rawJson, true);
+
+                if (is_array($manifestData)) {
+                    foreach (($manifestData['assets']['css'] ?? []) as $cssRelUrl) {
+                        $cssFileName = basename((string) $cssRelUrl);
+                        $localCss    = $addonExtractDir . '/assets/' . $cssFileName;
+                        $cssVer      = is_file($localCss) ? (string) @filemtime($localCss) : '1.0';
+                        echo '<link rel="stylesheet" href="' . base_url(esc((string) $cssRelUrl)) . '?v=' . esc($cssVer) . '">' . "\n";
+                    }
+
+                    foreach (($manifestData['assets']['js'] ?? []) as $jsRelUrl) {
+                        $jsFileName = basename((string) $jsRelUrl);
+                        $localJs    = $addonExtractDir . '/assets/' . $jsFileName;
+                        $jsVer      = is_file($localJs) ? (string) @filemtime($localJs) : '1.0';
+                        echo '<script src="' . base_url(esc((string) $jsRelUrl)) . '?v=' . esc($jsVer) . '" defer></script>' . "\n";
+                    }
+                }
+            }
+        }
     }
-    <?php if ($themeMode === 'light'): ?>
-    .app-header, .cms-public-navbar {
-        background: rgba(255, 255, 255, 0.88) !important;
+} catch (\Throwable $e) {
+}
+?>
+
+<!-- SERVER-SIDE PRE-PAINT SCOPED CSS VARIABLES -->
+<?php
+if (! empty($blocks) && is_array($blocks)) {
+    $compiledRules = [];
+
+    foreach ($blocks as $bIdx => $blkItem) {
+        $bData = $blkItem['data'] ?? [];
+        if (empty($bData) || ! is_array($bData)) {
+            continue;
+        }
+
+        $s = '.cms-scope-blk-' . (int) $bIdx;
+        $targetSelector = $s . ', '
+                        . $s . '.cms-announcement-bar, '
+                        . $s . ' .cms-announcement-bar, '
+                        . $s . '.cms-faq-section, '
+                        . $s . ' .cms-faq-section, '
+                        . $s . '.cms-reviews-section, '
+                        . $s . ' .cms-reviews-section';
+
+        $varsList = [];
+
+        foreach ($bData as $k => $v) {
+            if (! is_scalar($v)) {
+                continue;
+            }
+            $valStr = trim((string) $v);
+            if ($valStr === '') {
+                continue;
+            }
+            if (preg_match('/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|var\([^)]+\)|[0-9]+(\.[0-9]+)?(s|rem|em|%)?)$/', $valStr)) {
+                $cleanKey = preg_replace('/[^a-z0-9_-]/i', '-', strtolower((string) $k));
+                if ($cleanKey === 'scroll-speed' && is_numeric($valStr)) {
+                    $varsList[] = '--cms-scroll-speed:' . $valStr . 's';
+                } else {
+                    $varsList[] = '--cms-' . $cleanKey . ':' . $valStr;
+                }
+            }
+        }
+
+        if (! empty($bData['bg_color'])) {
+            $varsList[] = '--ann-bg:' . trim((string) $bData['bg_color']);
+        }
+        if (! empty($bData['text_color'])) {
+            $varsList[] = '--ann-text:' . trim((string) $bData['text_color']);
+        }
+        if (! empty($bData['badge_bg'])) {
+            $varsList[] = '--ann-badge-bg:' . trim((string) $bData['badge_bg']);
+        }
+        if (! empty($bData['badge_color'])) {
+            $varsList[] = '--ann-badge-color:' . trim((string) $bData['badge_color']);
+        }
+        if (! empty($bData['scroll_speed']) && is_numeric($bData['scroll_speed'])) {
+            $spd = max(4, (int) $bData['scroll_speed']) . 's';
+            $varsList[] = '--ann-speed:' . $spd;
+            $varsList[] = '--rev-speed:' . $spd;
+        }
+        if (! empty($bData['accent_color'])) {
+            $varsList[] = '--faq-accent:' . trim((string) $bData['accent_color']);
+            $varsList[] = '--faq-active-accent:' . trim((string) $bData['accent_color']);
+        }
+        if (! empty($bData['border_color'])) {
+            $varsList[] = '--faq-border:' . trim((string) $bData['border_color']);
+        }
+        if (! empty($bData['card_bg_dark'])) {
+            $varsList[] = '--rev-card-bg-dark:' . trim((string) $bData['card_bg_dark']);
+            $varsList[] = '--faq-card-bg-dark:' . trim((string) $bData['card_bg_dark']);
+        }
+        if (! empty($bData['text_dark'])) {
+            $varsList[] = '--rev-text-dark:' . trim((string) $bData['text_dark']);
+            $varsList[] = '--faq-text-dark:' . trim((string) $bData['text_dark']);
+        }
+        if (! empty($bData['star_dark'])) {
+            $varsList[] = '--rev-star-dark:' . trim((string) $bData['star_dark']);
+        }
+        if (! empty($bData['accent_dark'])) {
+            $varsList[] = '--faq-accent-dark:' . trim((string) $bData['accent_dark']);
+        }
+        if (! empty($bData['card_bg_light'])) {
+            $varsList[] = '--rev-card-bg-light:' . trim((string) $bData['card_bg_light']);
+            $varsList[] = '--faq-card-bg-light:' . trim((string) $bData['card_bg_light']);
+        }
+        if (! empty($bData['text_light'])) {
+            $varsList[] = '--rev-text-light:' . trim((string) $bData['text_light']);
+            $varsList[] = '--faq-text-light:' . trim((string) $bData['text_light']);
+        }
+        if (! empty($bData['star_light'])) {
+            $varsList[] = '--rev-star-light:' . trim((string) $bData['star_light']);
+        }
+        if (! empty($bData['accent_light'])) {
+            $varsList[] = '--faq-accent-light:' . trim((string) $bData['accent_light']);
+        }
+
+        if (! empty($varsList)) {
+            $compiledRules[] = $targetSelector . ' {' . implode('; ', array_unique($varsList)) . ';}';
+        }
+
+        if (($bData['_bg_mode'] ?? '') === 'custom' && ! empty($bData['_bg_color'])) {
+            $compiledRules[] = $s . ' .cms-block, ' . $s . '.cms-block {background-color: ' . trim((string) $bData['_bg_color']) . ' !important;}';
+        }
     }
-    .ambient-grid {
-        background-image: 
-            linear-gradient(to right, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(15, 23, 42, 0.04) 1px, transparent 1px) !important;
+
+    if (! empty($compiledRules)) {
+        echo '<style id="cms-prepaint-scoped-vars">' . "\n" . implode("\n", $compiledRules) . "\n" . '</style>' . "\n";
     }
-    <?php endif; ?>
-</style>
+}
 
-<script src="<?= base_url('assets/js/app.js?v=' . time()) ?>" defer></script>
-
-<?php if (! empty($settings['custom_css'])): ?>
-    <style id="portal-custom-css"><?= $settings['custom_css'] ?></style>
-<?php endif; ?>
-
-<?php if (! empty($settings['header_scripts'])): ?>
-    <?= $settings['header_scripts'] ?>
-<?php endif; ?>
-
-
-<!-- Admin-Defined Custom CSS Override -->
-<?php if (! empty($settings['custom_css'])): ?>
-    <style id="portal-custom-css"><?= $settings['custom_css'] ?></style>
-<?php endif; ?>
-
-<!-- Admin-Defined Custom Header Scripts -->
-<?php if (! empty($settings['header_scripts'])): ?>
-    <?= $settings['header_scripts'] ?>
-<?php endif; ?>
-<script src="<?= base_url('assets/js/app.js?v=' . time()) ?>" defer></script>
+?>
+<?php
+        $coreJsFile = FCPATH . 'assets/js/app.js';
+        $coreJsVer  = is_file($coreJsFile) ? (string) @filemtime($coreJsFile) : '1.0';
+    ?>
+    <script src="<?= base_url('assets/js/app.js') ?>?v=<?= esc($coreJsVer) ?>" defer></script>

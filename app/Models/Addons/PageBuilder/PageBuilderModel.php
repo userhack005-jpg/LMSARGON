@@ -160,17 +160,7 @@ class PageBuilderModel extends Model
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
-            $db->query("
-                CREATE TABLE IF NOT EXISTS `cms_faqs` (
-                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                    `category` VARCHAR(80) NOT NULL DEFAULT 'General',
-                    `question` VARCHAR(255) NOT NULL,
-                    `answer` TEXT NOT NULL,
-                    `sort_order` INT NOT NULL DEFAULT 0,
-                    `is_published` TINYINT(1) NOT NULL DEFAULT 1,
-                    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-            ");
+           
 
             $db->query("
                 CREATE TABLE IF NOT EXISTS `cms_leads` (
@@ -282,7 +272,32 @@ class PageBuilderModel extends Model
     {
         $this->ensureSchemaInitialized();
         try {
-            $b = Database::connect()->table('cms_components');
+            $db = Database::connect();
+            $fields =$db->getFieldNames('cms_components');
+            if (! in_array('addon_slug', $fields, true)) {$db->query("ALTER TABLE `cms_components` ADD COLUMN `addon_slug` VARCHAR(60) NOT NULL DEFAULT 'page_builder' AFTER `category`");
+            }
+
+            // Always bind modular blocks to their respective Add-On slugs so they NEVER show unless that Add-On is installed & active!
+            $db->table('cms_components')->where('component_key', 'faq_accordion')->update(['addon_slug' => 'faqs']);$db->table('cms_components')->where('component_key', 'announcement_bar')->update(['addon_slug' => 'announcements']);
+
+            $activeSlugs = ['page_builder'];
+            if ($db->tableExists('addons')) {
+                $rows =$db->table('addons')->get()->getResultArray();
+                foreach ($rows as$r) {
+                    $slug =$r['slug'] ?? '';
+                    if ($slug === '') { continue; }$active = true;
+                    if (isset($r['is_active']) && (int) $r['is_active'] === 0) {$active = false;
+                    } elseif (isset($r['is_enabled']) && (int) $r['is_enabled'] === 0) {$active = false;
+                    } elseif (isset($r['status']) && strtolower((string) $r['status']) !== 'active') {$active = false;
+                    }
+                    // Also verify extracted folder exists on disk
+                    if ($active && is_dir(WRITEPATH . 'addons/extracted/' .$slug)) {
+                        $activeSlugs[] =$slug;
+                    }
+                }
+            }
+
+            $b = $db->table('cms_components')->whereIn('addon_slug', array_unique($activeSlugs));
             if ($onlyEnabled) {$b->where('is_enabled', 1);
             }
             return $b->orderBy('sort_order', 'ASC')->get()->getResultArray();
@@ -493,42 +508,6 @@ class PageBuilderModel extends Model
         }
     }
 
-    public function getDynamicFaqs(string $category = 'all'): array
-    {
-        $this->ensureExtendedWidgetsSchema();
-        try {
-            $b = Database::connect()->table('cms_faqs')->where('is_published', 1);
-            if ($category !== '' && strtolower($category) !== 'all') {
-                $b->where('category',$category);
-            }
-            return $b->orderBy('sort_order', 'ASC')->orderBy('id', 'ASC')->get()->getResultArray();
-        } catch (Throwable $e) {
-            return [];
-        }
-    }
-
-    public function addFaqRecord(array $data, int$id = 0): bool
-    {
-        $this->ensureExtendedWidgetsSchema();
-        try {
-            $db = Database::connect();
-            if ($id > 0) {
-                return (bool) $db->table('cms_faqs')->where('id', $id)->update($data);
-            }
-            return (bool) $db->table('cms_faqs')->insert($data);
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
-
-    public function deleteFaqRecord(int $id): bool
-    {
-        try {
-            return (bool) Database::connect()->table('cms_faqs')->where('id', $id)->delete();
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
 
     public function saveLeadEmail(string $email): array
     {
