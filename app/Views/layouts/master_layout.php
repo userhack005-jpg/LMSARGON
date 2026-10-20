@@ -27,7 +27,11 @@
         </div>
     </div>
 
-
+ <?php
+        $coreJsFile = FCPATH . 'assets/js/app.js';
+        $coreJsVer  = is_file($coreJsFile) ? (string) @filemtime($coreJsFile) : '1.0';
+    ?>
+    <script src="<?= base_url('assets/js/app.js') ?>?v=<?= esc($coreJsVer) ?>" defer></script>
     <?php if (! empty($settings['footer_scripts'])): ?>
         <?= $settings['footer_scripts'] ?>
     <?php endif; ?>
