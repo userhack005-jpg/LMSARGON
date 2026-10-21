@@ -107,11 +107,10 @@
                     continue;
                 }
 
-                // If newsletter_cta has `is_floating == 1`, queue it to render right above the Footer (Edustray Style!)
-                if ($type === 'newsletter_cta' && ! empty($data['is_floating']) && (string) $data['is_floating'] === '1') {
-                    $floatingCtas[] = $data;
-                    continue;
-                }
+				if (! empty($data['is_floating']) && (string) $data['is_floating'] === '1') {
+					$floatingCtas[] = ['type' => $type, 'data' => $data, 'idx' => $idx];
+					continue;
+				}
 
                 $gapMode     = $data['_gap'] ?? 'normal';
                 $prevGapMode = ($idx > 0) ? ($blocks[$idx - 1]['data']['_gap'] ?? 'normal') : 'normal';
@@ -139,13 +138,14 @@
             <div class="<?= $wrapperClass ?> is-revealed">
                 <?php
                     // UNIVERSAL MODULAR ADD-ON BLOCK LOADER (Checks writable/addons/extracted first!)
-                    $addonMap = [
+                 /*    $addonMap = [
                         'faq_accordion'      => 'faqs',
                         'testimonial_slider' => 'reviews',
                         'newsletter_cta'     => 'newsletter',
                         'announcement_bar'   => 'announcements',
-                    ];
-                    $targetAddonSlug = $addonMap[$type] ?? ($componentMap[$type]['addon_slug'] ?? 'page_builder');
+                    ]; */
+					$targetAddonSlug = $componentMap[$type]['addon_slug'] ?? 'page_builder';
+                   // $targetAddonSlug = $addonMap[$type] ?? ($componentMap[$type]['addon_slug'] ?? 'page_builder');
                     $extractedAddonBlockFile = WRITEPATH . 'addons/extracted/' . $targetAddonSlug . '/Views/addons/' . $targetAddonSlug . '/block_view.php';
 
                     // Render from extracted Add-on ONLY if that Add-on is installed, active & has block_view.php;
@@ -304,30 +304,7 @@
                         </div>
                     </section>
 
-                <!-- 6. INLINE NEWSLETTER / LEAD MAGNET CTA BOX (Built-in Fallback until Newsletter Add-on is active) -->
-                <?php elseif ($type === 'newsletter_cta'): ?>
-                    <section class="<?= $blockClass ?> cms-newsletter-box" style="background-color: <?= esc($data['bg_color'] ?? '#0d1f1a') ?>; border-color: <?= esc($data['border_color'] ?? '#10b981') ?>; color: <?= esc($data['text_color'] ?? '#f3f4f6') ?>;">
-                        <div class="cms-inner-container cms-newsletter-grid">
-                            <div>
-                                <?php if (! empty($data['badge'])): ?>
-                                    <span class="req-badge"><?= esc($data['badge']) ?></span>
-                                <?php endif; ?>
-                                <h2 style="margin-top:0.5rem;"><?= esc($data['heading'] ?? '') ?></h2>
-                                <p style="opacity:0.85; margin-top:0.35rem;"><?= esc($data['subheading'] ?? '') ?></p>
-                            </div>
-                            <form action="<?= base_url('cms/subscribe-lead') ?>" method="post" class="cms-lead-form js-cms-lead-form">
-                                <?= csrf_field() ?>
-                                <div class="cms-lead-input-group">
-                                    <input type="email" name="email" class="field-input" placeholder="<?= esc($data['placeholder'] ?? 'Enter your email...') ?>" required>
-                                    <button type="submit" class="btn-primary" style="background: <?= esc($data['btn_bg'] ?? '#10b981') ?>; color: <?= esc($data['btn_text_col'] ?? '#04130d') ?>;">
-                                        <span><?= esc($data['btn_text'] ?? 'Subscribe') ?></span>
-                                    </button>
-                                </div>
-                                <div class="js-lead-feedback field-hint" style="margin-top:0.4rem;"></div>
-                            </form>
-                        </div>
-                    </section>
-
+            
                 <!-- EXISTING CORE BLOCKS (Hero, Rich Text, Image, CTA, Quiz, Feature Grid, Custom HTML) -->
                 <?php elseif ($type === 'hero_banner'): ?>
                     <section class="<?= $blockClass ?> cms-hero align-<?= esc($data['align'] ?? 'center') ?>" style="<?= $customBgCss ?>">
@@ -426,40 +403,21 @@
     </main>
 
     <!-- EDUSTRAY-STYLE FLOATING NEWSLETTER / LEAD MAGNET BOX (OVERLAPPING ABOVE FOOTER!) -->
-    <?php foreach ($floatingCtas as $fCta): ?>
-        <div class="cms-floating-cta-wrap">
-            <?php
-                $nlFloatingView = WRITEPATH . 'addons/extracted/newsletter/Views/addons/newsletter/block_view.php';
-                if ($isAddonActive('newsletter') && is_file($nlFloatingView)):
-                    $data       = $fCta;
-                    $blockClass = 'cms-block is-floating-overlap';
-                    include $nlFloatingView;
-                else:
-            ?>
-            <section class="cms-newsletter-box is-floating-overlap" style="background-color: <?= esc($fCta['bg_color'] ?? '#0d1f1a') ?>; border-color: <?= esc($fCta['border_color'] ?? '#10b981') ?>; color: <?= esc($fCta['text_color'] ?? '#f3f4f6') ?>;">
-                <div class="cms-newsletter-grid">
-                    <div>
-                        <?php if (! empty($fCta['badge'])): ?>
-                            <span class="req-badge"><?= esc($fCta['badge']) ?></span>
-                        <?php endif; ?>
-                        <h2 style="margin-top:0.4rem;"><?= esc($fCta['heading'] ?? '') ?></h2>
-                        <p style="opacity:0.85; margin-top:0.35rem;"><?= esc($fCta['subheading'] ?? '') ?></p>
-                    </div>
-                    <form action="<?= base_url('cms/subscribe-lead') ?>" method="post" class="cms-lead-form js-cms-lead-form">
-                        <?= csrf_field() ?>
-                        <div class="cms-lead-input-group">
-                            <input type="email" name="email" class="field-input" placeholder="<?= esc($fCta['placeholder'] ?? 'Enter your email...') ?>" required>
-                            <button type="submit" class="btn-primary" style="background: <?= esc($fCta['btn_bg'] ?? '#10b981') ?>; color: <?= esc($fCta['btn_text_col'] ?? '#04130d') ?>;">
-                                <span><?= esc($fCta['btn_text'] ?? 'Subscribe') ?></span>
-                            </button>
-                        </div>
-                        <div class="js-lead-feedback field-hint" style="margin-top:0.4rem;"></div>
-                    </form>
-                </div>
-            </section>
-            <?php endif; ?>
-        </div>
-    <?php endforeach; ?>
+		  <?php foreach ($floatingCtas as $fItem): ?>
+			<?php
+				$fType = $fItem['type'] ?? 'newsletter_cta';
+				$data  = $fItem['data'] ?? $fItem;
+				$fSlug = $componentMap[$fType]['addon_slug'] ?? 'newsletter';
+				$fView = WRITEPATH . 'addons/extracted/' . $fSlug . '/Views/addons/' . $fSlug . '/block_view.php';
+				$blockScopeClass = 'cms-scope-blk-' . (int) ($fItem['idx'] ?? 0);
+				$blockClass      = 'cms-block is-floating-overlap ' . $blockScopeClass;
+			?>
+			<?php if ($isAddonActive($fSlug) && is_file($fView)): ?>
+				<div class="cms-floating-cta-wrap <?= esc($blockScopeClass) ?>">
+					<?php include $fView; ?>
+				</div>
+			<?php endif; ?>
+		<?php endforeach; ?>
 
     <!-- VIDEO POPUP MODAL (ULTRA-LIGHTWEIGHT, LOADS IFRAME ONLY ON CLICK) -->
     <div id="cms-video-modal" class="cms-video-modal is-hidden">

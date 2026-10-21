@@ -922,20 +922,7 @@
             return;
         }
 
-        if (form.classList.contains('js-cms-lead-form')) {
-            event.preventDefault();
-            const feedback = form.querySelector('.js-lead-feedback');
-            fetch(form.action, { method: 'POST', body: new FormData(form), headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(function (r) { return r.json(); })
-                .then(function (res) {
-                    if (feedback) {
-                        feedback.textContent = res.message;
-                        feedback.style.color = res.status === 'success' ? '#34d399' : '#fca5a5';
-                    }
-                    if (res.status === 'success') form.reset();
-                });
-            return;
-        }
+       
 
         const handledIds = ['installer-form', 'create-user-form', 'global-settings-form', 'addon-upload-form', 'pb-save-form', 'pb-footer-form'];
         if (!handledIds.includes(form.id)) return;

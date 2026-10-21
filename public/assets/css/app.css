@@ -1987,18 +1987,7 @@ body.theme-obsidian {
     display: block;
 }
 
-/* 7. High-Conversion Newsletter & Edustray Floating Overlap */
-.cms-newsletter-box {
-    border: 1px solid var(--accent-emerald);
-    border-radius: 16px;
-    padding: 2.5rem;
-}
-.cms-newsletter-grid {
-    display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 2rem;
-    align-items: center;
-}
+
 .cms-lead-input-group {
     display: flex;
     gap: 0.6rem;
@@ -2010,16 +1999,13 @@ body.theme-obsidian {
     position: relative;
     z-index: 25;
 }
-.cms-newsletter-box.is-floating-overlap {
-    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
-}
+
 .cms-public-footer.has-floating-cta-above {
     padding-top: 4.5rem;
 }
 
 @media (max-width: 900px) {
     .cms-split-hero-grid,
-    .cms-newsletter-grid,
     .cms-dynamic-grid.cols-2,
     .cms-dynamic-grid.cols-3,
     .cms-dynamic-grid.cols-4,

@@ -56,6 +56,7 @@
 	    // Dynamically list all Active Add-Ons that have a Backend Admin Route
 
             $activeAddonsList = (new \App\Models\Addons\AddonModel())->getActiveAddons();
+		
         ?>
         <?php if (! empty($activeAddonsList)): ?>
             <div class="nav-section-label">INSTALLED ADD-ON MODULES</div>

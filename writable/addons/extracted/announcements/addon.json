@@ -1,0 +1,34 @@
+{
+    "slug": "announcements",
+    "name": "Dynamic Announcements Ticker",
+    "category": "cms_widget",
+    "version": "2.2.0",
+    "author": "Core Architecture Team",
+    "description": "100% self-contained top notification bar with external CSS/JS, zero-overlap RTL/LTR infinite marquee, merged inline links, and granular RBAC.",
+    "admin_route": "addons/announcements",
+    "frontend_route": "",
+    "init_model": "App\\Models\\Addons\\Announcements\\AnnouncementModel",
+    "assets": {
+        "css": ["addons/announcements/assets/announcements.css"],
+        "js": ["addons/announcements/assets/announcements.js"]
+    },
+    "default_config": {
+        "badge_text": "NEW",
+        "filter_mode": "category",
+        "category": "all",
+        "announcement_id": "",
+        "scroll_mode": "rtl",
+        "scroll_speed": "22",
+        "bg_color": "#10b981",
+        "text_color": "#04130d",
+        "badge_bg": "#04130d",
+        "badge_color": "#10b981",
+        "dismissible": "1"
+    },
+    "permissions": [
+        { "key": "announcements.view", "label": "View Announcements Dashboard" },
+        { "key": "announcements.create", "label": "Create New Announcements" },
+        { "key": "announcements.edit", "label": "Edit Existing Announcements" },
+        { "key": "announcements.delete", "label": "Delete Announcements" }
+    ]
+}

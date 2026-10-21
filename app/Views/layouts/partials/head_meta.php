@@ -249,11 +249,9 @@ $compileScopeRule = static function (string $s, array $bData): array {
     if (! empty($bData['accent_color'])) {
         $varsList[] = '--faq-accent:' . trim((string) $bData['accent_color']);
         $varsList[] = '--faq-active-accent:' . trim((string) $bData['accent_color']);
-        $varsList[] = '--nl-accent:' . trim((string) $bData['accent_color']);
     }
     if (! empty($bData['border_color'])) {
         $varsList[] = '--faq-border:' . trim((string) $bData['border_color']);
-        $varsList[] = '--nl-border:' . trim((string) $bData['border_color']);
     }
     if (! empty($bData['card_bg'])) {
         $varsList[] = '--rev-card-bg-dark:' . trim((string) $bData['card_bg']);
@@ -264,36 +262,30 @@ $compileScopeRule = static function (string $s, array $bData): array {
     if (! empty($bData['card_bg_dark'])) {
         $varsList[] = '--rev-card-bg-dark:' . trim((string) $bData['card_bg_dark']);
         $varsList[] = '--faq-card-bg-dark:' . trim((string) $bData['card_bg_dark']);
-        $varsList[] = '--nl-card-bg-dark:' . trim((string) $bData['card_bg_dark']);
     }
     if (! empty($bData['text_dark'])) {
         $varsList[] = '--rev-text-dark:' . trim((string) $bData['text_dark']);
         $varsList[] = '--faq-text-dark:' . trim((string) $bData['text_dark']);
-        $varsList[] = '--nl-text-dark:' . trim((string) $bData['text_dark']);
     }
     if (! empty($bData['star_dark'])) {
         $varsList[] = '--rev-star-dark:' . trim((string) $bData['star_dark']);
     }
     if (! empty($bData['accent_dark'])) {
         $varsList[] = '--faq-accent-dark:' . trim((string) $bData['accent_dark']);
-        $varsList[] = '--nl-accent-dark:' . trim((string) $bData['accent_dark']);
     }
     if (! empty($bData['card_bg_light'])) {
         $varsList[] = '--rev-card-bg-light:' . trim((string) $bData['card_bg_light']);
         $varsList[] = '--faq-card-bg-light:' . trim((string) $bData['card_bg_light']);
-        $varsList[] = '--nl-card-bg-light:' . trim((string) $bData['card_bg_light']);
     }
     if (! empty($bData['text_light'])) {
         $varsList[] = '--rev-text-light:' . trim((string) $bData['text_light']);
         $varsList[] = '--faq-text-light:' . trim((string) $bData['text_light']);
-        $varsList[] = '--nl-text-light:' . trim((string) $bData['text_light']);
     }
     if (! empty($bData['star_light'])) {
         $varsList[] = '--rev-star-light:' . trim((string) $bData['star_light']);
     }
     if (! empty($bData['accent_light'])) {
         $varsList[] = '--faq-accent-light:' . trim((string) $bData['accent_light']);
-        $varsList[] = '--nl-accent-light:' . trim((string) $bData['accent_light']);
     }
 
     if (! empty($varsList)) {
