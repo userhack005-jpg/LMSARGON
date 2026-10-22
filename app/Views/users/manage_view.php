@@ -54,14 +54,32 @@
             <div class="grid-2-col">
                 <div class="field-group">
                     <label for="u_role_id" class="field-label"><span>Assign Role</span></label>
-                    <select id="u_role_id" name="role_id" class="field-select" required>
-                        <?php foreach ($roles as $r): ?>
-                            <?php if ($r['role_slug'] === 'super_admin' && $currentRoleSlug !== 'super_admin') continue; ?>
-                            <option value="<?= esc((string) $r['id']) ?>" <?= $r['role_slug'] === 'teacher' ? 'selected' : '' ?>>
-                                <?= esc($r['role_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                  <?php
+							// 0ms Static Cache se saare roles (System + Custom) uthayein
+							$rbacCacheFile = WRITEPATH . 'addons/rbac_permissions_cache.json';
+							$dynamicRoles  = [];
+							if (is_file($rbacCacheFile)) {
+								$parsed = json_decode((string) file_get_contents($rbacCacheFile), true);
+								$dynamicRoles = $parsed['roles'] ?? [];
+							}
+							if (empty($dynamicRoles)) {
+								$dynamicRoles = [
+									'super_admin'  => ['role_slug' => 'super_admin', 'role_name' => 'Super Administrator'],
+									'admin'        => ['role_slug' => 'admin', 'role_name' => 'Administrator'],
+									'teacher'      => ['role_slug' => 'teacher', 'role_name' => 'Teacher / Instructor'],
+									'student'      => ['role_slug' => 'student', 'role_name' => 'Student'],
+									'parent'       => ['role_slug' => 'parent', 'role_name' => 'Parent / Guardian'],
+								];
+							}
+							$selectedUserRole = $editUser['role_slug'] ?? ($editUser['role'] ?? 'student');
+						?>
+						<select name="role_slug" class="field-input" required>
+							<?php foreach ($dynamicRoles as $rSlug => $rInfo): ?>
+								<option value="<?= esc($rSlug) ?>" <?= ($selectedUserRole === $rSlug) ? 'selected' : '' ?>>
+									<?= esc($rInfo['role_name'] ?? ucfirst($rSlug)) ?> (<?= esc($rSlug) ?>)
+								</option>
+							<?php endforeach; ?>
+						</select>
                 </div>
 
                 <div class="field-group">

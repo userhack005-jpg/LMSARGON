@@ -20,6 +20,20 @@
             <?= $this->include('layouts/partials/header') ?>
 
             <main class="app-content">
+			<!-- Global Flash Messages (Shows RBAC Access Denied & System Alerts on Dashboard & All Pages) -->
+				<?php if (session()->getFlashdata('error')): ?>
+					<div class="alert-banner alert-danger" style="margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+						<span>⚠️ <strong>Access Denied / Error:</strong> <?= esc(session()->getFlashdata('error')) ?></span>
+					</div>
+				<?php endif; ?>
+
+				<?php if (session()->getFlashdata('success')): ?>
+					<div class="alert-banner alert-success" style="margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between;">
+						<span>✅ <?= esc(session()->getFlashdata('success')) ?></span>
+					</div>
+				<?php endif; ?>
+
+				
                 <?= $this->renderSection('content') ?>
             </main>
 

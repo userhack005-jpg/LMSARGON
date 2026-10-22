@@ -1,0 +1,26 @@
+{
+    "slug": "rbac",
+    "name": "Dynamic Role & Permission Manager",
+    "category": "core_security",
+    "version": "1.0.0",
+    "author": "Core Architecture Team",
+    "description": "100% self-contained dynamic Role-Based Access Control (RBAC) engine for Super Admin, Admin, Teacher, Student, Parent, Website User, and custom roles with auto-discovered add-on permissions and 0ms static cache.",
+    "admin_route": "addons/rbac",
+    "frontend_route": "",
+    "init_model": "App\\Models\\Addons\\Rbac\\RbacModel",
+    "assets": {
+        "css": ["addons/rbac/assets/rbac.css"],
+        "js": ["addons/rbac/assets/rbac.js"]
+    },
+    "default_config": {
+        "default_registration_role": "student",
+        "enable_parent_portal": "1",
+        "strict_rbac_mode": "1"
+    },
+    "permissions": [
+        { "key": "rbac.view", "label": "View Roles, Permissions & User Assignments" },
+        { "key": "rbac.create", "label": "Create Custom Roles & Permission Keys" },
+        { "key": "rbac.edit", "label": "Update Role Permission Matrix & Assign User Roles" },
+        { "key": "rbac.delete", "label": "Delete Custom Roles & Permission Keys" }
+    ]
+}

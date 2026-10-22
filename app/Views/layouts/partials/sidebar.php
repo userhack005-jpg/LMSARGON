@@ -5,7 +5,7 @@
     <!-- Brand Identity Top -->
     <div class="sidebar-brand">
         <?php if (! empty($settings['site_logo'])): ?>
-            <img src="<?= base_url(esc($settings['site_logo'])) ?>" alt="Logo" class="brand-logo-sm">
+            <img src="<?= base_url(esc($settings['site_logo'])) ?>" alt="Logo" class="brand-logo-sm" loading="lazy" decoding="async">
         <?php else: ?>
             <div class="brand-monogram-sm">
                 <?= esc(strtoupper(substr($settings['site_title'] ?? 'S', 0, 2))) ?>
@@ -33,55 +33,47 @@
             <span class="nav-text">User & Role Manager</span>
             <span class="nav-pill">RBAC</span>
         </a>
+
+        <?php if (in_array(($user['role_slug'] ?? ''), ['super_admin', 'admin'], true)): ?>
+            <div class="nav-section-label">CONFIGURATION & SEO</div>
+
+            <a href="<?= base_url('settings') ?>" class="sidebar-link <?= $currentMenu === 'settings' ? 'is-active' : '' ?>">
+                <span class="nav-icon">⚙</span>
+                <span class="nav-text">Site & SEO Settings</span>
+                <span class="nav-pill">GLOBAL</span>
+            </a>
+
+            <a href="<?= base_url('addons') ?>" class="sidebar-link <?= $currentMenu === 'addons' ? 'is-active' : '' ?>">
+                <span class="nav-icon">❖</span>
+                <span class="nav-text">Add-On Manager</span>
+                <span class="nav-pill">ZIP</span>
+            </a>
+
+            <?php
+                $activeAddonsList = class_exists('\App\Models\Addons\AddonModel')
+                    ? (new \App\Models\Addons\AddonModel())->getActiveAddons()
+                    : [];
+            ?>
+            <?php if (! empty($activeAddonsList)): ?>
+                <div class="nav-section-label">INSTALLED ADD-ON MODULES</div>
+                <?php foreach ($activeAddonsList as $addonItem): ?>
+                    <?php if (! empty($addonItem['admin_route'])): ?>
+                        <a href="<?= base_url(esc($addonItem['admin_route'])) ?>" class="sidebar-link <?= $currentMenu === ('addon_' . $addonItem['slug']) ? 'is-active' : '' ?>">
+                            <span class="nav-icon">⚡</span>
+                            <span class="nav-text"><?= esc($addonItem['name']) ?></span>
+                        </a>
+                        <?php if ($addonItem['slug'] === 'page_builder'): ?>
+                            <a href="<?= base_url('addons/page-builder/footer') ?>" class="sidebar-link <?= $currentMenu === 'addon_pb_footer' ? 'is-active' : '' ?>" style="padding-left: 2.2rem; font-size: 0.82rem;">
+                                <span class="nav-icon">⊞</span>
+                                <span class="nav-text">Footer Architect</span>
+                            </a>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        <?php endif; ?>
     </nav>
 
-
-<?php if (in_array(($user['role_slug'] ?? ''), ['super_admin', 'admin'], true)): ?>
-        <div class="nav-section-label">CONFIGURATION & SEO</div>
-
-        <a href="<?= base_url('settings') ?>" class="sidebar-link <?= $currentMenu === 'settings' ? 'is-active' : '' ?>">
-            <span class="nav-icon">⚙</span>
-            <span class="nav-text">Site & SEO Settings</span>
-            <span class="nav-pill">GLOBAL</span>
-        </a>
-        <?php endif; ?>
-		
-<?php if (in_array(($user['role_slug'] ?? ''), ['super_admin', 'admin'], true)): ?>
-        <a href="<?= base_url('addons') ?>" class="sidebar-link <?= $currentMenu === 'addons' ? 'is-active' : '' ?>">
-            <span class="nav-icon">❖</span>
-            <span class="nav-text">Add-On Manager</span>
-            <span class="nav-pill">ZIP</span>
-        </a>
-       <?php
-	    // Dynamically list all Active Add-Ons that have a Backend Admin Route
-
-            $activeAddonsList = (new \App\Models\Addons\AddonModel())->getActiveAddons();
-		
-        ?>
-        <?php if (! empty($activeAddonsList)): ?>
-            <div class="nav-section-label">INSTALLED ADD-ON MODULES</div>
-            <?php foreach ($activeAddonsList as $addonItem): ?>
-                <?php if (! empty($addonItem['admin_route'])): ?>
-                <a href="<?= base_url(esc($addonItem['admin_route'])) ?>" class="sidebar-link <?= $currentMenu === ('addon_' . $addonItem['slug']) ? 'is-active' : '' ?>">
-                    <span class="nav-icon">⚡</span>
-                    <span class="nav-text"><?= esc($addonItem['name']) ?></span>
-                </a>
-                <?php if ($addonItem['slug'] === 'page_builder'): ?>
-                    <a href="<?= base_url('addons/page-builder/footer') ?>" class="sidebar-link <?= $currentMenu === 'addon_pb_footer' ? 'is-active' : '' ?>" style="padding-left: 2.2rem; font-size: 0.82rem;">
-                        <span class="nav-icon">⊞</span>
-                        <span class="nav-text">Footer Architect</span>
-                    </a>
-                    <?php endif; ?>
-                <?php endif; ?>
-            <?php endforeach; ?>
-        <?php endif; ?>
-		
-		
-		
-        <?php endif; ?>
-		
-		
-		
     <!-- Sidebar Bottom Status -->
     <div class="sidebar-footer">
         <div class="lock-indicator">
@@ -90,4 +82,3 @@
         </div>
     </div>
 </aside>
-
