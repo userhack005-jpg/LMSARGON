@@ -2,9 +2,9 @@
     "slug": "newsletter",
     "name": "Dynamic Newsletter & Lead Capture",
     "category": "cms_widget",
-    "version": "1.0.0",
+    "version": "4.1.0",
     "author": "Core Architecture Team",
-    "description": "100% self-contained Edustray-style multi-field newsletter & lead capture engine with external CSS/JS, floating footer overlap, CSV export, and granular RBAC.",
+    "description": "100% self-contained dynamic multi-form template & lead capture engine with automatic Page Builder schema, live template dropdown, CSV export, and granular RBAC.",
     "admin_route": "addons/newsletter",
     "frontend_route": "",
     "init_model": "App\\Models\\Addons\\Newsletter\\NewsletterModel",
@@ -13,19 +13,11 @@
         "js": ["addons/newsletter/assets/newsletter.js"]
     },
     "default_config": {
+        "template_id": "default",
         "badge": "FREE STUDY KIT & UPDATES",
         "heading": "Master Abacus & Mental Math Faster",
         "subheading": "Get free weekly practice worksheets, speed-math tricks, and scholarship alerts straight to your inbox.",
-        "form_layout": "name_phone_email",
-        "show_name_field": "1",
-        "name_placeholder": "Enter your full name...",
-        "show_phone_field": "1",
-        "phone_placeholder": "WhatsApp / Phone number...",
-        "show_topic_field": "0",
-        "course_options": "Abacus Level 1, Vedic Maths, Olympiad Prep, Free Trial Class",
-        "placeholder": "Enter your email address...",
-        "btn_text": "Get Free Access →",
-        "lead_tag": "Website Lead Magnet",
+        "btn_text": "",
         "privacy_note": "🔒 100% Privacy Guaranteed. Unsubscribe anytime.",
         "is_floating": "0",
         "color_mode": "auto",
@@ -38,163 +30,9 @@
         "text_light": "#064e3b"
     },
     "permissions": [
-        { "key": "newsletter.view", "label": "View Newsletter Leads & Export CSV" },
-        { "key": "newsletter.create", "label": "Add Manual Newsletter Subscribers" },
-        { "key": "newsletter.edit", "label": "Edit & Toggle Newsletter Subscribers" },
-        { "key": "newsletter.delete", "label": "Delete Newsletter Subscribers" }
-    ],
-    "components": {
-        "newsletter_cta": {
-            "type": "newsletter_cta",
-            "label": "Newsletter / Lead Magnet Box",
-            "category": "Marketing & Leads",
-            "icon": "✉",
-            "addon_slug": "newsletter",
-            "description": "Edustray-style inline or footer-overlapping multi-field lead capture form.",
-            "fields": {
-                "badge": {
-                    "type": "text",
-                    "label": "Top Badge Text",
-                    "default": "FREE STUDY KIT & UPDATES"
-                },
-                "heading": {
-                    "type": "text",
-                    "label": "Main Heading",
-                    "default": "Master Abacus & Mental Math Faster"
-                },
-                "subheading": {
-                    "type": "textarea",
-                    "label": "Subheading Text",
-                    "default": "Get free weekly practice worksheets, speed-math tricks, and scholarship alerts straight to your inbox."
-                },
-                "form_layout": {
-                    "type": "select",
-                    "label": "Form Fields Mode (Multi-Field)",
-                    "default": "name_phone_email",
-                    "options": {
-                        "name_phone_email": "Multi-Field (Full Name + WhatsApp/Phone + Email)",
-                        "full_enquiry": "Full Enquiry (Name + Phone + Course Dropdown + Email)",
-                        "name_email": "Standard (Full Name + Email)",
-                        "email_only": "Compact (Email Only)"
-                    }
-                },
-                "show_name_field": {
-                    "type": "select",
-                    "label": "Show Full Name Field?",
-                    "default": "1",
-                    "options": {
-                        "1": "Yes (Show Name Field)",
-                        "0": "No (Hide)"
-                    }
-                },
-                "name_placeholder": {
-                    "type": "text",
-                    "label": "Name Input Placeholder",
-                    "default": "Enter your full name..."
-                },
-                "show_phone_field": {
-                    "type": "select",
-                    "label": "Show Phone / WhatsApp Field?",
-                    "default": "1",
-                    "options": {
-                        "1": "Yes (Show Phone / WhatsApp Field)",
-                        "0": "No (Hide)"
-                    }
-                },
-                "phone_placeholder": {
-                    "type": "text",
-                    "label": "Phone / WhatsApp Placeholder",
-                    "default": "WhatsApp / Phone number..."
-                },
-                "show_topic_field": {
-                    "type": "select",
-                    "label": "Show Course / Topic Dropdown?",
-                    "default": "0",
-                    "options": {
-                        "0": "No (Hide Dropdown)",
-                        "1": "Yes (Show Course Dropdown)"
-                    }
-                },
-                "course_options": {
-                    "type": "text",
-                    "label": "Dropdown Options (Comma Separated)",
-                    "default": "Abacus Level 1, Vedic Maths, Olympiad Prep, Free Trial Class"
-                },
-                "placeholder": {
-                    "type": "text",
-                    "label": "Email Input Placeholder",
-                    "default": "Enter your email address..."
-                },
-                "btn_text": {
-                    "type": "text",
-                    "label": "Submit Button Text",
-                    "default": "Get Free Access →"
-                },
-                "lead_tag": {
-                    "type": "text",
-                    "label": "CRM Lead Tag / Campaign Name",
-                    "default": "Website Lead Magnet"
-                },
-                "privacy_note": {
-                    "type": "text",
-                    "label": "Privacy Note Below Form",
-                    "default": "🔒 100% Privacy Guaranteed. Unsubscribe anytime."
-                },
-                "is_floating": {
-                    "type": "select",
-                    "label": "Floating Overlap Above Footer?",
-                    "default": "0",
-                    "options": {
-                        "0": "No (Inline Section in Page)",
-                        "1": "Yes (Floating Overlap Above Footer)"
-                    }
-                },
-                "color_mode": {
-                    "type": "select",
-                    "label": "Theme Color Mode",
-                    "default": "auto",
-                    "options": {
-                        "auto": "Auto (Match Global Dark/Light Theme)",
-                        "dark": "Force Dark Emerald Palette",
-                        "light": "Force Light Emerald Palette"
-                    }
-                },
-                "bg_color": {
-                    "type": "color",
-                    "label": "Box Background (Dark Mode)",
-                    "default": "#0d1f1a"
-                },
-                "border_color": {
-                    "type": "color",
-                    "label": "Glowing Border Color",
-                    "default": "#10b981"
-                },
-                "text_color": {
-                    "type": "color",
-                    "label": "Text Color (Dark Mode)",
-                    "default": "#f3f4f6"
-                },
-                "btn_bg": {
-                    "type": "color",
-                    "label": "Button Background Color",
-                    "default": "#10b981"
-                },
-                "btn_text_col": {
-                    "type": "color",
-                    "label": "Button Text Color",
-                    "default": "#04130d"
-                },
-                "card_bg_light": {
-                    "type": "color",
-                    "label": "Box Background (Light Mode)",
-                    "default": "#ecfdf5"
-                },
-                "text_light": {
-                    "type": "color",
-                    "label": "Text Color (Light Mode)",
-                    "default": "#064e3b"
-                }
-            }
-        }
-    }
+        { "key": "newsletter.view", "label": "View Newsletter Leads & Form Templates" },
+        { "key": "newsletter.create", "label": "Create Form Templates & Add Leads" },
+        { "key": "newsletter.edit", "label": "Edit Form Templates & Leads" },
+        { "key": "newsletter.delete", "label": "Delete Form Templates & Leads" }
+    ]
 }

@@ -208,6 +208,7 @@
                 <span class="field-hint">★ Manage reviews inside <strong>Sidebar → Announcements, FAQs & Reviews</strong>.</span>
             `;
         } else if (blk.type === 'newsletter_cta') {
+			
             return `
                 <div class="grid-3-col">
                     <div class="field-group"><label class="field-label"><span>Heading</span></label><input type="text" class="field-input ${clsField}" ${attr} data-key="heading" value="${escapeHtml(d.heading)}"></div>

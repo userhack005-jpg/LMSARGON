@@ -436,91 +436,11 @@ class PageBuilderModel extends Model
         }
     }
 
-    public function getDynamicAnnouncements(string $filterMode = 'category', string $category = 'all', int$singleId = 0): array
-    {
-        $this->ensureAnnouncementsSchema();
-        try {
-            $b = Database::connect()->table('cms_announcements')->where('is_active', 1);
-            if ($filterMode === 'single_id' &&$singleId > 0) {
-                $b->where('id',$singleId);
-            } elseif ($category !== '' && strtolower($category) !== 'all') {
-                $b->where('category',$category);
-            }
-            return $b->orderBy('id', 'DESC')->get()->getResultArray();
-        } catch (Throwable $e) {
-            return [];
-        }
-    }
-
-    public function saveAnnouncementRecord(array $data, int$id = 0): bool
-    {
-        $this->ensureAnnouncementsSchema();
-        try {
-            $db = Database::connect();
-            if ($id > 0) {
-                return (bool) $db->table('cms_announcements')->where('id', $id)->update($data);
-            }
-            return (bool) $db->table('cms_announcements')->insert($data);
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
-
-    public function deleteAnnouncementRecord(int $id): bool
-    {
-        try {
-            return (bool) Database::connect()->table('cms_announcements')->where('id', $id)->delete();
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
-
-    public function getDynamicReviews(int $limit = 10): array
-    {
-        $this->ensureExtendedWidgetsSchema();
-        try {
-            return Database::connect()->table('cms_reviews')->where('is_approved', 1)->orderBy('id', 'DESC')->limit($limit)->get()->getResultArray();
-        } catch (Throwable $e) {
-            return [];
-        }
-    }
-
-    public function addReviewRecord(array $data, int$id = 0): bool
-    {
-        $this->ensureExtendedWidgetsSchema();
-        try {
-            $db = Database::connect();
-            if ($id > 0) {
-                return (bool) $db->table('cms_reviews')->where('id', $id)->update($data);
-            }
-            return (bool) $db->table('cms_reviews')->insert($data);
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
-
-    public function deleteReviewRecord(int $id): bool
-    {
-        try {
-            return (bool) Database::connect()->table('cms_reviews')->where('id', $id)->delete();
-        } catch (Throwable $e) {
-            return false;
-        }
-    }
+   
 
 
-    public function saveLeadEmail(string $email): array
-    {
-        $this->ensureExtendedWidgetsSchema();
-        try {
-            $db = Database::connect();
-            if ($db->table('cms_leads')->where('email',$email)->countAllResults() > 0) {
-                return ['status' => 'success', 'message' => 'You are already subscribed! Thank you.'];
-            }
-            $db->table('cms_leads')->insert(['email' =>$email, 'created_at' => date('Y-m-d H:i:s')]);
-            return ['status' => 'success', 'message' => 'Subscribed successfully!'];
-        } catch (Throwable $e) {
-            return ['status' => 'error', 'message' => 'Could not subscribe at this moment.'];
-        }
-    }
+   
+
+
+
 }

@@ -4,20 +4,33 @@ namespace App\Controllers\Addons\Newsletter;
 
 use App\Controllers\BaseController;
 use App\Models\Addons\Newsletter\NewsletterModel;
+use App\Models\Settings\SettingModel;
 
 class NewsletterController extends BaseController
 {
     protected NewsletterModel $nlModel;
+    protected ?SettingModel $settingModel = null;
     protected string $addonPath;
 
     public function __construct()
     {
+        helper(['url', 'form']);
         $this->addonPath = WRITEPATH . 'addons/extracted/newsletter';
-        $modelFile       = $this->addonPath . '/Models/Addons/Newsletter/NewsletterModel.php';
+
+        $modelFile = $this->addonPath . '/Models/Addons/Newsletter/NewsletterModel.php';
         if (! class_exists(NewsletterModel::class) && is_file($modelFile)) {
             require_once $modelFile;
         }
         $this->nlModel = new NewsletterModel();
+
+        if (class_exists(SettingModel::class)) {
+            $this->settingModel = new SettingModel();
+        }
+    }
+
+    private function getModel(): NewsletterModel
+    {
+        return $this->nlModel;
     }
 
     private function hasPermission(string $permissionKey): bool
@@ -45,37 +58,43 @@ class NewsletterController extends BaseController
         return $roleSlug === 'admin';
     }
 
-    private function renderAddonView(string $viewFile, array $data = []): string
+    private function renderAddonView(string $viewRelPath, array $data = []): string
     {
-        \Config\Services::autoloader()->addNamespace('AddonNewsletter', $this->addonPath);
-        \Config\Services::autoloader()->addNamespace('App', $this->addonPath);
-
-        $fullViewPath = $this->addonPath . '/Views/' . ltrim($viewFile, '/') . '.php';
-        if (is_file($fullViewPath)) {
-            $renderer = \Config\Services::renderer($this->addonPath . '/Views', null, false);
-            return $renderer->setData($data)->render($viewFile);
+        if (is_file(APPPATH . 'Views/' . $viewRelPath . '.php')) {
+            return view($viewRelPath, $data);
         }
+        \Config\Services::autoloader()->addNamespace('AddonNewsletter', $this->addonPath);
+        $nsView = 'AddonNewsletter\\Views\\' . str_replace('/', '\\', $viewRelPath);
+        return view($nsView, $data);
+    }
 
-        return view($viewFile, $data);
+    private function respondOrRedirect(array $payload)
+    {
+        if ($this->request->isAJAX()) {
+            return $this->response->setJSON($payload);
+        }
+        $isSuccess = ($payload['status'] ?? 'success') === 'success';
+        $flashKey  = $isSuccess ? 'success' : 'error';
+        return redirect()->to(base_url('addons/newsletter'))->with($flashKey, $payload['message'] ?? 'Operation completed.');
     }
 
     public function index()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to('/login');
-        }
         if (! $this->hasPermission('newsletter.view')) {
-            return redirect()->to('/dashboard')->with('error', 'Access denied. You do not have permission to view Newsletter Leads.');
+            return redirect()->to(base_url('dashboard'))->with('error', 'Access Denied: Missing newsletter.view permission.');
         }
 
-        $tagFilter    = trim((string) ($this->request->getGet('tag') ?? 'all'));
+        $model = $this->getModel();
+        $model->rebuildFormsCache();
+
+        $formFilter   = trim((string) ($this->request->getGet('form_id') ?? 'all'));
         $statusFilter = trim((string) ($this->request->getGet('status') ?? 'all'));
         $searchQuery  = trim((string) ($this->request->getGet('q') ?? ''));
 
-        $builder = $this->nlModel->builder();
+        $builder = $model->builder();
 
-        if ($tagFilter !== '' && strtolower($tagFilter) !== 'all') {
-            $builder->where('lead_tag', $tagFilter);
+        if ($formFilter !== '' && strtolower($formFilter) !== 'all') {
+            $builder->where('form_id', (int) $formFilter);
         }
         if ($statusFilter !== '' && strtolower($statusFilter) !== 'all') {
             $builder->where('status', $statusFilter);
@@ -85,148 +104,218 @@ class NewsletterController extends BaseController
                 ->like('email', $searchQuery)
                 ->orLike('full_name', $searchQuery)
                 ->orLike('phone', $searchQuery)
-                ->orLike('interest_topic', $searchQuery)
-                ->orLike('lead_tag', $searchQuery)
+                ->orLike('form_name', $searchQuery)
                 ->groupEnd();
         }
 
-        $leads = $builder->orderBy('id', 'DESC')->get()->getResultArray();
-        $stats = $this->nlModel->getStats();
+        $leads         = $builder->orderBy('id', 'DESC')->get()->getResultArray();
+        $formTemplates = $model->getAllFormTemplates();
+        $stats         = $model->getStats();
 
         return $this->renderAddonView('addons/newsletter/index_view', [
-            'pageTitle'    => 'Newsletter & Lead Magnet CRM',
-            'activeNav'    => 'newsletter',
-            'user'         => session()->get(),
-            'leads'        => $leads,
-            'stats'        => $stats,
-            'tagFilter'    => $tagFilter,
-            'statusFilter' => $statusFilter,
-            'searchQuery'  => $searchQuery,
-            'canCreate'    => $this->hasPermission('newsletter.create'),
-            'canEdit'      => $this->hasPermission('newsletter.edit'),
-            'canDelete'    => $this->hasPermission('newsletter.delete'),
+            'pageTitle'     => 'Newsletter & Multi-Form Lead Manager',
+            'activeMenu'    => 'addon_newsletter',
+            'activeNav'     => 'newsletter',
+            'settings'      => $this->settingModel ? $this->settingModel->getSystemSettings() : [],
+            'user'          => session()->get(),
+            'leads'         => $leads,
+            'formTemplates' => $formTemplates,
+            'stats'         => $stats,
+            'formFilter'    => $formFilter,
+            'statusFilter'  => $statusFilter,
+            'searchQuery'   => $searchQuery,
+            'canCreate'     => $this->hasPermission('newsletter.create'),
+            'canEdit'       => $this->hasPermission('newsletter.edit'),
+            'canDelete'     => $this->hasPermission('newsletter.delete'),
+        ]);
+    }
+
+    public function templatesJson()
+    {
+        $model     = $this->getModel();
+        $templates = $model->getAllFormTemplates();
+        $defaultId = 1;
+        foreach ($templates as $t) {
+            if ((int) ($t['is_default'] ?? 0) === 1) {
+                $defaultId = (int) $t['id'];
+                break;
+            }
+        }
+
+        return $this->response->setJSON([
+            'status'     => 'success',
+            'default_id' => $defaultId,
+            'templates'  => $templates,
+        ]);
+    }
+
+    public function saveFormTemplate()
+    {
+        $id           = (int) ($this->request->getPost('id') ?? 0);
+        $requiredPerm = ($id > 0) ? 'newsletter.edit' : 'newsletter.create';
+
+        if (! $this->hasPermission($requiredPerm)) {
+            return $this->respondOrRedirect([
+                'status'  => 'error',
+                'message' => 'Permission Denied: Missing ' . $requiredPerm . ' permission.',
+            ]);
+        }
+
+        $savedId = $this->getModel()->saveFormTemplateData($this->request->getPost());
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => 'Form Template #' . $savedId . ' saved & synced!',
+        ]);
+    }
+
+    public function setDefaultFormTemplate()
+    {
+        if (! $this->hasPermission('newsletter.edit')) {
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Permission Denied.']);
+        }
+
+        $id = max(1, (int) ($this->request->getPost('id') ?? 1));
+        $this->getModel()->setDefaultTemplate($id);
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => 'Form Template #' . $id . ' is now set as Active Default on Frontend!',
+        ]);
+    }
+
+    public function deleteFormTemplate()
+    {
+        if (! $this->hasPermission('newsletter.delete')) {
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Permission Denied.']);
+        }
+
+        $id = (int) ($this->request->getPost('id') ?? 0);
+        if ($id <= 1) {
+            return $this->respondOrRedirect([
+                'status'  => 'error',
+                'message' => 'Default Form Template #1 cannot be deleted.',
+            ]);
+        }
+        $this->getModel()->deleteFormTemplateById($id);
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => 'Form Template deleted.',
         ]);
     }
 
     public function save()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to('/login');
+        $id           = (int) ($this->request->getPost('id') ?? 0);
+        $requiredPerm = ($id > 0) ? 'newsletter.edit' : 'newsletter.create';
+
+        if (! $this->hasPermission($requiredPerm)) {
+            return $this->respondOrRedirect([
+                'status'  => 'error',
+                'message' => 'Permission Denied: Missing ' . $requiredPerm . ' permission.',
+            ]);
         }
 
-        $id = (int) ($this->request->getPost('id') ?? 0);
-        if ($id > 0) {
-            if (! $this->hasPermission('newsletter.edit')) {
-                return redirect()->to('/addons/newsletter')->with('error', 'Access denied. You do not have permission to edit subscribers.');
-            }
-        } else {
-            if (! $this->hasPermission('newsletter.create')) {
-                return redirect()->to('/addons/newsletter')->with('error', 'Access denied. You do not have permission to create subscribers.');
-            }
-        }
+        $model    = $this->getModel();
+        $formId   = max(1, (int) ($this->request->getPost('form_id') ?? 1));
+        $tpl      = $model->getFormTemplateById($formId);
+        $formName = $tpl['form_name'] ?? 'Manual Entry';
 
         $email    = strtolower(trim((string) ($this->request->getPost('email') ?? '')));
         $fullName = trim((string) ($this->request->getPost('full_name') ?? ''));
         $phone    = trim((string) ($this->request->getPost('phone') ?? ''));
-        $topic    = trim((string) ($this->request->getPost('interest_topic') ?? ''));
-        $leadTag  = trim((string) ($this->request->getPost('lead_tag') ?? 'Manual Entry'));
         $status   = trim((string) ($this->request->getPost('status') ?? 'subscribed'));
 
-        if ($email === '' or ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return redirect()->to('/addons/newsletter')->with('error', 'Valid email address is required.');
+        if ($fullName === '' && $email === '' && $phone === '') {
+            return $this->respondOrRedirect([
+                'status'  => 'error',
+                'message' => 'Please enter at least Name, Email, or Phone.',
+            ]);
         }
 
         $now = date('Y-m-d H:i:s');
         if ($id > 0) {
-            $this->nlModel->update($id, [
-                'full_name'      => $fullName,
-                'email'          => $email,
-                'phone'          => $phone,
-                'interest_topic' => $topic,
-                'lead_tag'       => $leadTag ?: 'Manual Entry',
-                'status'         => $status,
-                'updated_at'     => $now,
+            $model->update($id, [
+                'form_id'    => $formId,
+                'form_name'  => $formName,
+                'full_name'  => $fullName,
+                'email'      => $email,
+                'phone'      => $phone,
+                'status'     => $status,
+                'updated_at' => $now,
             ]);
-            return redirect()->to('/addons/newsletter')->with('success', 'Subscriber updated successfully.');
+            return $this->respondOrRedirect([
+                'status'  => 'success',
+                'message' => 'Lead #' . $id . ' updated successfully.',
+            ]);
         }
 
-        $this->nlModel->upsertLead([
-            'full_name'      => $fullName,
-            'email'          => $email,
-            'phone'          => $phone,
-            'interest_topic' => $topic,
-            'lead_tag'       => $leadTag ?: 'Manual Entry',
-            'source_page'    => 'admin_manual',
-            'ip_address'     => (string) $this->request->getIPAddress(),
+        $model->upsertLead([
+            'form_id'     => $formId,
+            'form_name'   => $formName,
+            'full_name'   => $fullName,
+            'email'       => $email,
+            'phone'       => $phone,
+            'source_page' => 'admin_manual',
+            'ip_address'  => (string) $this->request->getIPAddress(),
         ]);
 
-        return redirect()->to('/addons/newsletter')->with('success', 'Subscriber added successfully.');
+        return $this->respondOrRedirect([
+            'status'  => 'success',
+            'message' => 'Lead added successfully.',
+        ]);
     }
 
     public function toggle()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to('/login');
-        }
         if (! $this->hasPermission('newsletter.edit')) {
-            return redirect()->to('/addons/newsletter')->with('error', 'Access denied. You do not have permission to edit subscribers.');
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Permission Denied.']);
         }
 
-        $id  = (int) ($this->request->getPost('id') ?? 0);
-        $row = $this->nlModel->find($id);
+        $model = $this->getModel();
+        $id    = (int) ($this->request->getPost('id') ?? 0);
+        $row   = $model->find($id);
         if ($row) {
             $newStatus = ($row['status'] ?? 'subscribed') === 'subscribed' ? 'unsubscribed' : 'subscribed';
-            $this->nlModel->update($id, [
+            $model->update($id, [
                 'status'     => $newStatus,
                 'updated_at' => date('Y-m-d H:i:s'),
             ]);
         }
-        return redirect()->to('/addons/newsletter')->with('success', 'Subscriber status updated.');
+        return $this->respondOrRedirect(['status' => 'success', 'message' => 'Lead status updated.']);
     }
 
     public function delete()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to('/login');
-        }
         if (! $this->hasPermission('newsletter.delete')) {
-            return redirect()->to('/addons/newsletter')->with('error', 'Access denied. You do not have permission to delete subscribers.');
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Permission Denied.']);
         }
 
         $id = (int) ($this->request->getPost('id') ?? 0);
         if ($id > 0) {
-            $this->nlModel->delete($id);
+            $this->getModel()->delete($id);
         }
-        return redirect()->to('/addons/newsletter')->with('success', 'Lead deleted.');
+        return $this->respondOrRedirect(['status' => 'success', 'message' => 'Lead deleted.']);
     }
 
     public function subscribe()
     {
-        $email    = trim((string) ($this->request->getPost('email') ?? ''));
-        $fullName = trim((string) ($this->request->getPost('full_name') ?? ''));
-        $phone    = trim((string) ($this->request->getPost('phone') ?? ''));
-        $topic    = trim((string) ($this->request->getPost('interest_topic') ?? ''));
-        $leadTag  = trim((string) ($this->request->getPost('lead_tag') ?? 'Website Lead Magnet'));
-        $srcPage  = trim((string) ($this->request->getPost('source_page') ?? ''));
         $honeypot = trim((string) ($this->request->getPost('website_hp') ?? ''));
-
         if ($honeypot !== '') {
             return $this->response->setJSON([
                 'status'     => 'success',
                 'ok'         => true,
-                'message'    => 'Thank you for subscribing!',
+                'message'    => 'Thank you!',
                 'csrf_token' => csrf_hash(),
             ]);
         }
 
-        $result = $this->nlModel->upsertLead([
-            'email'          => $email,
-            'full_name'      => $fullName,
-            'phone'          => $phone,
-            'interest_topic' => $topic,
-            'lead_tag'       => $leadTag,
-            'source_page'    => $srcPage,
-            'ip_address'     => (string) $this->request->getIPAddress(),
+        $result = $this->getModel()->upsertLead([
+            'form_id'     => (int) ($this->request->getPost('form_id') ?? 0),
+            'form_name'   => trim((string) ($this->request->getPost('form_name') ?? '')),
+            'full_name'   => trim((string) ($this->request->getPost('full_name') ?? '')),
+            'email'       => trim((string) ($this->request->getPost('email') ?? '')),
+            'phone'       => trim((string) ($this->request->getPost('phone') ?? '')),
+            'source_page' => trim((string) ($this->request->getPost('source_page') ?? '')),
+            'ip_address'  => (string) $this->request->getIPAddress(),
         ]);
 
         if ($this->request->isAJAX() or strpos((string) $this->request->getHeaderLine('Accept'), 'application/json') !== false) {
@@ -246,30 +335,32 @@ class NewsletterController extends BaseController
 
     public function exportCsv()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to('/login');
-        }
         if (! $this->hasPermission('newsletter.view')) {
-            return redirect()->to('/dashboard')->with('error', 'Access denied.');
+            return redirect()->to(base_url('dashboard'))->with('error', 'Access Denied.');
         }
 
-        $rows = $this->nlModel->orderBy('id', 'DESC')->findAll();
+        $formFilter = trim((string) ($this->request->getGet('form_id') ?? 'all'));
+        $builder    = $this->getModel()->builder();
+        if ($formFilter !== '' && strtolower($formFilter) !== 'all') {
+            $builder->where('form_id', (int) $formFilter);
+        }
+        $rows     = $builder->orderBy('id', 'DESC')->get()->getResultArray();
         $filename = 'newsletter_leads_' . date('Ymd_His') . '.csv';
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
 
         $out = fopen('php://output', 'w');
-        fputcsv($out, ['ID', 'Full Name', 'Email', 'Phone / WhatsApp', 'Course / Topic', 'Lead Tag', 'Source Page', 'Status', 'Subscribed At']);
+        fputcsv($out, ['ID', 'Form ID', 'Form Template Name', 'Full Name', 'Mobile / WhatsApp', 'Email Address', 'Source Page', 'Status', 'Created At']);
 
         foreach ($rows as $r) {
             fputcsv($out, [
                 $r['id'] ?? '',
+                $r['form_id'] ?? '',
+                $r['form_name'] ?? '',
                 $r['full_name'] ?? '',
-                $r['email'] ?? '',
                 $r['phone'] ?? '',
-                $r['interest_topic'] ?? '',
-                $r['lead_tag'] ?? '',
+                $r['email'] ?? '',
                 $r['source_page'] ?? '',
                 $r['status'] ?? '',
                 $r['created_at'] ?? '',
@@ -279,20 +370,20 @@ class NewsletterController extends BaseController
         exit;
     }
 
-    public function asset($file = '')
+    public function asset(string $filename = '')
     {
-        $safeFile = basename((string) $file);
+        $safeFile = basename($filename);
         $fullPath = $this->addonPath . '/assets/' . $safeFile;
         if (! is_file($fullPath)) {
             return $this->response->setStatusCode(404)->setBody('/* Asset not found */');
         }
 
         $ext  = strtolower((string) pathinfo($safeFile, PATHINFO_EXTENSION));
-        $mime = ($ext === 'css') ? 'text/css; charset=UTF-8' : 'application/javascript; charset=UTF-8';
+        $mime = ($ext === 'css') ? 'text/css; charset=UTF-8' : (($ext === 'js') ? 'application/javascript; charset=UTF-8' : 'text/plain');
 
         return $this->response
             ->setHeader('Content-Type', $mime)
-            ->setHeader('Cache-Control', 'public, max-age=3600')
+            ->setHeader('Cache-Control', 'public, max-age=86400')
             ->setBody((string) file_get_contents($fullPath));
     }
 }

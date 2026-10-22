@@ -135,27 +135,56 @@
                     . ($prevGapMode === 'none' ? ' merge-top-radius' : '');
             ?>
 
-            <div class="<?= $wrapperClass ?> is-revealed">
+
+			<?php 
+									// Universal Dynamic Component Map Loader (Loads from cms_components if not passed by controller)
+					if (empty($componentMap) || ! isset(reset($componentMap)['addon_slug'])) {
+						$componentMap = [];
+						try {
+							$dbComp = \Config\Database::connect();
+							if ($dbComp->tableExists('cms_components')) {
+								foreach ($dbComp->table('cms_components')->get()->getResultArray() as $cRow) {
+									$componentMap[$cRow['component_key']] = $cRow;
+								}
+							}
+						} catch (\Throwable $e) {}
+					}
+
+					?>
+				
+            <div class="<?= $wrapperClass ?> is-revealed dev">
                 <?php
                     // UNIVERSAL MODULAR ADD-ON BLOCK LOADER (Checks writable/addons/extracted first!)
-                 /*    $addonMap = [
-                        'faq_accordion'      => 'faqs',
-                        'testimonial_slider' => 'reviews',
-                        'newsletter_cta'     => 'newsletter',
-                        'announcement_bar'   => 'announcements',
-                    ]; */
-					$targetAddonSlug = $componentMap[$type]['addon_slug'] ?? 'page_builder';
-                   // $targetAddonSlug = $addonMap[$type] ?? ($componentMap[$type]['addon_slug'] ?? 'page_builder');
-                    $extractedAddonBlockFile = WRITEPATH . 'addons/extracted/' . $targetAddonSlug . '/Views/addons/' . $targetAddonSlug . '/block_view.php';
-
-                    // Render from extracted Add-on ONLY if that Add-on is installed, active & has block_view.php;
-                    // Otherwise (e.g., before Newsletter Add-on is installed), fall back smoothly to built-in block below!
-                    $canRenderExtractedAddon = ($targetAddonSlug !== 'page_builder' && $isAddonActive($targetAddonSlug) && is_file($extractedAddonBlockFile));
-                ?>
-                <?php if ($canRenderExtractedAddon): ?>
-                    <?php include $extractedAddonBlockFile; ?>
-
-                <?php elseif ($type === 'split_hero'): ?>
+              //dev  $targetAddonSlug = $componentMap[$type]['addon_slug'] ?? ($componentMap[$type]['category'] ?? '');
+			  
+				// Fallback convention: announcements -> announcement_bar, faqs -> faq_accordion, reviews -> testimonial_slider, newsletter -> newsletter_cta
+			//dev	if ($targetAddonSlug === '' && ! empty($componentMap[$type]['view_path'])) {
+				//dev	$customViewFile = WRITEPATH . 'addons/extracted/' . ltrim($componentMap[$type]['view_path'], '/');
+					$targetAddonSlug = $componentMap[$type]['addon_slug'] ?? '';
+				if ($targetAddonSlug === '') {
+				 foreach (glob(WRITEPATH . 'addons/extracted/*/Views/addons/*/block_view.php') as $bv) {
+					if (strpos($bv, '/' . $type . '/') !== false) {
+						include $bv;
+						continue;
+					}
+				 }
+				} else {
+					$customViewFile = WRITEPATH . 'addons/extracted/' . $targetAddonSlug . '/Views/addons/' . $targetAddonSlug . '/block_view.php';
+				}
+				
+				$customViewFile = WRITEPATH . 'addons/extracted/' . $targetAddonSlug . '/Views/addons/' . $targetAddonSlug . '/block_view.php';
+				if ($targetAddonSlug !== '' && $isAddonActive($targetAddonSlug) && is_file($customViewFile)) {
+					include $customViewFile;
+					continue;
+				}	
+			/* dev 	if ($targetAddonSlug !== '' && $isAddonActive($targetAddonSlug) && is_file($customViewFile)) {
+					include $customViewFile;
+					continue;
+				} */ ?>
+				
+				
+								 
+                <?php if ($type === 'split_hero'): ?>
                     <?php
                         $accCol  = $data['accent_color'] ?? 'var(--accent-emerald)';
                         $rawHead = esc($data['heading'] ?? '');
@@ -458,41 +487,8 @@
                                         }
                                     ?>
 
-                                <?php elseif ($bType === 'testimonial_slider'): ?>
-                                    <?php
-                                        $revViewFile = WRITEPATH . 'addons/extracted/reviews/Views/addons/reviews/block_view.php';
-                                        if ($isAddonActive('reviews') && is_file($revViewFile)) {
-                                            $data            = $bData;
-                                            $blockScopeClass = $fScopeCls;
-                                            $blockClass      = 'cms-block ' . $fScopeCls;
-                                            include $revViewFile;
-                                        }
-                                    ?>
-
-                                <?php elseif ($bType === 'newsletter_cta'): ?>
-                                    <?php
-                                        $nlViewFile = WRITEPATH . 'addons/extracted/newsletter/Views/addons/newsletter/block_view.php';
-                                        if ($isAddonActive('newsletter') && is_file($nlViewFile)):
-                                            $data            = $bData;
-                                            $blockScopeClass = $fScopeCls;
-                                            $blockClass      = 'cms-block ' . $fScopeCls;
-                                            include $nlViewFile;
-                                        else:
-                                    ?>
-                                        <div class="cms-footer-cta <?= $fScopeCls ?>">
-                                            <?php if (! empty($bData['heading'])): ?>
-                                                <h4 style="margin-bottom:0.4rem;"><?= esc($bData['heading']) ?></h4>
-                                            <?php endif; ?>
-                                            <form action="<?= base_url('cms/subscribe-lead') ?>" method="post" class="cms-lead-form js-cms-lead-form">
-                                                <?= csrf_field() ?>
-                                                <div class="cms-lead-input-group">
-                                                    <input type="email" name="email" class="field-input" placeholder="<?= esc($bData['placeholder'] ?? 'Enter your email...') ?>" required>
-                                                    <button type="submit" class="btn-primary btn-sm"><?= esc($bData['btn_text'] ?? 'Subscribe') ?></button>
-                                                </div>
-                                                <div class="js-lead-feedback field-hint" style="margin-top:0.35rem;"></div>
-                                            </form>
-                                        </div>
-                                    <?php endif; ?>
+                               
+                             
 
                                 <?php elseif ($bType === 'rich_text'): ?>
                                     <div class="cms-prose <?= $fScopeCls ?>">

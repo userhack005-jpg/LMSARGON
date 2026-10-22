@@ -49,7 +49,6 @@ class PageBuilderController extends BaseController
             'settings'   => $this->settingModel->getSystemSettings(),
             'pages'      => $this->pbModel->getAllPages(),
             'components' => $this->pbModel->getAllComponents(false),
-            'reviews'    => $this->pbModel->getDynamicReviews(50),
             'user'       => session()->get(),
             'pageTitle'  => 'Visual Page Builder & Component Registry',
         ]);
@@ -376,7 +375,7 @@ class PageBuilderController extends BaseController
     }
 
     public function renderFrontend(string $slug = '')
-    {
+    {   
         $page = $this->pbModel->getPageBySlug($slug);
         if (! $page) {
             throw PageNotFoundException::forPageNotFound('Page not found: ' . esc($slug));
@@ -396,8 +395,6 @@ class PageBuilderController extends BaseController
             'blocks'          => json_decode((string) $page['blocks_json'], true) ?: [],
             'navPages'        => $this->pbModel->getPublishedNavPages(),
             'activeFooter'    => $this->pbModel->getActiveFooter(),
-            'dbAnnouncements' => $this->pbModel->getDynamicAnnouncements('category', 'all', 0),
-            'dbReviews'       => $this->pbModel->getDynamicReviews(12),
             'pageTitle'       => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
         ]);
     }
