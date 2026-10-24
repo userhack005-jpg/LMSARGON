@@ -2,6 +2,7 @@
 
 namespace App\Models\Addons\PageBuilder;
 
+use App\Models\Addons\AddonModel;
 use CodeIgniter\Model;
 use Config\Database;
 use Throwable;
@@ -9,11 +10,12 @@ use Throwable;
 class PageBuilderModel extends Model
 {
     protected string $lockFile;
+    protected static ?array $componentsCache = null;
 
     public function __construct()
     {
         parent::__construct();
-        $this->lockFile = WRITEPATH . 'schema_addon_pagebuilder_v1.lock';
+        $this->lockFile = WRITEPATH . 'schema_addon_pagebuilder_v2.lock';
     }
 
     public function ensureSchemaInitialized(): void
@@ -29,12 +31,24 @@ class PageBuilderModel extends Model
                         `component_name` VARCHAR(100) NOT NULL,
                         `component_icon` VARCHAR(30) NOT NULL DEFAULT '⊞',
                         `category` VARCHAR(50) NOT NULL DEFAULT 'content',
+                        `addon_slug` VARCHAR(60) NOT NULL DEFAULT 'page_builder',
                         `default_schema_json` LONGTEXT NULL,
                         `is_enabled` TINYINT(1) NOT NULL DEFAULT 1,
                         `sort_order` INT NOT NULL DEFAULT 0,
                         `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                 ");
+
+                $fields = $db->getFieldNames('cms_components');
+                if (! in_array('addon_slug', $fields, true)) {
+                    $db->query("ALTER TABLE `cms_components` ADD COLUMN `addon_slug` VARCHAR(60) NOT NULL DEFAULT 'page_builder' AFTER `category`");
+                }
+
+                // Bind modular blocks once during initialization
+                $db->table('cms_components')->where('component_key', 'faq_accordion')->update(['addon_slug' => 'faqs']);
+                $db->table('cms_components')->where('component_key', 'announcement_bar')->update(['addon_slug' => 'announcements']);
+                $db->table('cms_components')->where('component_key', 'testimonial_slider')->update(['addon_slug' => 'reviews']);
+                $db->table('cms_components')->where('component_key', 'newsletter_cta')->update(['addon_slug' => 'newsletter']);
 
                 $db->query("
                     CREATE TABLE IF NOT EXISTS `cms_pages` (
@@ -58,7 +72,8 @@ class PageBuilderModel extends Model
         }
 
         $this->ensureFooterSchema();
-        $this->ensureExtendedWidgetsSchema();$this->ensureAnnouncementsSchema();
+        $this->ensureExtendedWidgetsSchema();
+        $this->ensureAnnouncementsSchema();
     }
 
     public function ensureFooterSchema(): void
@@ -69,7 +84,8 @@ class PageBuilderModel extends Model
         }
 
         try {
-            $db = Database::connect();$db->query("
+            $db = Database::connect();
+            $db->query("
                 CREATE TABLE IF NOT EXISTS `cms_footers` (
                     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                     `name` VARCHAR(120) NOT NULL,
@@ -82,7 +98,8 @@ class PageBuilderModel extends Model
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
-            if ($db->table('cms_footers')->countAllResults() === 0) {$db->table('cms_footers')->insertBatch([
+            if ($db->table('cms_footers')->countAllResults() === 0) {
+                $db->table('cms_footers')->insertBatch([
                     [
                         'name'           => 'Style 01 // Single Section (Full-Width)',
                         'style_key'      => 'style_1col',
@@ -160,8 +177,6 @@ class PageBuilderModel extends Model
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
-           
-
             $db->query("
                 CREATE TABLE IF NOT EXISTS `cms_leads` (
                     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -183,7 +198,8 @@ class PageBuilderModel extends Model
         }
 
         try {
-            $db = Database::connect();$db->query("
+            $db = Database::connect();
+            $db->query("
                 CREATE TABLE IF NOT EXISTS `cms_announcements` (
                     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                     `category` VARCHAR(80) NOT NULL DEFAULT 'General',
@@ -195,7 +211,8 @@ class PageBuilderModel extends Model
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
-            if ($db->table('cms_announcements')->countAllResults() === 0) {$db->table('cms_announcements')->insertBatch([
+            if ($db->table('cms_announcements')->countAllResults() === 0) {
+                $db->table('cms_announcements')->insertBatch([
                     [
                         'category'  => 'Admissions',
                         'message'   => '🚀 Admissions Open for 2026 International Abacus Batch — Get 30% Early Bird Scholarship!',
@@ -252,7 +269,15 @@ class PageBuilderModel extends Model
     {
         $this->ensureSchemaInitialized();
         try {
-            return Database::connect()->table('cms_pages')->where('slug', trim($slug, '/'))->where('status', 'published')->get()->getRowArray() ?: null;
+            $cleanSlug = trim($slug, '/');
+            $db        = Database::connect();
+            if ($cleanSlug === '') {
+                $home = $db->table('cms_pages')->where('is_homepage', 1)->where('status', 'published')->get()->getRowArray();
+                if ($home) {
+                    return $home;
+                }
+            }
+            return $db->table('cms_pages')->where('slug', $cleanSlug)->where('status', 'published')->get()->getRowArray() ?: null;
         } catch (Throwable $e) {
             return null;
         }
@@ -271,39 +296,60 @@ class PageBuilderModel extends Model
     public function getAllComponents(bool $onlyEnabled = false): array
     {
         $this->ensureSchemaInitialized();
+
         try {
-            $db = Database::connect();
-            $fields =$db->getFieldNames('cms_components');
-            if (! in_array('addon_slug', $fields, true)) {$db->query("ALTER TABLE `cms_components` ADD COLUMN `addon_slug` VARCHAR(60) NOT NULL DEFAULT 'page_builder' AFTER `category`");
-            }
+            if (self::$componentsCache === null) {
+                $db          = Database::connect();
+                $activeSlugs = ['page_builder'];
 
-            // Always bind modular blocks to their respective Add-On slugs so they NEVER show unless that Add-On is installed & active!
-            $db->table('cms_components')->where('component_key', 'faq_accordion')->update(['addon_slug' => 'faqs']);$db->table('cms_components')->where('component_key', 'announcement_bar')->update(['addon_slug' => 'announcements']);
-
-            $activeSlugs = ['page_builder'];
-            if ($db->tableExists('addons')) {
-                $rows =$db->table('addons')->get()->getResultArray();
-                foreach ($rows as$r) {
-                    $slug =$r['slug'] ?? '';
-                    if ($slug === '') { continue; }$active = true;
-                    if (isset($r['is_active']) && (int) $r['is_active'] === 0) {$active = false;
-                    } elseif (isset($r['is_enabled']) && (int) $r['is_enabled'] === 0) {$active = false;
-                    } elseif (isset($r['status']) && strtolower((string) $r['status']) !== 'active') {$active = false;
-                    }
-                    // Also verify extracted folder exists on disk
-                    if ($active && is_dir(WRITEPATH . 'addons/extracted/' .$slug)) {
-                        $activeSlugs[] =$slug;
+                $activeAddons = (new AddonModel())->getActiveAddons();
+                foreach ($activeAddons as $r) {
+                    $slug = trim((string) ($r['slug'] ?? ''));
+                    if ($slug !== '') {
+                        $activeSlugs[] = $slug;
                     }
                 }
+
+                self::$componentsCache = $db->table('cms_components')
+                    ->whereIn('addon_slug', array_unique($activeSlugs))
+                    ->orderBy('sort_order', 'ASC')
+                    ->get()
+                    ->getResultArray();
             }
 
-            $b = $db->table('cms_components')->whereIn('addon_slug', array_unique($activeSlugs));
-            if ($onlyEnabled) {$b->where('is_enabled', 1);
+            if ($onlyEnabled) {
+                return array_values(array_filter(
+                    self::$componentsCache,
+                    static fn(array $c): bool => (int) ($c['is_enabled'] ?? 1) === 1
+                ));
             }
-            return $b->orderBy('sort_order', 'ASC')->get()->getResultArray();
+
+            return self::$componentsCache;
         } catch (Throwable $e) {
             return [];
         }
+    }
+
+    /**
+     * Key-indexed Component Map for Frontend Page Renderer
+     */
+    public function getComponentsMap(): array
+    {
+        $map = [
+            'announcement_bar'   => ['component_key' => 'announcement_bar', 'addon_slug' => 'announcements'],
+            'faq_accordion'      => ['component_key' => 'faq_accordion', 'addon_slug' => 'faqs'],
+            'testimonial_slider' => ['component_key' => 'testimonial_slider', 'addon_slug' => 'reviews'],
+            'newsletter_cta'     => ['component_key' => 'newsletter_cta', 'addon_slug' => 'newsletter'],
+        ];
+
+        foreach ($this->getAllComponents(false) as $comp) {
+            $key = $comp['component_key'] ?? '';
+            if ($key !== '') {
+                $map[$key] = $comp;
+            }
+        }
+
+        return $map;
     }
 
     public function savePageData(array $data): array
@@ -313,25 +359,27 @@ class PageBuilderModel extends Model
             $db     = Database::connect();
             $pageId = (int) ($data['id'] ?? 0);
             $slug   = trim(preg_replace('/[^a-z0-9-\/]/', '-', strtolower($data['slug'])), '-/');
-            if ($slug === '') {$slug = 'page-' . time();
+            if ($slug === '') {
+                $slug = 'page-' . time();
             }
 
             $reserved = ['install', 'login', 'logout', 'dashboard', 'users', 'settings', 'addons', 'p'];
-            $firstSeg = explode('/',$slug)[0];
-            if (in_array($firstSeg,$reserved, true)) {
+            $firstSeg = explode('/', $slug)[0];
+            if (in_array($firstSeg, $reserved, true)) {
                 return ['status' => 'error', 'message' => 'Slug "' . $firstSeg . '" is a reserved system route.'];
             }
 
-            $dupCheck = $db->table('cms_pages')->where('slug',$slug);
+            $dupCheck = $db->table('cms_pages')->where('slug', $slug);
             if ($pageId > 0) {
-                $dupCheck->where('id !=',$pageId);
+                $dupCheck->where('id !=', $pageId);
             }
             if ($dupCheck->countAllResults() > 0) {
                 return ['status' => 'error', 'message' => 'Another page is already using the URL slug "/' . $slug . '".'];
             }
 
             $isHome = (int) ($data['is_homepage'] ?? 0);
-            if ($isHome === 1) {$db->table('cms_pages')->update(['is_homepage' => 0]);
+            if ($isHome === 1) {
+                $db->table('cms_pages')->update(['is_homepage' => 0]);
             }
 
             $payload = [
@@ -345,13 +393,14 @@ class PageBuilderModel extends Model
                 'show_in_nav'      => (int) ($data['show_in_nav'] ?? 1),
             ];
 
-            if ($pageId > 0) {$db->table('cms_pages')->where('id', $pageId)->update($payload);
+            if ($pageId > 0) {
+                $db->table('cms_pages')->where('id', $pageId)->update($payload);
             } else {
                 $db->table('cms_pages')->insert($payload);
-                $pageId = (int)$db->insertID();
+                $pageId = (int) $db->insertID();
             }
 
-            return ['status' => 'success', 'page_id' => $pageId, 'slug' => $slug, 'message' => 'Page saved & published at /' .$slug];
+            return ['status' => 'success', 'page_id' => $pageId, 'slug' => $slug, 'message' => 'Page saved & published at /' . $slug];
         } catch (Throwable $e) {
             return ['status' => 'error', 'message' => 'Database Error: ' . $e->getMessage()];
         }
@@ -361,8 +410,9 @@ class PageBuilderModel extends Model
     {
         try {
             $db = Database::connect();
-            $db->table('cms_pages')->where('id',$id)->delete();
-            return $db->affectedRows() > 0; } catch (Throwable$e) {
+            $db->table('cms_pages')->where('id', $id)->delete();
+            return $db->affectedRows() > 0;
+        } catch (Throwable $e) {
             return false;
         }
     }
@@ -370,12 +420,14 @@ class PageBuilderModel extends Model
     public function flipComponentState(int $compId): array
     {
         try {
-            $db   = Database::connect();$comp = $db->table('cms_components')->where('id',$compId)->get()->getRowArray();
+            $db   = Database::connect();
+            $comp = $db->table('cms_components')->where('id', $compId)->get()->getRowArray();
             if (! $comp) {
                 return ['status' => 'error', 'message' => 'Component not found.'];
             }
-            $newState = ((int)$comp['is_enabled'] === 1) ? 0 : 1;
-            $db->table('cms_components')->where('id', $compId)->update(['is_enabled' =>$newState]);
+            $newState = ((int) $comp['is_enabled'] === 1) ? 0 : 1;
+            $db->table('cms_components')->where('id', $compId)->update(['is_enabled' => $newState]);
+            self::$componentsCache = null;
             return ['status' => 'success', 'is_enabled' => $newState, 'message' => 'Component updated.'];
         } catch (Throwable $e) {
             return ['status' => 'error', 'message' => 'Failed to toggle component.'];
@@ -397,9 +449,9 @@ class PageBuilderModel extends Model
         $this->ensureFooterSchema();
         try {
             $db  = Database::connect();
-            $row =$db->table('cms_footers')->where('is_active', 1)->get()->getRowArray();
+            $row = $db->table('cms_footers')->where('is_active', 1)->get()->getRowArray();
             if (! $row) {
-                $row =$db->table('cms_footers')->orderBy('updated_at', 'DESC')->get()->getRowArray();
+                $row = $db->table('cms_footers')->orderBy('updated_at', 'DESC')->get()->getRowArray();
             }
             return $row ?: null;
         } catch (Throwable $e) {
@@ -411,10 +463,15 @@ class PageBuilderModel extends Model
     {
         $this->ensureFooterSchema();
         try {
-            $db       = Database::connect();$styleKey = $data['style_key'] ?? 'style_3col';$existing = $db->table('cms_footers')->where('style_key',$styleKey)->get()->getRowArray();
+            $db       = Database::connect();
+            $styleKey = $data['style_key'] ?? 'style_3col';
+            $existing = $db->table('cms_footers')->where('style_key', $styleKey)->get()->getRowArray();
 
-            if (! empty($data['set_active'])) {$db->table('cms_footers')->update(['is_active' => 0]);
-                $activeState = 1; } else {$activeState = $existing ? (int) $existing['is_active'] : 0;
+            if (! empty($data['set_active'])) {
+                $db->table('cms_footers')->update(['is_active' => 0]);
+                $activeState = 1;
+            } else {
+                $activeState = $existing ? (int) $existing['is_active'] : 0;
             }
 
             $payload = [
@@ -436,11 +493,62 @@ class PageBuilderModel extends Model
         }
     }
 
-   
+    // Safe Legacy Compatibility Methods (Prevents fatal error if legacy routes are called)
+    public function saveAnnouncementRecord(array $data, int $id = 0): bool
+    {
+        $this->ensureAnnouncementsSchema();
+        try {
+            $db = Database::connect();
+            if ($id > 0) {
+                unset($data['is_active']);
+                return (bool) $db->table('cms_announcements')->where('id', $id)->update($data);
+            }
+            return (bool) $db->table('cms_announcements')->insert($data);
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
 
+    public function deleteAnnouncementRecord(int $id): bool
+    {
+        try {
+            return (bool) Database::connect()->table('cms_announcements')->where('id', $id)->delete();
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
 
-   
+    public function addReviewRecord(array $data, int $id = 0): bool
+    {
+        $this->ensureExtendedWidgetsSchema();
+        try {
+            $db = Database::connect();
+            if ($id > 0) {
+                return (bool) $db->table('cms_reviews')->where('id', $id)->update($data);
+            }
+            return (bool) $db->table('cms_reviews')->insert($data);
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
 
+    public function deleteReviewRecord(int $id): bool
+    {
+        try {
+            return (bool) Database::connect()->table('cms_reviews')->where('id', $id)->delete();
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
 
-
+    public function saveLeadEmail(string $email): array
+    {
+        $this->ensureExtendedWidgetsSchema();
+        try {
+            Database::connect()->query("INSERT IGNORE INTO `cms_leads` (`email`) VALUES (?)", [$email]);
+            return ['status' => 'success', 'ok' => true, 'message' => 'Thank you for subscribing!'];
+        } catch (Throwable $e) {
+            return ['status' => 'error', 'ok' => false, 'message' => 'Could not save subscription.'];
+        }
+    }
 }

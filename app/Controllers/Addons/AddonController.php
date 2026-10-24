@@ -85,4 +85,20 @@ class AddonController extends BaseController
         $id = (int) $this->request->getPost('addon_id');
         return $this->response->setJSON($this->addonModel->uninstallAddon($id));
     }
+
+    public function downloadSampleGatewayZip()
+    {
+        if (! $this->isAuthorized()) {
+            return redirect()->to(base_url('login'));
+        }
+        return redirect()->to(base_url('addons'))->with('hub_notice', 'Use Add-On Manager to upload any modular .zip package.');
+    }
+
+    public function downloadPageBuilderZip()
+    {
+        if (! $this->isAuthorized()) {
+            return redirect()->to(base_url('login'));
+        }
+        return redirect()->to(base_url('addons'))->with('hub_notice', 'Page Builder module is active.');
+    }
 }

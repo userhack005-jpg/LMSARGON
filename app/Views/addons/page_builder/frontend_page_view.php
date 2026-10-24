@@ -1,11 +1,74 @@
+<?php
+    $globalWidth    = $settings['site_layout_width'] ?? 'boxed';
+    $globalSurface  = $settings['default_block_surface'] ?? 'card';
+    $themeMode      = strtolower((string) ($settings['active_theme_mode'] ?? 'dark'));
+    $floatingBlocks = [];
+    $floatingCtas   = [];
+
+    // 1. Universal Dynamic Component Map Loader (Runs ONCE before head_meta & loops, 0 N+1 Queries!)
+    if (empty($componentMap) || ! is_array($componentMap)) {
+        $componentMap = class_exists('\App\Models\Addons\PageBuilder\PageBuilderModel')
+            ? (new \App\Models\Addons\PageBuilder\PageBuilderModel())->getComponentsMap()
+            : [
+                'announcement_bar'   => ['component_key' => 'announcement_bar', 'addon_slug' => 'announcements'],
+                'faq_accordion'      => ['component_key' => 'faq_accordion', 'addon_slug' => 'faqs'],
+                'testimonial_slider' => ['component_key' => 'testimonial_slider', 'addon_slug' => 'reviews'],
+                'newsletter_cta'     => ['component_key' => 'newsletter_cta', 'addon_slug' => 'newsletter'],
+            ];
+    }
+
+    // 2. Reusable Helper Closure to check if an Add-On is active (Uses Static In-Memory Map — 0 Repeated Queries!)
+    $isAddonActive = static function (string $addonSlug): bool {
+        $addonSlug = trim($addonSlug);
+        if ($addonSlug === '' || $addonSlug === 'page_builder') {
+            return true;
+        }
+        static $activeSlugMap = null;
+        if ($activeSlugMap === null) {
+            $activeSlugMap = [];
+            if (class_exists('\App\Models\Addons\AddonModel')) {
+                foreach ((new \App\Models\Addons\AddonModel())->getActiveAddons() as $actRow) {
+                    $s = trim((string) ($actRow['slug'] ?? ''));
+                    if ($s !== '') {
+                        $activeSlugMap[$s] = true;
+                    }
+                }
+            }
+        }
+        return isset($activeSlugMap[$addonSlug]);
+    };
+
+    // 3. Helper Closure to resolve an Add-On's block_view.php path cleanly without repeated glob() scans
+    $resolveAddonBlockView = static function (string $blockType) use (&$componentMap, $isAddonActive): ?string {
+        static $viewPathCache = [];
+        if (array_key_exists($blockType, $viewPathCache)) {
+            return $viewPathCache[$blockType];
+        }
+
+        $targetSlug = trim((string) ($componentMap[$blockType]['addon_slug'] ?? ''));
+        if ($targetSlug === '' || $targetSlug === 'page_builder') {
+            // Check direct slug match if blockType itself matches an extracted addon folder
+            if (is_file(WRITEPATH . 'addons/extracted/' . $blockType . '/Views/addons/' . $blockType . '/block_view.php')) {
+                $targetSlug = $blockType;
+            }
+        }
+
+        if ($targetSlug !== '' && $targetSlug !== 'page_builder' && $isAddonActive($targetSlug)) {
+            $candidate = WRITEPATH . 'addons/extracted/' . $targetSlug . '/Views/addons/' . $targetSlug . '/block_view.php';
+            if (is_file($candidate)) {
+                return $viewPathCache[$blockType] = $candidate;
+            }
+        }
+
+        return $viewPathCache[$blockType] = null;
+    };
+?>
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="<?= esc($themeMode) ?>">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <?= $this->include('layouts/partials/head_meta') ?>
 </head>
-<body class="theme-obsidian" data-base-url="<?= base_url() ?>">
+<body class="theme-obsidian <?= $themeMode === 'light' ? 'theme-light' : 'theme-dark' ?>" data-base-url="<?= base_url() ?>">
 
     <!-- EDUSTRAY-STYLE ULTRA-FAST TOP LOADING PROGRESS BAR -->
     <div id="edustray-top-loader" class="edustray-loader-bar"></div>
@@ -17,49 +80,15 @@
     <div class="ambient-grid"></div>
 
     <?php
-        $globalWidth    =$settings['site_layout_width'] ?? 'boxed';
-        $globalSurface  =$settings['default_block_surface'] ?? 'card';
-        $floatingBlocks = [];$floatingCtas   = [];
-
-        // Reusable Helper Closure to check if an Add-On is active in `addons` table
-        $isAddonActive = static function (string$addonSlug): bool {
-            if ($addonSlug === '' or$addonSlug === 'page_builder') {
-                return true;
-            }
-            if (! is_dir(WRITEPATH . 'addons/extracted/' . $addonSlug)) {
-                return false;
-            }
-            try {
-                $dbCheck = \Config\Database::connect();
-                if ($dbCheck->tableExists('addons')) {$addonRow = $dbCheck->table('addons')->where('slug',$addonSlug)->get()->getRowArray();
-                    if (! $addonRow) {
-                        return false;
-                    }
-                    if (isset($addonRow['is_active']) && (int)$addonRow['is_active'] === 0) {
-                        return false;
-                    }
-                    if (isset($addonRow['is_enabled']) && (int)$addonRow['is_enabled'] === 0) {
-                        return false;
-                    }
-                    if (isset($addonRow['status']) && strtolower((string)$addonRow['status']) !== 'active') {
-                        return false;
-                    }
-                }
-            } catch (\Throwable $e) {
-                return false;
-            }
-            return true;
-        };
-
         // MODULAR TOP HOOK: Render `announcement_bar` from `writable/addons/extracted/announcements` if active!
         // Passes `$blockScopeClass = 'cms-scope-blk-' . $annIdx` so <head> CSS variables apply in 0.00ms with ZERO Color Flash!
-        $extractedAnnBlock = WRITEPATH . 'addons/extracted/announcements/Views/addons/announcements/block_view.php';
-        if ($isAddonActive('announcements') && is_file($extractedAnnBlock) && ! empty($blocks)) {
-            foreach ($blocks as $annIdx =>$blk) {
+        $extractedAnnBlock = $resolveAddonBlockView('announcement_bar');
+        if ($extractedAnnBlock !== null && ! empty($blocks)) {
+            foreach ($blocks as $annIdx => $blk) {
                 if (($blk['type'] ?? '') === 'announcement_bar') {
-                    $data            =$blk['data'] ?? [];
-                    $blockScopeClass = 'cms-scope-blk-' . (int)$annIdx;
-                    $blockClass      = 'cms-scope-blk-' . (int)$annIdx;
+                    $data            = $blk['data'] ?? [];
+                    $blockScopeClass = 'cms-scope-blk-' . (int) $annIdx;
+                    $blockClass      = 'cms-scope-blk-' . (int) $annIdx;
                     include $extractedAnnBlock;
                 }
             }
@@ -71,7 +100,7 @@
         <div class="cms-nav-inner">
             <a href="<?= base_url() ?>" class="cms-brand-link">
                 <?php if (! empty($settings['site_logo'])): ?>
-                    <img src="<?= base_url(esc($settings['site_logo'])) ?>" alt="<?= esc($settings['site_title'] ?? 'Logo') ?>" class="brand-logo-sm" decoding="async">
+                    <img src="<?= base_url(esc($settings['site_logo'])) ?>" alt="<?= esc($settings['site_title'] ?? 'Logo') ?>" class="brand-logo-sm" decoding="async" fetchpriority="high">
                 <?php else: ?>
                     <div class="brand-monogram-sm"><?= esc(strtoupper(substr($settings['site_title'] ?? 'S', 0, 2))) ?></div>
                 <?php endif; ?>
@@ -97,27 +126,28 @@
 
     <!-- Dynamic Blocks Main Content -->
     <main class="cms-public-main layout-<?= esc($globalWidth) ?>">
-        <?php foreach (($blocks ?? []) as $idx =>$blk): ?>
+        <?php foreach (($blocks ?? []) as $idx => $blk): ?>
             <?php
-                $type =$blk['type'] ?? 'rich_text';
-                $data =$blk['data'] ?? [];
+                $type = $blk['type'] ?? 'rich_text';
+                $data = $blk['data'] ?? [];
 
                 // Skip announcement_bar here because it was rendered at the very top
                 if ($type === 'announcement_bar') {
                     continue;
                 }
 
-				if (! empty($data['is_floating']) && (string) $data['is_floating'] === '1') {
-					$floatingCtas[] = ['type' => $type, 'data' => $data, 'idx' => $idx];
-					continue;
-				}
+                // Collect floating overlap blocks (e.g. Newsletter Floating Card above Footer)
+                if (! empty($data['is_floating']) && (string) $data['is_floating'] === '1') {
+                    $floatingCtas[] = ['type' => $type, 'data' => $data, 'idx' => $idx];
+                    continue;
+                }
 
                 $gapMode     = $data['_gap'] ?? 'normal';
                 $prevGapMode = ($idx > 0) ? ($blocks[$idx - 1]['data']['_gap'] ?? 'normal') : 'normal';
                 $wMode       = $data['_width'] ?? 'default';
-                $effectiveW  = ($wMode === 'default' or $wMode === 'inherit' or $wMode === '') ? $globalWidth : $wMode;
+                $effectiveW  = ($wMode === 'default' || $wMode === 'inherit' || $wMode === '') ? $globalWidth : $wMode;
                 $bgMode      = $data['_bg_mode'] ?? 'default';
-                $effectiveBg = ($bgMode === 'default' or $bgMode === 'inherit' or $bgMode === '') ? $globalSurface : $bgMode;
+                $effectiveBg = ($bgMode === 'default' || $bgMode === 'inherit' || $bgMode === '') ? $globalSurface : $bgMode;
                 $customBgCss = ($effectiveBg === 'custom' && ! empty($data['_bg_color']))
                     ? 'background-color: ' . esc($data['_bg_color']) . ' !important;'
                     : '';
@@ -133,58 +163,15 @@
                     . ($effectiveBg === 'seamless' ? ' surface-seamless' : ' surface-card')
                     . ($gapMode === 'none' ? ' merge-bottom-radius' : '')
                     . ($prevGapMode === 'none' ? ' merge-top-radius' : '');
+
+                $extractedAddonBlockFile = $resolveAddonBlockView($type);
             ?>
 
-
-			<?php 
-									// Universal Dynamic Component Map Loader (Loads from cms_components if not passed by controller)
-					if (empty($componentMap) || ! isset(reset($componentMap)['addon_slug'])) {
-						$componentMap = [];
-						try {
-							$dbComp = \Config\Database::connect();
-							if ($dbComp->tableExists('cms_components')) {
-								foreach ($dbComp->table('cms_components')->get()->getResultArray() as $cRow) {
-									$componentMap[$cRow['component_key']] = $cRow;
-								}
-							}
-						} catch (\Throwable $e) {}
-					}
-
-					?>
-				
             <div class="<?= $wrapperClass ?> is-revealed dev">
-                <?php
-                    // UNIVERSAL MODULAR ADD-ON BLOCK LOADER (Checks writable/addons/extracted first!)
-              //dev  $targetAddonSlug = $componentMap[$type]['addon_slug'] ?? ($componentMap[$type]['category'] ?? '');
-			  
-				// Fallback convention: announcements -> announcement_bar, faqs -> faq_accordion, reviews -> testimonial_slider, newsletter -> newsletter_cta
-			//dev	if ($targetAddonSlug === '' && ! empty($componentMap[$type]['view_path'])) {
-				//dev	$customViewFile = WRITEPATH . 'addons/extracted/' . ltrim($componentMap[$type]['view_path'], '/');
-					$targetAddonSlug = $componentMap[$type]['addon_slug'] ?? '';
-				if ($targetAddonSlug === '') {
-				 foreach (glob(WRITEPATH . 'addons/extracted/*/Views/addons/*/block_view.php') as $bv) {
-					if (strpos($bv, '/' . $type . '/') !== false) {
-						include $bv;
-						continue;
-					}
-				 }
-				} else {
-					$customViewFile = WRITEPATH . 'addons/extracted/' . $targetAddonSlug . '/Views/addons/' . $targetAddonSlug . '/block_view.php';
-				}
-				
-				$customViewFile = WRITEPATH . 'addons/extracted/' . $targetAddonSlug . '/Views/addons/' . $targetAddonSlug . '/block_view.php';
-				if ($targetAddonSlug !== '' && $isAddonActive($targetAddonSlug) && is_file($customViewFile)) {
-					include $customViewFile;
-					continue;
-				}	
-			/* dev 	if ($targetAddonSlug !== '' && $isAddonActive($targetAddonSlug) && is_file($customViewFile)) {
-					include $customViewFile;
-					continue;
-				} */ ?>
-				
-				
-								 
-                <?php if ($type === 'split_hero'): ?>
+                <?php if ($extractedAddonBlockFile !== null): ?>
+                    <?php include $extractedAddonBlockFile; ?>
+
+                <?php elseif ($type === 'split_hero'): ?>
                     <?php
                         $accCol  = $data['accent_color'] ?? 'var(--accent-emerald)';
                         $rawHead = esc($data['heading'] ?? '');
@@ -227,7 +214,11 @@
                             <div class="cms-split-right">
                                 <div class="cms-hero-visual-stage">
                                     <?php if (! empty($data['image_url'])): ?>
-                                        <img src="<?= esc($data['image_url']) ?>" alt="<?= esc($data['heading'] ?? 'Hero') ?>" class="cms-split-img" loading="lazy" decoding="async">
+                                        <img src="<?= esc($data['image_url']) ?>"
+                                             alt="<?= esc($data['heading'] ?? 'Hero') ?>"
+                                             class="cms-split-img"
+                                             <?= $idx <= 1 ? 'fetchpriority="high"' : 'loading="lazy"' ?>
+                                             decoding="async">
                                     <?php else: ?>
                                         <div class="cms-hero-abstract-box" style="border-color: <?= esc($accCol) ?>;">
                                             <div class="mono-label">INTERACTIVE LEARNING ENGINE</div>
@@ -333,7 +324,6 @@
                         </div>
                     </section>
 
-            
                 <!-- EXISTING CORE BLOCKS (Hero, Rich Text, Image, CTA, Quiz, Feature Grid, Custom HTML) -->
                 <?php elseif ($type === 'hero_banner'): ?>
                     <section class="<?= $blockClass ?> cms-hero align-<?= esc($data['align'] ?? 'center') ?>" style="<?= $customBgCss ?>">
@@ -426,27 +416,25 @@
                         <div class="cms-inner-container"><?= $data['raw_code'] ?? '' ?></div>
                     </section>
                 <?php endif; ?>
-
             </div>
         <?php endforeach; ?>
     </main>
 
     <!-- EDUSTRAY-STYLE FLOATING NEWSLETTER / LEAD MAGNET BOX (OVERLAPPING ABOVE FOOTER!) -->
-		  <?php foreach ($floatingCtas as $fItem): ?>
-			<?php
-				$fType = $fItem['type'] ?? 'newsletter_cta';
-				$data  = $fItem['data'] ?? $fItem;
-				$fSlug = $componentMap[$fType]['addon_slug'] ?? 'newsletter';
-				$fView = WRITEPATH . 'addons/extracted/' . $fSlug . '/Views/addons/' . $fSlug . '/block_view.php';
-				$blockScopeClass = 'cms-scope-blk-' . (int) ($fItem['idx'] ?? 0);
-				$blockClass      = 'cms-block is-floating-overlap ' . $blockScopeClass;
-			?>
-			<?php if ($isAddonActive($fSlug) && is_file($fView)): ?>
-				<div class="cms-floating-cta-wrap <?= esc($blockScopeClass) ?>">
-					<?php include $fView; ?>
-				</div>
-			<?php endif; ?>
-		<?php endforeach; ?>
+    <?php foreach ($floatingCtas as $fItem): ?>
+        <?php
+            $fType           = $fItem['type'] ?? 'newsletter_cta';
+            $data            = $fItem['data'] ?? $fItem;
+            $fView           = $resolveAddonBlockView($fType);
+            $blockScopeClass = 'cms-scope-blk-' . (int) ($fItem['idx'] ?? 0);
+            $blockClass      = 'cms-block is-floating-overlap ' . $blockScopeClass;
+        ?>
+        <?php if ($fView !== null): ?>
+            <div class="cms-floating-cta-wrap <?= esc($blockScopeClass) ?>">
+                <?php include $fView; ?>
+            </div>
+        <?php endif; ?>
+    <?php endforeach; ?>
 
     <!-- VIDEO POPUP MODAL (ULTRA-LIGHTWEIGHT, LOADS IFRAME ONLY ON CLICK) -->
     <div id="cms-video-modal" class="cms-video-modal is-hidden">
@@ -472,23 +460,33 @@
                         <div class="cms-footer-col">
                             <?php foreach (($fSections[$c] ?? []) as $fbIdx => $fBlk): ?>
                                 <?php
-                                    $bType     = $fBlk['type'] ?? 'rich_text';
-                                    $bData     = $fBlk['data'] ?? [];
-                                    $fScopeCls = 'cms-scope-fblk-' . (int) $c . '-' . (int) $fbIdx;
+                                    $bType           = $fBlk['type'] ?? 'rich_text';
+                                    $bData           = $fBlk['data'] ?? [];
+                                    $fScopeCls       = 'cms-scope-fblk-' . (int) $c . '-' . (int) $fbIdx;
+                                    $footerAddonView = $resolveAddonBlockView($bType);
                                 ?>
-                                <?php if ($bType === 'faq_accordion'): ?>
+                                <?php if ($footerAddonView !== null): ?>
                                     <?php
-                                        $faqViewFile = WRITEPATH . 'addons/extracted/faqs/Views/addons/faqs/block_view.php';
-                                        if ($isAddonActive('faqs') && is_file($faqViewFile)) {
-                                            $data            = $bData;
-                                            $blockScopeClass = $fScopeCls;
-                                            $blockClass      = 'cms-block ' . $fScopeCls;
-                                            include $faqViewFile;
-                                        }
+                                        $data            = $bData;
+                                        $blockScopeClass = $fScopeCls;
+                                        $blockClass      = 'cms-block ' . $fScopeCls;
+                                        include $footerAddonView;
                                     ?>
 
-                               
-                             
+                                <?php elseif ($bType === 'newsletter_cta'): ?>
+                                    <div class="cms-footer-cta <?= $fScopeCls ?>">
+                                        <?php if (! empty($bData['heading'])): ?>
+                                            <h4 style="margin-bottom:0.4rem;"><?= esc($bData['heading']) ?></h4>
+                                        <?php endif; ?>
+                                        <form action="<?= base_url('cms/subscribe-lead') ?>" method="post" class="cms-lead-form js-cms-lead-form">
+                                            <?= csrf_field() ?>
+                                            <div class="cms-lead-input-group">
+                                                <input type="email" name="email" class="field-input" placeholder="<?= esc($bData['placeholder'] ?? 'Enter your email...') ?>" required>
+                                                <button type="submit" class="btn-primary btn-sm"><?= esc($bData['btn_text'] ?? 'Subscribe') ?></button>
+                                            </div>
+                                            <div class="js-lead-feedback field-hint" style="margin-top:0.35rem;"></div>
+                                        </form>
+                                    </div>
 
                                 <?php elseif ($bType === 'rich_text'): ?>
                                     <div class="cms-prose <?= $fScopeCls ?>">
@@ -498,16 +496,16 @@
                                         <?= ! empty($bData['html']) ? $bData['html'] : nl2br(esc($bData['body'] ?? '')) ?>
                                     </div>
 
-                                <?php elseif ($bType === 'cta_buttons' or $bType === 'cta_banner'): ?>
+                                <?php elseif ($bType === 'cta_buttons' || $bType === 'cta_banner'): ?>
                                     <div class="cms-footer-cta <?= $fScopeCls ?>">
-                                        <?php if (! empty($bData['title']) or ! empty($bData['heading'])): ?>
+                                        <?php if (! empty($bData['title']) || ! empty($bData['heading'])): ?>
                                             <h4 style="margin-bottom:0.5rem;"><?= esc($bData['title'] ?? $bData['heading']) ?></h4>
                                         <?php endif; ?>
                                         <?php if (! empty($bData['subtext'])): ?>
                                             <p class="muted-cell" style="margin-bottom:0.6rem;"><?= esc($bData['subtext']) ?></p>
                                         <?php endif; ?>
                                         <div class="action-btn-group" style="justify-content:flex-start; flex-wrap:wrap;">
-                                            <?php if (! empty($bData['primary_text']) or ! empty($bData['btn_label'])): ?>
+                                            <?php if (! empty($bData['primary_text']) || ! empty($bData['btn_label'])): ?>
                                                 <a href="<?= esc($bData['primary_url'] ?? ($bData['btn_link'] ?? '#')) ?>" class="btn-primary btn-sm">
                                                     <?= esc($bData['primary_text'] ?? $bData['btn_label']) ?>
                                                 </a>
@@ -518,16 +516,16 @@
                                         </div>
                                     </div>
 
-                                <?php elseif ($bType === 'hero_banner' or $bType === 'split_hero'): ?>
+                                <?php elseif ($bType === 'hero_banner' || $bType === 'split_hero'): ?>
                                     <div class="cms-footer-cta <?= $fScopeCls ?>">
                                         <?php if (! empty($bData['badge'])): ?>
                                             <span class="mono-label text-emerald"><?= esc($bData['badge']) ?></span>
                                         <?php endif; ?>
                                         <h4 style="margin:0.35rem 0;"><?= esc($bData['heading'] ?? ($bData['headline'] ?? '')) ?></h4>
-                                        <?php if (! empty($bData['subheading']) or ! empty($bData['subheadline'])): ?>
+                                        <?php if (! empty($bData['subheading']) || ! empty($bData['subheadline'])): ?>
                                             <p class="muted-cell" style="margin-bottom:0.6rem;"><?= esc($bData['subheading'] ?? ($bData['subheadline'] ?? '')) ?></p>
                                         <?php endif; ?>
-                                        <?php if (! empty($bData['btn_text']) or ! empty($bData['primary_btn_text'])): ?>
+                                        <?php if (! empty($bData['btn_text']) || ! empty($bData['primary_btn_text'])): ?>
                                             <a href="<?= esc($bData['btn_url'] ?? ($bData['primary_btn_url'] ?? '#')) ?>" class="btn-primary btn-sm">
                                                 <?= esc($bData['btn_text'] ?? $bData['primary_btn_text']) ?> →
                                             </a>
@@ -552,7 +550,7 @@
                                 <?php elseif ($bType === 'stats_counter'): ?>
                                     <div class="cms-footer-cta <?= $fScopeCls ?>">
                                         <?php for ($si = 1; $si <= 4; $si++): ?>
-                                            <?php if (! empty($bData["stat{$si}_num"]) or ! empty($bData["stat{$si}_val"])): ?>
+                                            <?php if (! empty($bData["stat{$si}_num"]) || ! empty($bData["stat{$si}_val"])): ?>
                                                 <div style="margin-bottom:0.35rem;">
                                                     <strong class="text-emerald"><?= esc($bData["stat{$si}_num"] ?? $bData["stat{$si}_val"]) ?></strong>
                                                     <span class="mono-label"> — <?= esc($bData["stat{$si}_label"] ?? '') ?></span>
@@ -561,14 +559,14 @@
                                         <?php endfor; ?>
                                     </div>
 
-                                <?php elseif ($bType === 'video_showcase' && (! empty($bData['embed_url']) or ! empty($bData['video_url']))): ?>
+                                <?php elseif ($bType === 'video_showcase' && (! empty($bData['embed_url']) || ! empty($bData['video_url']))): ?>
                                     <div class="cms-video-frame <?= $fScopeCls ?>">
                                         <iframe src="<?= esc($bData['embed_url'] ?? $bData['video_url']) ?>" title="Video" loading="lazy" allowfullscreen></iframe>
                                     </div>
 
                                 <?php elseif ($bType === 'image_media' && ! empty($bData['image_url'])): ?>
                                     <div class="<?= $fScopeCls ?>">
-                                        <img src="<?= esc($bData['image_url']) ?>" alt="<?= esc($bData['alt_text'] ?? '') ?>" style="max-width:<?= esc($bData['width'] ?? '160px') ?>; border-radius:8px;" loading="lazy">
+                                        <img src="<?= esc($bData['image_url']) ?>" alt="<?= esc($bData['alt_text'] ?? '') ?>" style="max-width:<?= esc($bData['width'] ?? '160px') ?>; border-radius:8px;" loading="lazy" decoding="async">
                                         <?php if (! empty($bData['caption'])): ?>
                                             <div class="field-hint"><?= esc($bData['caption']) ?></div>
                                         <?php endif; ?>
@@ -578,7 +576,7 @@
                                     <div class="cms-quiz-card <?= $fScopeCls ?>" data-correct="<?= esc(strtoupper($bData['correct_index'] ?? 'A')) ?>" data-explanation="<?= esc($bData['explanation'] ?? 'Correct Answer!') ?>">
                                         <h4 class="cms-quiz-question"><?= esc($bData['question'] ?? '') ?></h4>
                                         <div class="cms-quiz-options">
-                                            <?php foreach (['A' => 'option_a', 'B' => 'option_b', 'C' => 'option_c', 'D' => 'option_d'] as $letter =>$key): ?>
+                                            <?php foreach (['A' => 'option_a', 'B' => 'option_b', 'C' => 'option_c', 'D' => 'option_d'] as $letter => $key): ?>
                                                 <?php if (! empty($bData[$key])): ?>
                                                     <button type="button" class="cms-quiz-opt js-quiz-answer" data-choice="<?= $letter ?>">
                                                         <span class="step-index"><?= $letter ?></span>
@@ -608,7 +606,8 @@
 
     <!-- Load Core app.js on Frontend (Prevents duplicate loading on Backend!) -->
     <?php
-        $coreJsFile = FCPATH . 'assets/js/app.js';$coreJsVer  = is_file($coreJsFile) ? (string) @filemtime($coreJsFile) : '1.0';
+        $coreJsFile = FCPATH . 'assets/js/app.js';
+        $coreJsVer  = is_file($coreJsFile) ? (string) @filemtime($coreJsFile) : '1.0';
     ?>
     <script src="<?= base_url('assets/js/app.js') ?>?v=<?= esc($coreJsVer) ?>" defer></script>
 

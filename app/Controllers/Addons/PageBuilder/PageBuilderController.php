@@ -28,7 +28,7 @@ class PageBuilderController extends BaseController
     }
 
     /**
-     * Helper: Returns JSON if AJAX request, otherwise cleanly redirects back (Never shows raw JSON page!)
+     * Helper: Returns JSON if AJAX request, otherwise cleanly redirects back
      */
     private function respondOrRedirect(array $payload, string $redirectUrl)
     {
@@ -173,7 +173,7 @@ class PageBuilderController extends BaseController
     }
 
     /**
-     * Visual Footer Builder Workspace (Safe against both old & new views!)
+     * Visual Footer Builder Workspace
      */
     public function footerEditor()
     {
@@ -246,8 +246,8 @@ class PageBuilderController extends BaseController
         return view('addons/page_builder/footer_editor_view', [
             'activeMenu'   => 'addon_pb_footer',
             'settings'     => $this->settingModel->getSystemSettings(),
-            'footers'      => $footers,      // Passed for backward compatibility
-            'footersByKey' => $footersByKey, // Passed for 5 preset tabs
+            'footers'      => $footers,
+            'footersByKey' => $footersByKey,
             'current'      => $current,
             'components'   => $this->pbModel->getAllComponents(true),
             'user'         => session()->get(),
@@ -278,9 +278,6 @@ class PageBuilderController extends BaseController
         ], base_url('addons/page-builder/footer?style=' . $styleKey));
     }
 
-    /**
-     * Dedicated Content Hub Page (Announcements, FAQs & Reviews)
-     */
     public function contentHub()
     {
         return redirect()->to(base_url('addons/page-builder'))
@@ -308,7 +305,7 @@ class PageBuilderController extends BaseController
         return $this->respondOrRedirect([
             'status'  => 'success',
             'message' => $id > 0 ? 'Announcement #' . $id . ' updated!' : 'New Announcement added!',
-        ], base_url('addons/page-builder/content-hub?tab=announcements'));
+        ], base_url('addons/announcements'));
     }
 
     public function deleteAnnouncement()
@@ -321,11 +318,8 @@ class PageBuilderController extends BaseController
         return $this->respondOrRedirect([
             'status'  => 'success',
             'message' => 'Announcement deleted permanently.',
-        ], base_url('addons/page-builder/content-hub?tab=announcements'));
+        ], base_url('addons/announcements'));
     }
-
-
-   
 
     public function saveReview()
     {
@@ -349,7 +343,7 @@ class PageBuilderController extends BaseController
         return $this->respondOrRedirect([
             'status'  => 'success',
             'message' => $id > 0 ? 'Review #' . $id . ' updated!' : 'Student Review added!',
-        ], base_url('addons/page-builder/content-hub?tab=reviews'));
+        ], base_url('addons/reviews'));
     }
 
     public function deleteReview()
@@ -362,7 +356,7 @@ class PageBuilderController extends BaseController
         return $this->respondOrRedirect([
             'status'  => 'success',
             'message' => 'Review deleted permanently.',
-        ], base_url('addons/page-builder/content-hub?tab=reviews'));
+        ], base_url('addons/reviews'));
     }
 
     public function subscribeLead()
@@ -375,7 +369,7 @@ class PageBuilderController extends BaseController
     }
 
     public function renderFrontend(string $slug = '')
-    {   
+    {
         $page = $this->pbModel->getPageBySlug($slug);
         if (! $page) {
             throw PageNotFoundException::forPageNotFound('Page not found: ' . esc($slug));
@@ -390,12 +384,13 @@ class PageBuilderController extends BaseController
         }
 
         return view('addons/page_builder/frontend_page_view', [
-            'settings'        => $settings,
-            'page'            => $page,
-            'blocks'          => json_decode((string) $page['blocks_json'], true) ?: [],
-            'navPages'        => $this->pbModel->getPublishedNavPages(),
-            'activeFooter'    => $this->pbModel->getActiveFooter(),
-            'pageTitle'       => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
+            'settings'     => $settings,
+            'page'         => $page,
+            'blocks'       => json_decode((string) $page['blocks_json'], true) ?: [],
+            'componentMap' => $this->pbModel->getComponentsMap(),
+            'navPages'     => $this->pbModel->getPublishedNavPages(),
+            'activeFooter' => $this->pbModel->getActiveFooter(),
+            'pageTitle'    => $page['meta_title'] ?: ($page['title'] . ' — ' . ($settings['site_title'] ?? 'Website')),
         ]);
     }
 }

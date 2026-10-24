@@ -10,11 +10,19 @@ use ZipArchive;
 class AddonModel extends Model
 {
     protected string $schemaLockFile;
+    protected static ?array $allAddonsCache    = null;
+    protected static ?array $activeAddonsCache = null;
 
     public function __construct()
     {
         parent::__construct();
         $this->schemaLockFile = WRITEPATH . 'schema_addons_v1.lock';
+    }
+
+    public static function clearMemoryCache(): void
+    {
+        self::$allAddonsCache    = null;
+        self::$activeAddonsCache = null;
     }
 
     public function ensureSchemaInitialized(): void
@@ -24,7 +32,8 @@ class AddonModel extends Model
         }
 
         try {
-            $db = Database::connect();$db->query("
+            $db = Database::connect();
+            $db->query("
                 CREATE TABLE IF NOT EXISTS `addons` (
                     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
                     `slug` VARCHAR(80) NOT NULL UNIQUE,
@@ -49,9 +58,18 @@ class AddonModel extends Model
 
     public function getAllAddons(): array
     {
+        if (self::$allAddonsCache !== null) {
+            return self::$allAddonsCache;
+        }
+
         $this->ensureSchemaInitialized();
         try {
-            return Database::connect()->table('addons')->orderBy('id', 'DESC')->get()->getResultArray();
+            self::$allAddonsCache = Database::connect()
+                ->table('addons')
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getResultArray();
+            return self::$allAddonsCache;
         } catch (Throwable $e) {
             return [];
         }
@@ -59,12 +77,61 @@ class AddonModel extends Model
 
     public function getActiveAddons(): array
     {
+        if (self::$activeAddonsCache !== null) {
+            return self::$activeAddonsCache;
+        }
+
         $this->ensureSchemaInitialized();
         try {
-            return Database::connect()->table('addons')->where('is_active', 1)->orderBy('name', 'ASC')->get()->getResultArray();
+            $db     = Database::connect();
+            $fields = $db->getFieldNames('addons');
+            if (! in_array('sort_order', $fields, true)) {
+                $db->query("ALTER TABLE `addons` ADD COLUMN `sort_order` INT(11) NOT NULL DEFAULT 0 AFTER `is_active`");
+            }
+
+            // 1, 2, 3... come first in exact ascending order; all 0s come at the bottom!
+            $rows = $db->query("
+                SELECT * FROM `addons`
+                WHERE `is_active` = 1
+                ORDER BY (`sort_order` = 0) ASC, `sort_order` ASC, `id` ASC
+            ")->getResultArray();
+
+            $filtered = [];
+            foreach ($rows as $r) {
+                $slug = trim((string) ($r['slug'] ?? ''));
+                if ($slug === '') {
+                    continue;
+                }
+                if (isset($r['is_enabled']) && (int) $r['is_enabled'] === 0) {
+                    continue;
+                }
+                if (isset($r['status']) && strtolower((string) $r['status']) !== 'active') {
+                    continue;
+                }
+                if (is_dir(WRITEPATH . 'addons/extracted/' . $slug)) {
+                    $filtered[] = $r;
+                }
+            }
+
+            self::$activeAddonsCache = $filtered;
+            return self::$activeAddonsCache;
         } catch (Throwable $e) {
             return [];
         }
+    }
+
+    public function isAddonActive(string $slug): bool
+    {
+        $slug = trim($slug);
+        if ($slug === '' || $slug === 'page_builder') {
+            return true;
+        }
+        foreach ($this->getActiveAddons() as $addon) {
+            if (($addon['slug'] ?? '') === $slug) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function getAddonBySlug(string $slug): ?array
@@ -77,12 +144,14 @@ class AddonModel extends Model
         }
     }
 
-    public function updateAddonConfig(string $slug, array$newConfig): bool
+    public function updateAddonConfig(string $slug, array $newConfig): bool
     {
         try {
-            return (bool) Database::connect()->table('addons')
+            $ok = (bool) Database::connect()->table('addons')
                 ->where('slug', $slug)
                 ->update(['config_json' => json_encode($newConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)]);
+            self::clearMemoryCache();
+            return $ok;
         } catch (Throwable $e) {
             return false;
         }
@@ -91,13 +160,15 @@ class AddonModel extends Model
     public function toggleStatus(int $id): array
     {
         try {
-            $db    = Database::connect();$addon = $db->table('addons')->where('id',$id)->get()->getRowArray();
+            $db    = Database::connect();
+            $addon = $db->table('addons')->where('id', $id)->get()->getRowArray();
             if (! $addon) {
                 return ['status' => 'error', 'message' => 'Add-on not found.'];
             }
 
-            $newState = ((int)$addon['is_active'] === 1) ? 0 : 1;
-            $db->table('addons')->where('id', $id)->update(['is_active' =>$newState]);
+            $newState = ((int) $addon['is_active'] === 1) ? 0 : 1;
+            $db->table('addons')->where('id', $id)->update(['is_active' => $newState]);
+            self::clearMemoryCache();
 
             return [
                 'status'    => 'success',
@@ -115,14 +186,15 @@ class AddonModel extends Model
     public function uninstallAddon(int $id): array
     {
         try {
-            $db    = Database::connect();$addon = $db->table('addons')->where('id',$id)->get()->getRowArray();
+            $db    = Database::connect();
+            $addon = $db->table('addons')->where('id', $id)->get()->getRowArray();
             if (! $addon) {
                 return ['status' => 'error', 'message' => 'Add-on not found.'];
             }
 
-            $slug       =$addon['slug'];
-            $extractDir = WRITEPATH . 'addons/extracted/' .$slug . '/';
-            $payloadDir =$extractDir . 'payload/';
+            $slug       = $addon['slug'];
+            $extractDir = WRITEPATH . 'addons/extracted/' . $slug . '/';
+            $payloadDir = $extractDir . 'payload/';
 
             // 1. Remove deployed files from app/ and public/ that came from payload/
             if (is_dir($payloadDir)) {
@@ -135,7 +207,8 @@ class AddonModel extends Model
             }
 
             // 3. Delete database record
-            $db->table('addons')->where('id',$id)->delete();
+            $db->table('addons')->where('id', $id)->delete();
+            self::clearMemoryCache();
 
             return [
                 'status'  => 'success',
@@ -159,38 +232,56 @@ class AddonModel extends Model
                 return ['status' => 'error', 'message' => 'Could not open .zip file.'];
             }
 
-            $manifestRaw =$zip->getFromName('addon.json');
-            if ($manifestRaw === false) {$zip->close();
+            $manifestRaw = $zip->getFromName('addon.json');
+            if ($manifestRaw === false) {
+                $zip->close();
                 return ['status' => 'error', 'message' => 'Missing `addon.json` inside root of ZIP.'];
             }
 
-            $manifest = json_decode($manifestRaw, true);
-            if (! is_array($manifest) || empty($manifest['slug']) || empty($manifest['name'])) {$zip->close();
+            $manifest = json_decode(ltrim($manifestRaw, "\xEF\xBB\xBF"), true);
+            if (! is_array($manifest) || empty($manifest['slug']) || empty($manifest['name'])) {
+                $zip->close();
                 return ['status' => 'error', 'message' => 'Invalid `addon.json` manifest.'];
             }
 
             $slug       = preg_replace('/[^a-z0-9_-]/', '', strtolower($manifest['slug']));
-            $extractDir = WRITEPATH . 'addons/extracted/' .$slug . '/';
+            $extractDir = WRITEPATH . 'addons/extracted/' . $slug . '/';
             if (! is_dir($extractDir)) {
                 mkdir($extractDir, 0775, true);
             }
 
-            $zip->extractTo($extractDir);$zip->close();
+            $zip->extractTo($extractDir);
+            $zip->close();
 
             // Copy payload files to project root
             if (is_dir($extractDir . 'payload/')) {
                 $this->recursiveCopy($extractDir . 'payload/', ROOTPATH);
             }
 
-            // Run 1-Time DB Initializer if defined
-            if (! empty($manifest['init_model']) && class_exists($manifest['init_model'])) {
-                $modelObj = new$manifest['init_model']();
-                if (method_exists($modelObj, 'ensureSchemaInitialized')) {$modelObj->ensureSchemaInitialized();
+            // Run 1-Time DB Initializer if defined (Auto-requires model file from extracted folder first!)
+            if (! empty($manifest['init_model'])) {
+                $initClass = ltrim((string) $manifest['init_model'], '\\');
+                if (! class_exists($initClass)) {
+                    $relModelPath = str_replace(['App\\', '\\'], ['', '/'], $initClass) . '.php';
+                    if (is_file($extractDir . $relModelPath)) {
+                        require_once $extractDir . $relModelPath;
+                    } elseif (is_file(APPPATH . $relModelPath)) {
+                        require_once APPPATH . $relModelPath;
+                    }
+                }
+                if (class_exists($initClass)) {
+                    $modelObj = new $initClass();
+                    if (method_exists($modelObj, 'ensureSchemaInitialized')) {
+                        $modelObj->ensureSchemaInitialized();
+                    } elseif (method_exists($modelObj, 'ensureSchema')) {
+                        $modelObj->ensureSchema();
+                    }
                 }
             }
 
             $db       = Database::connect();
-            $existing =$this->getAddonBySlug($slug);$cfgJson  = ($existing && ! empty($existing['config_json']))
+            $existing = $this->getAddonBySlug($slug);
+            $cfgJson  = ($existing && ! empty($existing['config_json']))
                 ? $existing['config_json']
                 : json_encode($manifest['default_config'] ?? [], JSON_PRETTY_PRINT);
 
@@ -201,13 +292,18 @@ class AddonModel extends Model
                     `name` = VALUES(`name`), `version` = VALUES(`version`),
                     `admin_route` = VALUES(`admin_route`), `frontend_route` = VALUES(`frontend_route`), `is_active` = 1
             ", [
-                $slug,$manifest['name'],
-                $manifest['category'] ?? 'general',$manifest['version'] ?? '1.0.0',
+                $slug,
+                $manifest['name'],
+                $manifest['category'] ?? 'general',
+                $manifest['version'] ?? '1.0.0',
                 $manifest['author'] ?? 'System',
-                $manifest['description'] ?? '',$manifest['admin_route'] ?? null,
+                $manifest['description'] ?? '',
+                $manifest['admin_route'] ?? null,
                 $manifest['frontend_route'] ?? null,
                 $cfgJson,
             ]);
+
+            self::clearMemoryCache();
 
             return [
                 'status'  => 'success',
@@ -220,37 +316,41 @@ class AddonModel extends Model
             if (is_file($zipFilePath)) {
                 @unlink($zipFilePath);
             }
-            // Also clean any old leftover zips in writable/addons/packages/
-            foreach (glob(WRITEPATH . 'addons/packages/*.zip') as $oldZip) {
+            foreach (glob(WRITEPATH . 'addons/packages/*.zip') ?: [] as $oldZip) {
                 @unlink($oldZip);
             }
         }
     }
 
-    private function recursiveCopy(string $src, string$dst): void
+    private function recursiveCopy(string $src, string $dst): void
     {
         $dir = opendir($src);
         if (! is_dir($dst)) {
             mkdir($dst, 0775, true);
         }
         while (($file = readdir($dir)) !== false) {
-            if ($file === '.' || $file === '..') continue;
-            $s = $src . '/' .$file;
-            $d = $dst . '/' .$file;
-            is_dir($s) ?$this->recursiveCopy($s,$d) : copy($s,$d);
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $s = $src . '/' . $file;
+            $d = $dst . '/' . $file;
+            is_dir($s) ? $this->recursiveCopy($s, $d) : copy($s, $d);
         }
         closedir($dir);
     }
 
-    private function removeDeployedFiles(string $payloadPath, string$targetRoot): void
+    private function removeDeployedFiles(string $payloadPath, string $targetRoot): void
     {
         $dir = opendir($payloadPath);
         while (($file = readdir($dir)) !== false) {
-            if ($file === '.' || $file === '..') continue;
-            $pFile = $payloadPath . '/' .$file;
-            $tFile = $targetRoot . '/' .$file;
-            if (is_dir($pFile)) {$this->removeDeployedFiles($pFile,$tFile);
-                @rmdir($tFile); // Removes folder if empty
+            if ($file === '.' || $file === '..') {
+                continue;
+            }
+            $pFile = $payloadPath . '/' . $file;
+            $tFile = $targetRoot . '/' . $file;
+            if (is_dir($pFile)) {
+                $this->removeDeployedFiles($pFile, $tFile);
+                @rmdir($tFile);
             } elseif (is_file($tFile)) {
                 @unlink($tFile);
             }
@@ -260,11 +360,15 @@ class AddonModel extends Model
 
     private function deleteDirectory(string $dirPath): void
     {
-        if (! is_dir($dirPath)) return;
-        foreach (scandir($dirPath) as$item) {
-            if ($item === '.'  || $item === '..') continue;
+        if (! is_dir($dirPath)) {
+            return;
+        }
+        foreach (scandir($dirPath) ?: [] as $item) {
+            if ($item === '.' || $item === '..') {
+                continue;
+            }
             $path = $dirPath . DIRECTORY_SEPARATOR . $item;
-            is_dir($path) ?$this->deleteDirectory($path) : @unlink($path);
+            is_dir($path) ? $this->deleteDirectory($path) : @unlink($path);
         }
         @rmdir($dirPath);
     }

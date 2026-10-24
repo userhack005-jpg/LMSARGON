@@ -43,7 +43,6 @@ class SettingController extends BaseController
             return redirect()->to(base_url('dashboard'));
         }
 
-        // Auto-runs one-time schema check if not yet migrated
         $settings = $this->settingModel->getSystemSettings();
 
         return view('settings/index_view', [
@@ -151,8 +150,8 @@ class SettingController extends BaseController
             'header_scripts'           => (string) $this->request->getPost('header_scripts'),
             'body_scripts'             => (string) $this->request->getPost('body_scripts'),
             'footer_scripts'           => (string) $this->request->getPost('footer_scripts'),
-			
-			// Inside SettingController::update() -> Add these keys to $payload array:
+
+            // Theme, Fonts & Layout Settings
             'active_theme_mode'        => trim((string) $this->request->getPost('active_theme_mode')) ?: 'dark',
             'site_layout_width'        => trim((string) $this->request->getPost('site_layout_width')) ?: 'boxed',
             'default_block_surface'    => trim((string) $this->request->getPost('default_block_surface')) ?: 'card',
@@ -168,6 +167,7 @@ class SettingController extends BaseController
             'light_bg_surface'         => trim((string) $this->request->getPost('light_bg_surface')) ?: '#ffffff',
             'light_text_primary'       => trim((string) $this->request->getPost('light_text_primary')) ?: '#0f172a',
             'light_border_color'       => trim((string) $this->request->getPost('light_border_color')) ?: '#e2e8f0',
+			'admin_theme_mode' => trim((string) $this->request->getPost('admin_theme_mode')) ?: ($currentSettings['admin_theme_mode'] ?? 'dark'),
         ];
 
         $saved = $this->settingModel->updateSettingsBatch($payload);

@@ -1,0 +1,150 @@
+{
+    "signature": "eb47d5eaf0ce3aff95df9f45bc47e15a",
+    "synced_at": "2026-10-23 08:47:49",
+    "items": [
+        {
+            "slug": "abacus_pro_suite",
+            "file": "abacus.css",
+            "type": "CSS",
+            "src_size": 4573,
+            "pub_size": 3737,
+            "public_url": "assets\/addons\/abacus_pro_suite\/abacus.css",
+            "updated_at": "2026-10-22 23:29:56"
+        },
+        {
+            "slug": "abacus_pro_suite",
+            "file": "abacus.js",
+            "type": "JS",
+            "src_size": 13065,
+            "pub_size": 13065,
+            "public_url": "assets\/addons\/abacus_pro_suite\/abacus.js",
+            "updated_at": "2026-10-22 23:29:56"
+        },
+        {
+            "slug": "asset_mirror",
+            "file": "asset_mirror.css",
+            "type": "CSS",
+            "src_size": 33,
+            "pub_size": 0,
+            "public_url": "assets\/addons\/asset_mirror\/asset_mirror.css",
+            "updated_at": "2026-10-22 20:23:32"
+        },
+        {
+            "slug": "asset_mirror",
+            "file": "asset_mirror.js",
+            "type": "JS",
+            "src_size": 33,
+            "pub_size": 33,
+            "public_url": "assets\/addons\/asset_mirror\/asset_mirror.js",
+            "updated_at": "2026-10-22 20:23:32"
+        },
+        {
+            "slug": "core_lms_auth",
+            "file": "core_lms_auth.css",
+            "type": "CSS",
+            "src_size": 4863,
+            "pub_size": 3938,
+            "public_url": "assets\/addons\/core_lms_auth\/core_lms_auth.css",
+            "updated_at": "2026-10-22 22:34:32"
+        },
+        {
+            "slug": "core_lms_auth",
+            "file": "core_lms_auth.js",
+            "type": "JS",
+            "src_size": 5230,
+            "pub_size": 5230,
+            "public_url": "assets\/addons\/core_lms_auth\/core_lms_auth.js",
+            "updated_at": "2026-10-22 22:34:32"
+        },
+        {
+            "slug": "lms_communication",
+            "file": "lms_communication.css",
+            "type": "CSS",
+            "src_size": 2096,
+            "pub_size": 1662,
+            "public_url": "assets\/addons\/lms_communication\/lms_communication.css",
+            "updated_at": "2026-10-22 23:29:18"
+        },
+        {
+            "slug": "lms_communication",
+            "file": "lms_communication.js",
+            "type": "JS",
+            "src_size": 1275,
+            "pub_size": 1275,
+            "public_url": "assets\/addons\/lms_communication\/lms_communication.js",
+            "updated_at": "2026-10-22 23:29:18"
+        },
+        {
+            "slug": "lms_hierarchy",
+            "file": "lms_hierarchy.css",
+            "type": "CSS",
+            "src_size": 3490,
+            "pub_size": 2892,
+            "public_url": "assets\/addons\/lms_hierarchy\/lms_hierarchy.css",
+            "updated_at": "2026-10-22 22:53:12"
+        },
+        {
+            "slug": "lms_hierarchy",
+            "file": "lms_hierarchy.js",
+            "type": "JS",
+            "src_size": 4195,
+            "pub_size": 4195,
+            "public_url": "assets\/addons\/lms_hierarchy\/lms_hierarchy.js",
+            "updated_at": "2026-10-22 22:53:12"
+        },
+        {
+            "slug": "lms_onboarding",
+            "file": "lms_onboarding.css",
+            "type": "CSS",
+            "src_size": 4656,
+            "pub_size": 3930,
+            "public_url": "assets\/addons\/lms_onboarding\/lms_onboarding.css",
+            "updated_at": "2026-10-22 22:52:26"
+        },
+        {
+            "slug": "lms_onboarding",
+            "file": "lms_onboarding.js",
+            "type": "JS",
+            "src_size": 9429,
+            "pub_size": 9429,
+            "public_url": "assets\/addons\/lms_onboarding\/lms_onboarding.js",
+            "updated_at": "2026-10-22 22:52:26"
+        },
+        {
+            "slug": "lms_timetable",
+            "file": "lms_timetable.css",
+            "type": "CSS",
+            "src_size": 2449,
+            "pub_size": 1981,
+            "public_url": "assets\/addons\/lms_timetable\/lms_timetable.css",
+            "updated_at": "2026-10-22 23:28:32"
+        },
+        {
+            "slug": "lms_timetable",
+            "file": "lms_timetable.js",
+            "type": "JS",
+            "src_size": 1288,
+            "pub_size": 1288,
+            "public_url": "assets\/addons\/lms_timetable\/lms_timetable.js",
+            "updated_at": "2026-10-22 23:28:32"
+        },
+        {
+            "slug": "page_cache",
+            "file": "page_cache.css",
+            "type": "CSS",
+            "src_size": 35,
+            "pub_size": 0,
+            "public_url": "assets\/addons\/page_cache\/page_cache.css",
+            "updated_at": "2026-10-22 20:23:32"
+        },
+        {
+            "slug": "page_cache",
+            "file": "page_cache.js",
+            "type": "JS",
+            "src_size": 33,
+            "pub_size": 33,
+            "public_url": "assets\/addons\/page_cache\/page_cache.js",
+            "updated_at": "2026-10-22 20:23:32"
+        }
+    ]
+}

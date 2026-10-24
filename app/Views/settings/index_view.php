@@ -331,7 +331,13 @@
                     </select>
                     <span class="field-hint">Users cannot switch this; the entire site follows your choice.</span>
                 </div>
-
+				<div class="field-group">
+					<label class="field-label"><span>Backend Admin Theme Mode</span></label>
+					<select name="admin_theme_mode" class="field-select field-input">
+						<option value="dark" <?= (($settings['admin_theme_mode'] ?? 'dark') === 'dark') ? 'selected' : '' ?>>🌙 Dark Mode (Obsidian Enterprise)</option>
+						<option value="light" <?= (($settings['admin_theme_mode'] ?? 'dark') === 'light') ? 'selected' : '' ?>>☀️ Light Mode (Clean Daylight)</option>
+					</select>
+				</div>
                 <div class="field-group">
                     <label class="field-label">
                         <span>Default Website Template Width</span>

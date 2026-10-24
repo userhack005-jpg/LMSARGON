@@ -7,6 +7,7 @@ use CodeIgniter\Router\RouteCollection;
  */
 
 $routes->setPrioritize(true);
+
 // 1. Root Entry Point
 $routes->get('/', 'Auth\AuthController::index');
 
@@ -40,24 +41,26 @@ $routes->group('settings', ['namespace' => 'App\Controllers\Settings'], static f
     $routes->post('reinitialize', 'SettingController::reinitializeSchema');
 });
 
-
 // 7. Modular Add-On & Plugin Manager Routes (Folder: Controllers/Addons)
 $routes->group('addons', ['namespace' => 'App\Controllers\Addons'], static function ($routes) {
     $routes->get('/', 'AddonController::index');
     $routes->post('upload', 'AddonController::uploadAndInstall');
     $routes->post('toggle', 'AddonController::toggleAddon');
-	  $routes->post('delete', 'AddonController::deleteAddon');
+    $routes->post('delete', 'AddonController::deleteAddon');
     $routes->get('sample-gateway-zip', 'AddonController::downloadSampleGatewayZip');
-	 $routes->get('sample-pagebuilder-zip', 'AddonController::downloadPageBuilderZip'); // <-- NEW LINE
+    $routes->get('sample-pagebuilder-zip', 'AddonController::downloadPageBuilderZip');
 });
 
-// 8. Auto-Load Routes ONLY for ACTIVE Add-Ons
+// 8. Auto-Load Routes ONLY for ACTIVE Add-Ons (Uses Request-Level Static Cache)
 if (is_file(WRITEPATH . 'installed.lock') && class_exists('\App\Models\Addons\AddonModel')) {
     $activeAddons = (new \App\Models\Addons\AddonModel())->getActiveAddons();
     foreach ($activeAddons as $activeAddon) {
-        $routeFile = WRITEPATH . 'addons/extracted/' . $activeAddon['slug'] . '/Routes.php';
-        if (is_file($routeFile)) {
-            require $routeFile;
+        $slug = trim((string) ($activeAddon['slug'] ?? ''));
+        if ($slug !== '') {
+            $routeFile = WRITEPATH . 'addons/extracted/' . $slug . '/Routes.php';
+            if (is_file($routeFile)) {
+                require_once $routeFile;
+            }
         }
     }
 }

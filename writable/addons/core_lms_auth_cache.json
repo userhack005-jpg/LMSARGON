@@ -1,0 +1,74 @@
+{
+    "updated_at": 1792759096,
+    "storage_timezone": "UTC",
+    "role_map": {
+        "super_admin": [
+            "super_admin"
+        ],
+        "admin": [
+            "admin"
+        ],
+        "teacher": [
+            "teacher"
+        ],
+        "parent": [
+            "parent"
+        ],
+        "student": [
+            "student"
+        ]
+    },
+    "enabled_countries": {
+        "IN": {
+            "code": "IN",
+            "name": "India",
+            "flag": "🇮🇳",
+            "currency_code": "INR",
+            "currency_sym": "₹",
+            "dial_code": "+91",
+            "default_tz": "Asia\/Kolkata",
+            "timezones": [
+                "Asia\/Kolkata"
+            ],
+            "is_enabled": 1,
+            "live_local_time": "23 Oct 2026, 06:08 PM",
+            "utc_offset": "UTC+05:30",
+            "is_dst_active": false
+        },
+        "AE": {
+            "code": "AE",
+            "name": "United Arab Emirates (UAE)",
+            "flag": "🇦🇪",
+            "currency_code": "AED",
+            "currency_sym": "AED ",
+            "dial_code": "+971",
+            "default_tz": "Asia\/Dubai",
+            "timezones": [
+                "Asia\/Dubai"
+            ],
+            "is_enabled": 1,
+            "live_local_time": "23 Oct 2026, 04:38 PM",
+            "utc_offset": "UTC+04:00",
+            "is_dst_active": false
+        },
+        "US": {
+            "code": "US",
+            "name": "United States (USA)",
+            "flag": "🇺🇸",
+            "currency_code": "USD",
+            "currency_sym": "$",
+            "dial_code": "+1",
+            "default_tz": "America\/New_York",
+            "timezones": [
+                "America\/New_York",
+                "America\/Chicago",
+                "America\/Denver",
+                "America\/Los_Angeles"
+            ],
+            "is_enabled": 1,
+            "live_local_time": "23 Oct 2026, 08:38 AM",
+            "utc_offset": "UTC-04:00",
+            "is_dst_active": true
+        }
+    }
+}
