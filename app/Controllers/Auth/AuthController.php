@@ -25,16 +25,12 @@ class AuthController extends BaseController
         return is_file($this->lockFile);
     }
 
-    /**
-     * Root Entry ('/')
-     */
     public function index()
     {
-       if (! $this->isInstalled()) {
+        if (! $this->isInstalled()) {
             return redirect()->to(base_url('install'));
         }
 
-        // If Page Builder Add-On is installed & a dynamic Homepage is set, render it at '/'!
         if (class_exists('\App\Models\Addons\PageBuilder\PageBuilderModel')) {
             $pbModel  = new \App\Models\Addons\PageBuilder\PageBuilderModel();
             $homePage = $pbModel->getHomepage();
@@ -51,9 +47,6 @@ class AuthController extends BaseController
         return redirect()->to(base_url('login'));
     }
 
-    /**
-     * Render Login Page
-     */
     public function loginView()
     {
         if (! $this->isInstalled()) {
@@ -72,9 +65,6 @@ class AuthController extends BaseController
         ]);
     }
 
-    /**
-     * Authenticate Login POST Request
-     */
     public function authenticate()
     {
         if (! $this->isInstalled()) {
@@ -90,22 +80,28 @@ class AuthController extends BaseController
             return redirect()->back()->with('auth_error', 'Invalid credentials or account is suspended.');
         }
 
+        $roleSlug   = (string) ($user['role_slug'] ?? 'student');
+        $portalMode = ($roleSlug === 'parent') ? 'parent' : ($roleSlug === 'student' ? 'student' : 'staff');
+
         session()->set([
-            'isLoggedIn' => true,
-            'user_id'    => (int) $user['id'],
-            'user_name'  => $user['full_name'],
-            'user_email' => $user['email'],
-            'role_id'    => (int) $user['role_id'],
-            'role_slug'  => $user['role_slug'],
-            'role_name'  => $user['role_name'],
+            'isLoggedIn'       => true,
+            'user_id'          => (int) $user['id'],
+            'id'               => (int) $user['id'],
+            'user_name'        => $user['full_name'],
+            'full_name'        => $user['full_name'],
+            'user_email'       => $user['email'],
+            'role_id'          => (int) $user['role_id'],
+            'role_slug'        => $roleSlug,
+            'role_name'        => $user['role_name'],
+            'permissions'      => $user['permissions'] ?? [],
+            'role_permissions' => $user['permissions'] ?? [],
+            'role_portal'      => $user['portal_type'] ?? 'frontend',
+            'portal_view_mode' => $portalMode,
         ]);
 
         return redirect()->to(base_url('dashboard'));
     }
 
-    /**
-     * Destroy Session & Logout
-     */
     public function logout()
     {
         session()->destroy();

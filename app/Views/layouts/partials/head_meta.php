@@ -87,33 +87,12 @@
 <!-- Core Application Stylesheet -->
 <link rel="stylesheet" href="<?= base_url('assets/css/app.css') ?>?v=<?= esc($coreCssVer) ?>">
 
-<!-- 1. DYNAMIC ADD-ON EXTERNAL CSS & JS LOADER (Supports Public Mirror & Default Route) -->
+<!-- 1. ZERO-LOCK STATIC ASSET MIRROR LOADER (0 PHP Controller Hits for Add-On CSS/JS!) -->
 <?php
 try {
     $addonRows = class_exists('\App\Models\Addons\AddonModel')
         ? (new \App\Models\Addons\AddonModel())->getActiveAddons()
         : [];
-
-    $isMirrorEngineActive = false;
-    foreach ($addonRows as $chkRow) {
-        if (($chkRow['slug'] ?? '') === 'asset_mirror' && is_dir(WRITEPATH . 'addons/extracted/asset_mirror')) {
-            $isMirrorEngineActive = true;
-            break;
-        }
-    }
-
-    if (! $isMirrorEngineActive && is_dir(FCPATH . 'assets/addons')) {
-        $cleanDir = static function (string $dirPath) use (&$cleanDir): void {
-            if (! is_dir($dirPath)) return;
-            foreach (scandir($dirPath) ?: [] as $item) {
-                if ($item === '.' || $item === '..') continue;
-                $p = $dirPath . DIRECTORY_SEPARATOR . $item;
-                is_dir($p) ? $cleanDir($p) : @unlink($p);
-            }
-            @rmdir($dirPath);
-        };
-        $cleanDir(FCPATH . 'assets/addons');
-    }
 
     $loadedAssetKeys = [];
 
@@ -142,14 +121,14 @@ try {
                     $localCss    = $addonExtractDir . '/assets/' . $cssFileName;
                     $publicCss   = FCPATH . 'assets/addons/' . $slug . '/' . $cssFileName;
 
-                    if ($isMirrorEngineActive && is_file($localCss)) {
-                        if (! is_file($publicCss) || @filemtime($localCss) > @filemtime($publicCss)) {
+                    if (is_file($localCss)) {
+                        if (! is_file($publicCss) || @filesize($localCss) !== @filesize($publicCss) || @filemtime($localCss) > @filemtime($publicCss)) {
                             @is_dir(dirname($publicCss)) || @mkdir(dirname($publicCss), 0775, true);
                             @copy($localCss, $publicCss);
                         }
                     }
 
-                    if ($isMirrorEngineActive && is_file($publicCss)) {
+                    if (is_file($publicCss)) {
                         $hrefUrl = base_url('assets/addons/' . $slug . '/' . $cssFileName);
                         $cssVer  = (string) @filemtime($publicCss);
                     } else {
@@ -171,14 +150,14 @@ try {
                     $localJs    = $addonExtractDir . '/assets/' . $jsFileName;
                     $publicJs   = FCPATH . 'assets/addons/' . $slug . '/' . $jsFileName;
 
-                    if ($isMirrorEngineActive && is_file($localJs)) {
-                        if (! is_file($publicJs) || @filemtime($localJs) > @filemtime($publicJs)) {
+                    if (is_file($localJs)) {
+                        if (! is_file($publicJs) || @filesize($localJs) !== @filesize($publicJs) || @filemtime($localJs) > @filemtime($publicJs)) {
                             @is_dir(dirname($publicJs)) || @mkdir(dirname($publicJs), 0775, true);
                             @copy($localJs, $publicJs);
                         }
                     }
 
-                    if ($isMirrorEngineActive && is_file($publicJs)) {
+                    if (is_file($publicJs)) {
                         $srcUrl = base_url('assets/addons/' . $slug . '/' . $jsFileName);
                         $jsVer  = (string) @filemtime($publicJs);
                     } else {
@@ -195,21 +174,41 @@ try {
 }
 ?>
 
-<!-- 2. SERVER-SIDE PRE-PAINT SCOPED CSS VARIABLES (Theme-Aware for Both Dark & Light Modes!) -->
+<!-- 2. SERVER-SIDE PRE-PAINT DUAL-THEME (DARK + LIGHT PALETTE) DESIGN STUDIO COMPILER -->
 <?php
-// Default dark hex values saved by Page Builder blocks that should automatically adapt when Light Mode is active
 $defaultDarkBgHexes  = ['#090a0f', '#11131c', '#171a26', '#0d1f1a', '#0f172a'];
 $defaultDarkTxtHexes = ['#f3f4f6', '#f8fafc', '#ffffff', '#e5e7eb'];
 $defaultDarkBdrHexes = ['#232738', '#1e293b', '#334155'];
 
-$compileScopeRule = static function (string $s, array $bData) use (
+$hexToRgba = static function (string $hex, float $alpha): string {
+    $hex = ltrim(trim($hex), '#');
+    if (strlen($hex) === 3) {
+        $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+    }
+    if (strlen($hex) !== 6 || ! ctype_xdigit($hex)) {
+        return 'rgba(9, 10, 15, ' . max(0, min(1, $alpha)) . ')';
+    }
+    $r = hexdec(substr($hex, 0, 2));
+    $g = hexdec(substr($hex, 2, 2));
+    $b = hexdec(substr($hex, 4, 2));
+    return "rgba({$r}, {$g}, {$b}, " . round(max(0, min(1, $alpha)), 2) . ")";
+};
+
+/**
+ * Compiles Dual-Theme (Dark Palette + Light Palette) Scoped Rules for Every Page & Footer Block
+ */
+$compileScopeRule = static function (string $s, array $bData, bool $isEagerAboveFold = false) use (
     $activeThemeMode,
+    $dSurface,
+    $dText,
+    $dBorder,
     $lSurface,
     $lText,
     $lBorder,
     $defaultDarkBgHexes,
     $defaultDarkTxtHexes,
-    $defaultDarkBdrHexes
+    $defaultDarkBdrHexes,
+    $hexToRgba
 ): array {
     $rules = [];
     $targetSelector = $s . ', '
@@ -234,7 +233,7 @@ $compileScopeRule = static function (string $s, array $bData) use (
         if ($valStr === '') {
             continue;
         }
-        if (preg_match('/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|var\([^)]+\)|[0-9]+(\.[0-9]+)?(s|rem|em|%)?)$/', $valStr)) {
+        if (preg_match('/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|var\([^)]+\)|[0-9]+(\.[0-9]+)?(s|rem|em|px|%)?)$/', $valStr)) {
             $cleanKey = preg_replace('/[^a-z0-9_-]/i', '-', strtolower((string) $k));
             if ($cleanKey === 'scroll-speed' && is_numeric($valStr)) {
                 $varsList[] = '--cms-scroll-speed:' . $valStr . 's';
@@ -244,12 +243,10 @@ $compileScopeRule = static function (string $s, array $bData) use (
         }
     }
 
-    // Announcement Bar always uses its own explicit bar colors
     if (! empty($bData['bg_color'])) {
         $rawBg = trim((string) $bData['bg_color']);
         $varsList[] = '--ann-bg:' . $rawBg;
 
-        // For Newsletter/Blocks: if Light mode is active, use card_bg_light instead of dark #0d1f1a
         if ($useLightForBlock) {
             $nlLightBg = ! empty($bData['card_bg_light']) ? trim((string) $bData['card_bg_light']) : (in_array(strtolower($rawBg), $defaultDarkBgHexes, true) ? $lSurface : $rawBg);
             $varsList[] = '--nl-bg:' . $nlLightBg;
@@ -322,8 +319,211 @@ $compileScopeRule = static function (string $s, array $bData) use (
         $rules[] = $targetSelector . ' {' . implode('; ', array_unique($varsList)) . ';}';
     }
 
-    if (($bData['_bg_mode'] ?? '') === 'custom' && ! empty($bData['_bg_color'])) {
-        $rules[] = $s . '.cms-block, ' . $s . ' .cms-block {background-color: ' . trim((string) $bData['_bg_color']) . ' !important;}';
+    // =========================================================================
+    // UNIVERSAL DESIGN STUDIO COMPILER (THEME-AGNOSTIC GEOMETRY + DUAL PALETTE)
+    // =========================================================================
+    $blkTarget = $s . '.cms-block, ' . $s . ' > .cms-block, ' . $s . '.cms-footer-block-box';
+    $geomDecls = [];
+
+    $bgMode = trim((string) ($bData['_bg_mode'] ?? 'default'));
+    if ($bgMode === 'image' && ! empty($bData['_bg_img_url'])) {
+        $bgSize = trim((string) ($bData['_bg_img_size'] ?? 'cover')) ?: 'cover';
+        $bgPos  = trim((string) ($bData['_bg_img_pos'] ?? 'center center')) ?: 'center center';
+        $bgRep  = trim((string) ($bData['_bg_img_repeat'] ?? 'no-repeat')) ?: 'no-repeat';
+        $geomDecls[] = "background-size: {$bgSize} !important";
+        $geomDecls[] = "background-position: {$bgPos} !important";
+        if ($bgRep === 'fixed') {
+            $geomDecls[] = 'background-repeat: no-repeat !important';
+            $geomDecls[] = 'background-attachment: fixed !important';
+        } else {
+            $geomDecls[] = "background-repeat: {$bgRep} !important";
+        }
+    }
+
+    $bdrStyle  = trim((string) ($bData['_bdr_style'] ?? ''));
+    $bdrWidth  = trim((string) ($bData['_bdr_width'] ?? ''));
+    $bdrRadius = trim((string) ($bData['_bdr_radius'] ?? ''));
+    if ($bdrStyle === 'none') {
+        $geomDecls[] = 'border: none !important';
+    } elseif ($bdrWidth !== '' && (int) $bdrWidth > 0) {
+        $bw = (int) $bdrWidth . 'px';
+        $bs = ($bdrStyle !== '' && $bdrStyle !== 'default') ? $bdrStyle : 'solid';
+        $geomDecls[] = "border-width: {$bw} !important; border-style: {$bs} !important";
+    }
+    if ($bdrRadius !== '' && $bdrRadius !== 'default') {
+        $geomDecls[] = 'border-radius: ' . $bdrRadius . ' !important';
+    }
+
+    $padY = trim((string) ($bData['_pad_y'] ?? ''));
+    $padX = trim((string) ($bData['_pad_x'] ?? ''));
+    if ($padY !== '' && $padY !== 'default') {
+        $geomDecls[] = "padding-top: {$padY} !important; padding-bottom: {$padY} !important";
+    }
+    if ($padX !== '' && $padX !== 'default') {
+        $geomDecls[] = "padding-left: {$padX} !important; padding-right: {$padX} !important";
+    }
+
+    $txtFont  = trim((string) ($bData['_txt_font'] ?? ''));
+    $txtAlign = trim((string) ($bData['_txt_align'] ?? ''));
+    if ($txtFont !== '' && $txtFont !== 'default') {
+        $geomDecls[] = "font-family: '{$txtFont}', var(--font-sans) !important";
+    }
+    if ($txtAlign !== '' && $txtAlign !== 'default') {
+        $geomDecls[] = "text-align: {$txtAlign} !important";
+    }
+
+    if (! empty($geomDecls)) {
+        $rules[] = $blkTarget . ' {' . implode('; ', $geomDecls) . ';}';
+    }
+
+    // Typography Geometry (Weight, Transform, Scale)
+    $headGeom = [];
+    if (! empty($bData['_txt_weight']) && $bData['_txt_weight'] !== 'default') {
+        $headGeom[] = 'font-weight: ' . trim((string) $bData['_txt_weight']) . ' !important';
+    }
+    if (! empty($bData['_txt_transform']) && $bData['_txt_transform'] !== 'default') {
+        $headGeom[] = 'text-transform: ' . trim((string) $bData['_txt_transform']) . ' !important';
+    }
+    if (! empty($bData['_txt_scale']) && $bData['_txt_scale'] !== 'default' && is_numeric($bData['_txt_scale'])) {
+        $headGeom[] = 'zoom: ' . (float) $bData['_txt_scale'];
+    }
+    if (! empty($headGeom)) {
+        $rules[] = "{$s} h1, {$s} h2, {$s} h3, {$s} h4, {$s} .cms-hero-title, {$s} .cms-split-title, {$s} .cms-quiz-question, {$s} .cms-faq-question {" . implode('; ', $headGeom) . ";}";
+    }
+
+    // Helper closure to build Palette-Specific Rules for a given mode ('dark' or 'light')
+    $buildPaletteRulesForMode = static function (string $paletteMode, string $scopePrefix) use (
+        $s,
+        $bData,
+        $bgMode,
+        $isEagerAboveFold,
+        $hexToRgba,
+        $dSurface,
+        $lSurface,
+        $defaultDarkBgHexes
+    ): array {
+        $pRules    = [];
+        $isLight   = ($paletteMode === 'light');
+        $pfx       = $isLight ? '_light_' : '_dark_';
+        $scopedBlk = ($scopePrefix !== '' ? $scopePrefix . ' ' : '') . $s . '.cms-block, '
+                   . ($scopePrefix !== '' ? $scopePrefix . ' ' : '') . $s . ' > .cms-block, '
+                   . ($scopePrefix !== '' ? $scopePrefix . ' ' : '') . $s . '.cms-footer-block-box';
+        $scopedRoot = ($scopePrefix !== '' ? $scopePrefix . ' ' : '') . $s;
+
+        $boxDecls = [];
+
+        // 1. Background Color / Gradient / Image with Mode-Specific Overlay
+        if ($bgMode === 'custom') {
+            $rawSolid = trim((string) ($bData[$pfx . 'bg_color'] ?? ($bData['_bg_color'] ?? '')));
+            if ($rawSolid !== '') {
+                if ($isLight && empty($bData['_light_bg_color']) && in_array(strtolower($rawSolid), $defaultDarkBgHexes, true)) {
+                    $rawSolid = $lSurface;
+                }
+                $boxDecls[] = "background-color: {$rawSolid} !important";
+            }
+        } elseif ($bgMode === 'gradient') {
+            $gStart = trim((string) ($bData[$pfx . 'grad_start'] ?? ($bData['_bg_grad_start'] ?? ($isLight ? '#ecfdf5' : '#0d1f1a'))));
+            $gEnd   = trim((string) ($bData[$pfx . 'grad_end']   ?? ($bData['_bg_grad_end']   ?? ($isLight ? '#ffffff' : '#11131c'))));
+            $gDir   = trim((string) ($bData['_bg_grad_dir'] ?? '135deg')) ?: '135deg';
+            if ($gDir === 'radial') {
+                $boxDecls[] = "background: radial-gradient(circle at center, {$gStart}, {$gEnd}) !important";
+            } else {
+                $boxDecls[] = "background: linear-gradient({$gDir}, {$gStart}, {$gEnd}) !important";
+            }
+        } elseif ($bgMode === 'image' && ! empty($bData['_bg_img_url'])) {
+            $imgUrl    = trim((string) $bData['_bg_img_url']);
+            $safeUrl   = str_replace(["'", '"', '(', ')', ';'], '', $imgUrl);
+            $ovColor   = trim((string) ($bData[$pfx . 'overlay_color'] ?? ($bData['_bg_overlay_color'] ?? ($isLight ? '#ffffff' : '#090a0f'))));
+            $ovOpacity = (int) ($bData[$pfx . 'overlay_opacity'] ?? ($bData['_bg_overlay_opacity'] ?? 55));
+            $rgbaStr   = $hexToRgba($ovColor, $ovOpacity / 100);
+
+            $fallbackBg = trim((string) ($bData[$pfx . 'bg_color'] ?? ($bData['_bg_color'] ?? ($isLight ? $lSurface : $dSurface))));
+            $boxDecls[] = "background-color: {$fallbackBg} !important";
+
+            if ($isEagerAboveFold) {
+                if ($ovOpacity > 0) {
+                    $boxDecls[] = "background-image: linear-gradient({$rgbaStr}, {$rgbaStr}), url('{$safeUrl}') !important";
+                } else {
+                    $boxDecls[] = "background-image: url('{$safeUrl}') !important";
+                }
+            }
+        }
+
+        // 2. Border Color & Box Shadow for Mode
+        $bdrCol = trim((string) ($bData[$pfx . 'bdr_color'] ?? ($bData['_bdr_color'] ?? '')));
+        if ($bdrCol !== '') {
+            $boxDecls[] = "border-color: {$bdrCol} !important";
+        }
+
+        $shadowPreset = trim((string) ($bData['_shadow_preset'] ?? 'default'));
+        $shadowColor  = trim((string) ($bData[$pfx . 'shadow_color'] ?? ($bData['_shadow_color'] ?? '#10b981'))) ?: '#10b981';
+        if ($shadowPreset === 'none') {
+            $boxDecls[] = 'box-shadow: none !important';
+        } elseif ($shadowPreset === 'soft') {
+            $boxDecls[] = $isLight
+                ? 'box-shadow: 0 10px 28px -6px rgba(15, 23, 42, 0.08) !important'
+                : 'box-shadow: 0 10px 28px -6px rgba(0, 0, 0, 0.28) !important';
+        } elseif ($shadowPreset === 'medium') {
+            $boxDecls[] = $isLight
+                ? 'box-shadow: 0 18px 42px -8px rgba(15, 23, 42, 0.14) !important'
+                : 'box-shadow: 0 18px 42px -8px rgba(0, 0, 0, 0.45) !important';
+        } elseif ($shadowPreset === 'deep') {
+            $boxDecls[] = $isLight
+                ? 'box-shadow: 0 28px 65px -10px rgba(15, 23, 42, 0.22) !important'
+                : 'box-shadow: 0 28px 65px -10px rgba(0, 0, 0, 0.68) !important';
+        } elseif ($shadowPreset === 'glow') {
+            $glowRgba   = $hexToRgba($shadowColor, $isLight ? 0.32 : 0.45);
+            $boxDecls[] = "box-shadow: 0 0 38px 2px {$glowRgba} !important";
+        }
+
+        if (! empty($boxDecls)) {
+            $pRules[] = $scopedBlk . ' {' . implode('; ', $boxDecls) . ';}';
+        }
+
+        // 3. Wave / Shape Divider Fill Color for Mode
+        $divCol = trim((string) ($bData[$pfx . 'divider_color'] ?? ($bData['_divider_color'] ?? '')));
+        if ($divCol !== '') {
+            $pRules[] = "{$scopedRoot} .cms-shape-divider svg path, {$scopedRoot} .cms-shape-divider svg polygon {fill: {$divCol} !important;}";
+        }
+
+        // 4. Internal Cards (Course Grid / Feature Cards) Dark vs Light Surface
+        $intCardBg  = trim((string) ($bData[$isLight ? 'card_bg_light' : 'card_bg_dark'] ?? ($isLight ? '' : ($bData['card_bg'] ?? ''))));
+        $intCardBdr = trim((string) ($bData[$pfx . 'bdr_color'] ?? ($isLight ? '' : ($bData['border_color'] ?? ''))));
+        if ($intCardBg !== '' || $intCardBdr !== '') {
+            $cDecls = [];
+            if ($intCardBg !== '') $cDecls[] = "background-color: {$intCardBg} !important";
+            if ($intCardBdr !== '') $cDecls[] = "border-color: {$intCardBdr} !important";
+            $pRules[] = "{$scopedRoot} .cms-course-card, {$scopedRoot} .panel-card, {$scopedRoot} .cms-testimonial-slide {" . implode('; ', $cDecls) . ";}";
+        }
+
+        // 5. Heading, Body & Accent Text Colors for Mode
+        $hCol = trim((string) ($bData[$pfx . 'txt_heading'] ?? ($bData['_txt_heading_color'] ?? '')));
+        if ($hCol !== '') {
+            $pRules[] = "{$scopedRoot} h1, {$scopedRoot} h2, {$scopedRoot} h3, {$scopedRoot} h4, {$scopedRoot} .cms-hero-title, {$scopedRoot} .cms-split-title, {$scopedRoot} .cms-quiz-question, {$scopedRoot} .cms-faq-question {color: {$hCol} !important;}";
+        }
+
+        $bCol = trim((string) ($bData[$pfx . 'txt_body'] ?? ($bData[$isLight ? 'text_light' : 'text_dark'] ?? ($bData['_txt_body_color'] ?? ''))));
+        if ($bCol !== '') {
+            $pRules[] = "{$scopedRoot}, {$scopedRoot} p, {$scopedRoot} li, {$scopedRoot} .cms-prose, {$scopedRoot} .cms-hero-sub, {$scopedRoot} .cms-split-sub, {$scopedRoot} .muted-cell, {$scopedRoot} .cms-faq-answer, {$scopedRoot} .cms-quote-text {color: {$bCol} !important;}";
+        }
+
+        $aCol = trim((string) ($bData[$pfx . 'txt_accent'] ?? ($bData['_txt_accent_color'] ?? '')));
+        if ($aCol !== '') {
+            $pRules[] = "{$scopedRoot} .btn-primary {background-color: {$aCol} !important; border-color: {$aCol} !important;} {$scopedRoot} .text-emerald, {$scopedRoot} .pulse-dot {color: {$aCol} !important;}";
+        }
+
+        return $pRules;
+    };
+
+    // Emit Palette Rules based on Component Color Mode (`auto`, `dark`, or `light`)
+    if ($blockMode === 'dark') {
+        $rules = array_merge($rules, $buildPaletteRulesForMode('dark', ''));
+    } elseif ($blockMode === 'light') {
+        $rules = array_merge($rules, $buildPaletteRulesForMode('light', ''));
+    } else {
+        // `auto`: Emit both Dark and Light scoped rules so switching theme updates every component automatically!
+        $rules = array_merge($rules, $buildPaletteRulesForMode('dark', 'html[data-theme="dark"]'));
+        $rules = array_merge($rules, $buildPaletteRulesForMode('light', 'html[data-theme="light"]'));
     }
 
     return $rules;
@@ -335,7 +535,7 @@ if (! empty($blocks) && is_array($blocks)) {
     foreach ($blocks as $bIdx => $blkItem) {
         $bData = $blkItem['data'] ?? [];
         if (is_array($bData) && ! empty($bData)) {
-            $allPrepaintRules = array_merge($allPrepaintRules, $compileScopeRule('.cms-scope-blk-' . (int) $bIdx, $bData));
+            $allPrepaintRules = array_merge($allPrepaintRules, $compileScopeRule('.cms-scope-blk-' . (int) $bIdx, $bData, ((int) $bIdx <= 1)));
         }
     }
 }
@@ -349,16 +549,12 @@ if (! empty($activeFooter['sections_json'])) {
                     $fbData = $fBlkItem['data'] ?? [];
                     if (is_array($fbData) && ! empty($fbData)) {
                         $fScope = '.cms-scope-fblk-' . (int) $cIdx . '-' . (int) $fbIdx;
-                        $allPrepaintRules = array_merge($allPrepaintRules, $compileScopeRule($fScope, $fbData));
+                        $allPrepaintRules = array_merge($allPrepaintRules, $compileScopeRule($fScope, $fbData, false));
                     }
                 }
             }
         }
     }
-}
-
-if (! empty($allPrepaintRules)) {
-    echo '<style id="cms-prepaint-scoped-vars">' . "\n" . implode("\n", $allPrepaintRules) . "\n" . '</style>' . "\n";
 }
 ?>
 
@@ -413,10 +609,6 @@ if (! empty($allPrepaintRules)) {
     }
 
     <?php if ($activeThemeMode === 'light'): ?>
-    /* ==========================================================================
-       COMPLETE LIGHT MODE ENGINE (Frontend Components + Backend Admin Workspace)
-       Automatically converts hardcoded dark block backgrounds (#171a26, #11131c)
-       ========================================================================== */
     .cms-public-navbar,
     .app-header,
     .app-topbar,
@@ -426,13 +618,13 @@ if (! empty($allPrepaintRules)) {
         color: <?= esc($lText) ?> !important;
         box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05) !important;
     }
-    .cms-block,
-    .cms-block.surface-card,
+    .cms-block:not(.has-custom-bg),
+    .cms-block.surface-card:not(.has-custom-bg),
     .panel-card,
     .console-card,
     .asset-box,
     .cms-course-card,
-    .cms-quiz-card,
+    .cms-quiz-card:not(.has-custom-bg),
     .cms-video-stage,
     .cms-hero-abstract-box,
     .cms-floating-badge,
@@ -462,27 +654,33 @@ if (! empty($allPrepaintRules)) {
         color: <?= esc($lText) ?> !important;
         border-color: <?= esc($lBorder) ?> !important;
     }
-    .cms-hero-title,
-    .cms-split-title,
+    .cms-block:not(.has-custom-text) .cms-hero-title,
+    .cms-block:not(.has-custom-text) .cms-split-title,
     .cms-brand-title,
-    .cms-quiz-question,
-    .cms-faq-question,
+    .cms-block:not(.has-custom-text) .cms-quiz-question,
+    .cms-block:not(.has-custom-text) .cms-faq-question,
     .panel-title,
     .sidebar-title,
     .identity-name,
-    .cms-prose h1, .cms-prose h2, .cms-prose h3, .cms-prose h4,
-    h1, h2, h3, h4, h5, h6 {
+    .cms-block:not(.has-custom-text) .cms-prose h1,
+    .cms-block:not(.has-custom-text) .cms-prose h2,
+    .cms-block:not(.has-custom-text) .cms-prose h3,
+    .cms-block:not(.has-custom-text) .cms-prose h4,
+    .cms-block:not(.has-custom-text) h1,
+    .cms-block:not(.has-custom-text) h2,
+    .cms-block:not(.has-custom-text) h3,
+    .cms-block:not(.has-custom-text) h4 {
         color: <?= esc($lText) ?> !important;
     }
-    .cms-prose,
-    .cms-prose p,
-    .cms-prose li,
+    .cms-block:not(.has-custom-text) .cms-prose,
+    .cms-block:not(.has-custom-text) .cms-prose p,
+    .cms-block:not(.has-custom-text) .cms-prose li,
     .cms-nav-item,
     .sidebar-link,
-    .cms-hero-sub,
-    .cms-split-sub,
-    .cms-faq-answer,
-    .muted-cell,
+    .cms-block:not(.has-custom-text) .cms-hero-sub,
+    .cms-block:not(.has-custom-text) .cms-split-sub,
+    .cms-block:not(.has-custom-text) .cms-faq-answer,
+    .cms-block:not(.has-custom-text) .muted-cell,
     .field-label,
     .field-hint {
         color: #334155 !important;
@@ -611,6 +809,14 @@ if (! empty($allPrepaintRules)) {
         }
     }
 </style>
+
+<?php
+// Output Dual-Theme Scoped Block Rules AFTER Global Theme Rules
+if (! empty($allPrepaintRules)) {
+    echo '<style id="cms-prepaint-scoped-vars">' . "\n" . implode("\n", $allPrepaintRules) . "\n" . '</style>' . "\n";
+}
+?>
+
 <script>
     (function() {
         var mode = '<?= esc($activeThemeMode) ?>';

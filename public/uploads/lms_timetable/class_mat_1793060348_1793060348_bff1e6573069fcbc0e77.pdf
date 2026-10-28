@@ -1,0 +1,53 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >>
+endobj
+5 0 obj
+<< /Length 915 >>
+stream
+BT
+/F1 12 Tf
+50 760 Td
+16 TL
+(OFFICIAL FEE PAYMENT RECEIPT) Tj T*
+(------------------------------------------------------------) Tj T*
+(Receipt / Reference : TXN-26AD16A2-161944) Tj T*
+(Transaction ID      : #1) Tj T*
+(Payment Date \(UTC\)  : 2026-10-24 16:19:44) Tj T*
+(Payment Status      : ) Tj T*
+(------------------------------------------------------------) Tj T*
+(Student Profile     : dev child 2 \(ID #6\)) Tj T*
+(Payer / Parent Name : dev) Tj T*
+(Payer Email         : dev@gmail.com) Tj T*
+(Course / Batch      : Abacus Level 1 — Weekend Evening Batch) Tj T*
+(Billing Cycle       : Monthly) Tj T*
+(------------------------------------------------------------) Tj T*
+(AMOUNT PAID         : INR 1,200.00) Tj T*
+(Payment Channel     : PARENT_PORTAL_CHECKOUT) Tj T*
+(------------------------------------------------------------) Tj T*
+(Thank you for your payment! Student portal access is active.) Tj T*
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000314 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1279
+%%EOF

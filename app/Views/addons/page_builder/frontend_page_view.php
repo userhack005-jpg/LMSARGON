@@ -47,7 +47,6 @@
 
         $targetSlug = trim((string) ($componentMap[$blockType]['addon_slug'] ?? ''));
         if ($targetSlug === '' || $targetSlug === 'page_builder') {
-            // Check direct slug match if blockType itself matches an extracted addon folder
             if (is_file(WRITEPATH . 'addons/extracted/' . $blockType . '/Views/addons/' . $blockType . '/block_view.php')) {
                 $targetSlug = $blockType;
             }
@@ -61,6 +60,38 @@
         }
 
         return $viewPathCache[$blockType] = null;
+    };
+
+    // 4. Lightweight Zero-Network-Load SVG Wave & Shape Divider Renderer
+    $renderShapeDividerSvg = static function (string $shapeType, string $position, string $fillColor): string {
+        $shapeType = trim($shapeType);
+        if ($shapeType === '' || $shapeType === 'none') {
+            return '';
+        }
+        $fill = trim($fillColor) ?: 'var(--bg-canvas)';
+        $posClass = ($position === 'top') ? 'cms-shape-divider-top' : 'cms-shape-divider-bottom';
+        $svgPath = '';
+
+        if ($shapeType === 'wave_smooth') {
+            $svgPath = '<path d="M0,64L80,69.3C160,75,320,85,480,80C640,75,800,53,960,48C1120,43,1280,53,1360,58.7L1440,64L1440,120L0,120Z" fill="' . esc($fill) . '"></path>';
+        } elseif ($shapeType === 'wave_layered') {
+            $svgPath = '<path d="M0,32L60,42.7C120,53,240,75,360,74.7C480,75,600,53,720,48C840,43,960,53,1080,64C1200,75,1320,85,1380,90.7L1440,96L1440,120L0,120Z" fill="' . esc($fill) . '" fill-opacity="0.45"></path>'
+                     . '<path d="M0,64L60,69.3C120,75,240,85,360,80C480,75,600,53,720,53.3C840,53,960,75,1080,80C1200,85,1320,75,1380,69.3L1440,64L1440,120L0,120Z" fill="' . esc($fill) . '"></path>';
+        } elseif ($shapeType === 'curve_in') {
+            $svgPath = '<path d="M0,0 C480,115 960,115 1440,0 L1440,120 L0,120 Z" fill="' . esc($fill) . '"></path>';
+        } elseif ($shapeType === 'tilt_slant') {
+            $svgPath = '<polygon points="0,120 1440,0 1440,120" fill="' . esc($fill) . '"></polygon>';
+        } elseif ($shapeType === 'triangle_asym') {
+            $svgPath = '<polygon points="0,120 380,20 1440,120" fill="' . esc($fill) . '"></polygon>';
+        }
+
+        if ($svgPath === '') {
+            return '';
+        }
+
+        return '<div class="cms-shape-divider ' . $posClass . '" aria-hidden="true">'
+             . '<svg viewBox="0 0 1440 120" preserveAspectRatio="none" focusable="false">' . $svgPath . '</svg>'
+             . '</div>';
     };
 ?>
 <!DOCTYPE html>
@@ -80,8 +111,6 @@
     <div class="ambient-grid"></div>
 
     <?php
-        // MODULAR TOP HOOK: Render `announcement_bar` from `writable/addons/extracted/announcements` if active!
-        // Passes `$blockScopeClass = 'cms-scope-blk-' . $annIdx` so <head> CSS variables apply in 0.00ms with ZERO Color Flash!
         $extractedAnnBlock = $resolveAddonBlockView('announcement_bar');
         if ($extractedAnnBlock !== null && ! empty($blocks)) {
             foreach ($blocks as $annIdx => $blk) {
@@ -131,12 +160,10 @@
                 $type = $blk['type'] ?? 'rich_text';
                 $data = $blk['data'] ?? [];
 
-                // Skip announcement_bar here because it was rendered at the very top
                 if ($type === 'announcement_bar') {
                     continue;
                 }
 
-                // Collect floating overlap blocks (e.g. Newsletter Floating Card above Footer)
                 if (! empty($data['is_floating']) && (string) $data['is_floating'] === '1') {
                     $floatingCtas[] = ['type' => $type, 'data' => $data, 'idx' => $idx];
                     continue;
@@ -152,22 +179,45 @@
                     ? 'background-color: ' . esc($data['_bg_color']) . ' !important;'
                     : '';
 
+                $shapeStyle     = trim((string) ($data['_shape_style'] ?? 'default'));
+                $hasCustomBg    = in_array($bgMode, ['custom', 'gradient', 'image'], true);
+                $hasCustomText  = ! empty($data['_txt_heading_color']) || ! empty($data['_txt_body_color']);
+                $divTop         = trim((string) ($data['_divider_top'] ?? 'none'));
+                $divBottom      = trim((string) ($data['_divider_bottom'] ?? 'none'));
+                $divColor       = trim((string) ($data['_divider_color'] ?? ''));
+                $hasDividers    = ($divTop !== '' && $divTop !== 'none') || ($divBottom !== '' && $divBottom !== 'none');
+
+                // Lazy Background Image attributes for Below-the-Fold blocks (idx > 1) -> 0 Initial Page Load Lag!
+                $lazyBgAttr = '';
+                if ($bgMode === 'image' && ! empty($data['_bg_img_url']) && (int) $idx > 1) {
+                    $lazyBgAttr = ' data-bg-lazy="' . esc($data['_bg_img_url']) . '"'
+                                . ' data-bg-overlay="' . esc($data['_bg_overlay_color'] ?? '#090a0f') . '"'
+                                . ' data-bg-opacity="' . (int) ($data['_bg_overlay_opacity'] ?? 55) . '"';
+                }
+
                 $blockScopeClass = 'cms-scope-blk-' . (int) $idx;
 
                 $wrapperClass = 'cms-block-wrapper js-lazy-reveal ' . $blockScopeClass
                     . ($effectiveW === 'full' ? ' is-fullwidth' : ' is-boxed')
                     . ($gapMode === 'none' ? ' has-no-bottom-gap' : '')
-                    . ($prevGapMode === 'none' ? ' is-merged-from-top' : '');
+                    . ($prevGapMode === 'none' ? ' is-merged-from-top' : '')
+                    . ($hasDividers ? ' has-shape-dividers' : '');
 
                 $blockClass = 'cms-block ' . $blockScopeClass
                     . ($effectiveBg === 'seamless' ? ' surface-seamless' : ' surface-card')
+                    . ($hasCustomBg ? ' has-custom-bg' : '')
+                    . ($hasCustomText ? ' has-custom-text' : '')
+                    . ($shapeStyle !== '' && $shapeStyle !== 'default' ? ' shape-' . esc($shapeStyle) : '')
+                    . ($hasDividers ? ' has-inner-dividers' : '')
                     . ($gapMode === 'none' ? ' merge-bottom-radius' : '')
                     . ($prevGapMode === 'none' ? ' merge-top-radius' : '');
 
                 $extractedAddonBlockFile = $resolveAddonBlockView($type);
             ?>
 
-            <div class="<?= $wrapperClass ?> is-revealed dev">
+            <div class="<?= $wrapperClass ?> is-revealed"<?= $lazyBgAttr ?>>
+                <?= $renderShapeDividerSvg($divTop, 'top', $divColor) ?>
+
                 <?php if ($extractedAddonBlockFile !== null): ?>
                     <?php include $extractedAddonBlockFile; ?>
 
@@ -245,7 +295,6 @@
                         </div>
                     </section>
 
-                <!-- 2. VIDEO POPUP HERO SECTION -->
                 <?php elseif ($type === 'video_hero'): ?>
                     <?php $pulseCol = $data['pulse_color'] ?? '#10b981'; ?>
                     <section class="<?= $blockClass ?> cms-video-hero" style="<?= $customBgCss ?>">
@@ -273,7 +322,6 @@
                         </div>
                     </section>
 
-                <!-- 3. MULTI-COLUMN CARD GRID (COURSES / SERVICES / FEATURES) -->
                 <?php elseif ($type === 'card_grid'): ?>
                     <?php
                         $colsCount = max(2, min(4, (int) ($data['columns'] ?? 3)));
@@ -324,7 +372,6 @@
                         </div>
                     </section>
 
-                <!-- EXISTING CORE BLOCKS (Hero, Rich Text, Image, CTA, Quiz, Feature Grid, Custom HTML) -->
                 <?php elseif ($type === 'hero_banner'): ?>
                     <section class="<?= $blockClass ?> cms-hero align-<?= esc($data['align'] ?? 'center') ?>" style="<?= $customBgCss ?>">
                         <div class="cms-inner-container">
@@ -416,6 +463,8 @@
                         <div class="cms-inner-container"><?= $data['raw_code'] ?? '' ?></div>
                     </section>
                 <?php endif; ?>
+
+                <?= $renderShapeDividerSvg($divBottom, 'bottom', $divColor) ?>
             </div>
         <?php endforeach; ?>
     </main>
@@ -444,7 +493,7 @@
         </div>
     </div>
 
-    <!-- Dynamic Multi-Section Website Footer (Supports ALL Core & Add-On Block Types inside $activeFooter) -->
+    <!-- Dynamic Multi-Section Website Footer (Supports ALL Core & Add-On Block Types + Universal Design Studio!) -->
     <?php
         $fCols     = (int) ($activeFooter['columns_count'] ?? 3);
         $fSections = ! empty($activeFooter['sections_json'])
@@ -463,134 +512,151 @@
                                     $bType           = $fBlk['type'] ?? 'rich_text';
                                     $bData           = $fBlk['data'] ?? [];
                                     $fScopeCls       = 'cms-scope-fblk-' . (int) $c . '-' . (int) $fbIdx;
+                                    $fShape          = trim((string) ($bData['_shape_style'] ?? 'default'));
+                                    $fHasCustomBg    = in_array(($bData['_bg_mode'] ?? ''), ['custom', 'gradient', 'image'], true);
+                                    $fHasCustomTxt   = ! empty($bData['_txt_heading_color']) || ! empty($bData['_txt_body_color']);
+                                    $fBoxClasses     = 'cms-footer-block-box ' . $fScopeCls
+                                                     . ($fHasCustomBg ? ' has-custom-bg' : '')
+                                                     . ($fHasCustomTxt ? ' has-custom-text' : '')
+                                                     . ($fShape !== '' && $fShape !== 'default' ? ' shape-' . esc($fShape) : '');
+
+                                    $fLazyBgAttr = '';
+                                    if (($bData['_bg_mode'] ?? '') === 'image' && ! empty($bData['_bg_img_url'])) {
+                                        $fLazyBgAttr = ' data-bg-lazy="' . esc($bData['_bg_img_url']) . '"'
+                                                     . ' data-bg-overlay="' . esc($bData['_bg_overlay_color'] ?? '#090a0f') . '"'
+                                                     . ' data-bg-opacity="' . (int) ($bData['_bg_overlay_opacity'] ?? 55) . '"';
+                                    }
+
                                     $footerAddonView = $resolveAddonBlockView($bType);
                                 ?>
-                                <?php if ($footerAddonView !== null): ?>
-                                    <?php
-                                        $data            = $bData;
-                                        $blockScopeClass = $fScopeCls;
-                                        $blockClass      = 'cms-block ' . $fScopeCls;
-                                        include $footerAddonView;
-                                    ?>
+                                <div class="<?= $fBoxClasses ?>"<?= $fLazyBgAttr ?>>
+                                    <?php if ($footerAddonView !== null): ?>
+                                        <?php
+                                            $data            = $bData;
+                                            $blockScopeClass = $fScopeCls;
+                                            $blockClass      = 'cms-block ' . $fScopeCls;
+                                            include $footerAddonView;
+                                        ?>
 
-                                <?php elseif ($bType === 'newsletter_cta'): ?>
-                                    <div class="cms-footer-cta <?= $fScopeCls ?>">
-                                        <?php if (! empty($bData['heading'])): ?>
-                                            <h4 style="margin-bottom:0.4rem;"><?= esc($bData['heading']) ?></h4>
-                                        <?php endif; ?>
-                                        <form action="<?= base_url('cms/subscribe-lead') ?>" method="post" class="cms-lead-form js-cms-lead-form">
-                                            <?= csrf_field() ?>
-                                            <div class="cms-lead-input-group">
-                                                <input type="email" name="email" class="field-input" placeholder="<?= esc($bData['placeholder'] ?? 'Enter your email...') ?>" required>
-                                                <button type="submit" class="btn-primary btn-sm"><?= esc($bData['btn_text'] ?? 'Subscribe') ?></button>
+                                    <?php elseif ($bType === 'newsletter_cta'): ?>
+                                        <div class="cms-footer-cta">
+                                            <?php if (! empty($bData['heading'])): ?>
+                                                <h4 style="margin-bottom:0.4rem;"><?= esc($bData['heading']) ?></h4>
+                                            <?php endif; ?>
+                                            <form action="<?= base_url('cms/subscribe-lead') ?>" method="post" class="cms-lead-form js-cms-lead-form">
+                                                <?= csrf_field() ?>
+                                                <div class="cms-lead-input-group">
+                                                    <input type="email" name="email" class="field-input" placeholder="<?= esc($bData['placeholder'] ?? 'Enter your email...') ?>" required>
+                                                    <button type="submit" class="btn-primary btn-sm"><?= esc($bData['btn_text'] ?? 'Subscribe') ?></button>
+                                                </div>
+                                                <div class="js-lead-feedback field-hint" style="margin-top:0.35rem;"></div>
+                                            </form>
+                                        </div>
+
+                                    <?php elseif ($bType === 'rich_text'): ?>
+                                        <div class="cms-prose">
+                                            <?php if (! empty($bData['title'])): ?>
+                                                <h4 style="margin-bottom: 0.4rem;"><?= esc($bData['title']) ?></h4>
+                                            <?php endif; ?>
+                                            <?= ! empty($bData['html']) ? $bData['html'] : nl2br(esc($bData['body'] ?? '')) ?>
+                                        </div>
+
+                                    <?php elseif ($bType === 'cta_buttons' || $bType === 'cta_banner'): ?>
+                                        <div class="cms-footer-cta">
+                                            <?php if (! empty($bData['title']) || ! empty($bData['heading'])): ?>
+                                                <h4 style="margin-bottom:0.5rem;"><?= esc($bData['title'] ?? $bData['heading']) ?></h4>
+                                            <?php endif; ?>
+                                            <?php if (! empty($bData['subtext'])): ?>
+                                                <p class="muted-cell" style="margin-bottom:0.6rem;"><?= esc($bData['subtext']) ?></p>
+                                            <?php endif; ?>
+                                            <div class="action-btn-group" style="justify-content:flex-start; flex-wrap:wrap;">
+                                                <?php if (! empty($bData['primary_text']) || ! empty($bData['btn_label'])): ?>
+                                                    <a href="<?= esc($bData['primary_url'] ?? ($bData['btn_link'] ?? '#')) ?>" class="btn-primary btn-sm">
+                                                        <?= esc($bData['primary_text'] ?? $bData['btn_label']) ?>
+                                                    </a>
+                                                <?php endif; ?>
+                                                <?php if (! empty($bData['secondary_text'])): ?>
+                                                    <a href="<?= esc($bData['secondary_url'] ?? '#') ?>" class="btn-secondary btn-sm"><?= esc($bData['secondary_text']) ?></a>
+                                                <?php endif; ?>
                                             </div>
-                                            <div class="js-lead-feedback field-hint" style="margin-top:0.35rem;"></div>
-                                        </form>
-                                    </div>
+                                        </div>
 
-                                <?php elseif ($bType === 'rich_text'): ?>
-                                    <div class="cms-prose <?= $fScopeCls ?>">
-                                        <?php if (! empty($bData['title'])): ?>
-                                            <h4 style="margin-bottom: 0.4rem;"><?= esc($bData['title']) ?></h4>
-                                        <?php endif; ?>
-                                        <?= ! empty($bData['html']) ? $bData['html'] : nl2br(esc($bData['body'] ?? '')) ?>
-                                    </div>
-
-                                <?php elseif ($bType === 'cta_buttons' || $bType === 'cta_banner'): ?>
-                                    <div class="cms-footer-cta <?= $fScopeCls ?>">
-                                        <?php if (! empty($bData['title']) || ! empty($bData['heading'])): ?>
-                                            <h4 style="margin-bottom:0.5rem;"><?= esc($bData['title'] ?? $bData['heading']) ?></h4>
-                                        <?php endif; ?>
-                                        <?php if (! empty($bData['subtext'])): ?>
-                                            <p class="muted-cell" style="margin-bottom:0.6rem;"><?= esc($bData['subtext']) ?></p>
-                                        <?php endif; ?>
-                                        <div class="action-btn-group" style="justify-content:flex-start; flex-wrap:wrap;">
-                                            <?php if (! empty($bData['primary_text']) || ! empty($bData['btn_label'])): ?>
-                                                <a href="<?= esc($bData['primary_url'] ?? ($bData['btn_link'] ?? '#')) ?>" class="btn-primary btn-sm">
-                                                    <?= esc($bData['primary_text'] ?? $bData['btn_label']) ?>
+                                    <?php elseif ($bType === 'hero_banner' || $bType === 'split_hero'): ?>
+                                        <div class="cms-footer-cta">
+                                            <?php if (! empty($bData['badge'])): ?>
+                                                <span class="mono-label text-emerald"><?= esc($bData['badge']) ?></span>
+                                            <?php endif; ?>
+                                            <h4 style="margin:0.35rem 0;"><?= esc($bData['heading'] ?? ($bData['headline'] ?? '')) ?></h4>
+                                            <?php if (! empty($bData['subheading']) || ! empty($bData['subheadline'])): ?>
+                                                <p class="muted-cell" style="margin-bottom:0.6rem;"><?= esc($bData['subheading'] ?? ($bData['subheadline'] ?? '')) ?></p>
+                                            <?php endif; ?>
+                                            <?php if (! empty($bData['btn_text']) || ! empty($bData['primary_btn_text'])): ?>
+                                                <a href="<?= esc($bData['btn_url'] ?? ($bData['primary_btn_url'] ?? '#')) ?>" class="btn-primary btn-sm">
+                                                    <?= esc($bData['btn_text'] ?? $bData['primary_btn_text']) ?> →
                                                 </a>
                                             <?php endif; ?>
-                                            <?php if (! empty($bData['secondary_text'])): ?>
-                                                <a href="<?= esc($bData['secondary_url'] ?? '#') ?>" class="btn-secondary btn-sm"><?= esc($bData['secondary_text']) ?></a>
-                                            <?php endif; ?>
                                         </div>
-                                    </div>
 
-                                <?php elseif ($bType === 'hero_banner' || $bType === 'split_hero'): ?>
-                                    <div class="cms-footer-cta <?= $fScopeCls ?>">
-                                        <?php if (! empty($bData['badge'])): ?>
-                                            <span class="mono-label text-emerald"><?= esc($bData['badge']) ?></span>
-                                        <?php endif; ?>
-                                        <h4 style="margin:0.35rem 0;"><?= esc($bData['heading'] ?? ($bData['headline'] ?? '')) ?></h4>
-                                        <?php if (! empty($bData['subheading']) || ! empty($bData['subheadline'])): ?>
-                                            <p class="muted-cell" style="margin-bottom:0.6rem;"><?= esc($bData['subheading'] ?? ($bData['subheadline'] ?? '')) ?></p>
-                                        <?php endif; ?>
-                                        <?php if (! empty($bData['btn_text']) || ! empty($bData['primary_btn_text'])): ?>
-                                            <a href="<?= esc($bData['btn_url'] ?? ($bData['primary_btn_url'] ?? '#')) ?>" class="btn-primary btn-sm">
-                                                <?= esc($bData['btn_text'] ?? $bData['primary_btn_text']) ?> →
-                                            </a>
-                                        <?php endif; ?>
-                                    </div>
-
-                                <?php elseif ($bType === 'feature_grid'): ?>
-                                    <div class="cms-footer-cta <?= $fScopeCls ?>">
-                                        <?php if (! empty($bData['section_title'])): ?>
-                                            <h4 style="margin-bottom:0.5rem;"><?= esc($bData['section_title']) ?></h4>
-                                        <?php endif; ?>
-                                        <?php for ($fi = 1; $fi <= 3; $fi++): ?>
-                                            <?php if (! empty($bData["card{$fi}_title"])): ?>
-                                                <div style="margin-bottom:0.4rem;">
-                                                    <strong class="text-emerald"><?= esc($bData["card{$fi}_title"]) ?>:</strong>
-                                                    <span class="muted-cell"><?= esc($bData["card{$fi}_desc"] ?? '') ?></span>
-                                                </div>
+                                    <?php elseif ($bType === 'feature_grid'): ?>
+                                        <div class="cms-footer-cta">
+                                            <?php if (! empty($bData['section_title'])): ?>
+                                                <h4 style="margin-bottom:0.5rem;"><?= esc($bData['section_title']) ?></h4>
                                             <?php endif; ?>
-                                        <?php endfor; ?>
-                                    </div>
-
-                                <?php elseif ($bType === 'stats_counter'): ?>
-                                    <div class="cms-footer-cta <?= $fScopeCls ?>">
-                                        <?php for ($si = 1; $si <= 4; $si++): ?>
-                                            <?php if (! empty($bData["stat{$si}_num"]) || ! empty($bData["stat{$si}_val"])): ?>
-                                                <div style="margin-bottom:0.35rem;">
-                                                    <strong class="text-emerald"><?= esc($bData["stat{$si}_num"] ?? $bData["stat{$si}_val"]) ?></strong>
-                                                    <span class="mono-label"> — <?= esc($bData["stat{$si}_label"] ?? '') ?></span>
-                                                </div>
-                                            <?php endif; ?>
-                                        <?php endfor; ?>
-                                    </div>
-
-                                <?php elseif ($bType === 'video_showcase' && (! empty($bData['embed_url']) || ! empty($bData['video_url']))): ?>
-                                    <div class="cms-video-frame <?= $fScopeCls ?>">
-                                        <iframe src="<?= esc($bData['embed_url'] ?? $bData['video_url']) ?>" title="Video" loading="lazy" allowfullscreen></iframe>
-                                    </div>
-
-                                <?php elseif ($bType === 'image_media' && ! empty($bData['image_url'])): ?>
-                                    <div class="<?= $fScopeCls ?>">
-                                        <img src="<?= esc($bData['image_url']) ?>" alt="<?= esc($bData['alt_text'] ?? '') ?>" style="max-width:<?= esc($bData['width'] ?? '160px') ?>; border-radius:8px;" loading="lazy" decoding="async">
-                                        <?php if (! empty($bData['caption'])): ?>
-                                            <div class="field-hint"><?= esc($bData['caption']) ?></div>
-                                        <?php endif; ?>
-                                    </div>
-
-                                <?php elseif ($bType === 'interactive_quiz'): ?>
-                                    <div class="cms-quiz-card <?= $fScopeCls ?>" data-correct="<?= esc(strtoupper($bData['correct_index'] ?? 'A')) ?>" data-explanation="<?= esc($bData['explanation'] ?? 'Correct Answer!') ?>">
-                                        <h4 class="cms-quiz-question"><?= esc($bData['question'] ?? '') ?></h4>
-                                        <div class="cms-quiz-options">
-                                            <?php foreach (['A' => 'option_a', 'B' => 'option_b', 'C' => 'option_c', 'D' => 'option_d'] as $letter => $key): ?>
-                                                <?php if (! empty($bData[$key])): ?>
-                                                    <button type="button" class="cms-quiz-opt js-quiz-answer" data-choice="<?= $letter ?>">
-                                                        <span class="step-index"><?= $letter ?></span>
-                                                        <span><?= esc($bData[$key]) ?></span>
-                                                    </button>
+                                            <?php for ($fi = 1; $fi <= 3; $fi++): ?>
+                                                <?php if (! empty($bData["card{$fi}_title"])): ?>
+                                                    <div style="margin-bottom:0.4rem;">
+                                                        <strong class="text-emerald"><?= esc($bData["card{$fi}_title"]) ?>:</strong>
+                                                        <span class="muted-cell"><?= esc($bData["card{$fi}_desc"] ?? '') ?></span>
+                                                    </div>
                                                 <?php endif; ?>
-                                            <?php endforeach; ?>
+                                            <?php endfor; ?>
                                         </div>
-                                        <div class="alert-banner is-hidden js-quiz-feedback" style="margin-top: 0.5rem;"></div>
-                                    </div>
 
-                                <?php else: ?>
-                                    <div class="<?= $fScopeCls ?>"><?= $bData['raw_code'] ?? ($bData['html'] ?? '') ?></div>
-                                <?php endif; ?>
+                                    <?php elseif ($bType === 'stats_counter'): ?>
+                                        <div class="cms-footer-cta">
+                                            <?php for ($si = 1; $si <= 4; $si++): ?>
+                                                <?php if (! empty($bData["stat{$si}_num"]) || ! empty($bData["stat{$si}_val"])): ?>
+                                                    <div style="margin-bottom:0.35rem;">
+                                                        <strong class="text-emerald"><?= esc($bData["stat{$si}_num"] ?? $bData["stat{$si}_val"]) ?></strong>
+                                                        <span class="mono-label"> — <?= esc($bData["stat{$si}_label"] ?? '') ?></span>
+                                                    </div>
+                                                <?php endif; ?>
+                                            <?php endfor; ?>
+                                        </div>
+
+                                    <?php elseif ($bType === 'video_showcase' && (! empty($bData['embed_url']) || ! empty($bData['video_url']))): ?>
+                                        <div class="cms-video-frame">
+                                            <iframe src="<?= esc($bData['embed_url'] ?? $bData['video_url']) ?>" title="Video" loading="lazy" allowfullscreen></iframe>
+                                        </div>
+
+                                    <?php elseif ($bType === 'image_media' && ! empty($bData['image_url'])): ?>
+                                        <div>
+                                            <img src="<?= esc($bData['image_url']) ?>" alt="<?= esc($bData['alt_text'] ?? '') ?>" style="max-width:<?= esc($bData['width'] ?? '160px') ?>; border-radius:8px;" loading="lazy" decoding="async">
+                                            <?php if (! empty($bData['caption'])): ?>
+                                                <div class="field-hint"><?= esc($bData['caption']) ?></div>
+                                            <?php endif; ?>
+                                        </div>
+
+                                    <?php elseif ($bType === 'interactive_quiz'): ?>
+                                        <div class="cms-quiz-card" data-correct="<?= esc(strtoupper($bData['correct_index'] ?? 'A')) ?>" data-explanation="<?= esc($bData['explanation'] ?? 'Correct Answer!') ?>">
+                                            <h4 class="cms-quiz-question"><?= esc($bData['question'] ?? '') ?></h4>
+                                            <div class="cms-quiz-options">
+                                                <?php foreach (['A' => 'option_a', 'B' => 'option_b', 'C' => 'option_c', 'D' => 'option_d'] as $letter => $key): ?>
+                                                    <?php if (! empty($bData[$key])): ?>
+                                                        <button type="button" class="cms-quiz-opt js-quiz-answer" data-choice="<?= $letter ?>">
+                                                            <span class="step-index"><?= $letter ?></span>
+                                                            <span><?= esc($bData[$key]) ?></span>
+                                                        </button>
+                                                    <?php endif; ?>
+                                                <?php endforeach; ?>
+                                            </div>
+                                            <div class="alert-banner is-hidden js-quiz-feedback" style="margin-top: 0.5rem;"></div>
+                                        </div>
+
+                                    <?php else: ?>
+                                        <div><?= $bData['raw_code'] ?? ($bData['html'] ?? '') ?></div>
+                                    <?php endif; ?>
+                                </div>
                             <?php endforeach; ?>
                         </div>
                     <?php endfor; ?>
@@ -604,7 +670,7 @@
         </div>
     </footer>
 
-    <!-- Load Core app.js on Frontend (Prevents duplicate loading on Backend!) -->
+    <!-- Load Core app.js on Frontend -->
     <?php
         $coreJsFile = FCPATH . 'assets/js/app.js';
         $coreJsVer  = is_file($coreJsFile) ? (string) @filemtime($coreJsFile) : '1.0';

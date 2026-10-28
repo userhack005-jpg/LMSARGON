@@ -5,239 +5,181 @@ namespace App\Controllers\Users;
 use App\Controllers\BaseController;
 use App\Models\Settings\SettingModel;
 use App\Models\Users\UserModel;
+use Throwable;
 
 class UserController extends BaseController
 {
-    protected SettingModel $settingModel;
     protected UserModel $userModel;
-    protected string $lockFile;
+    protected SettingModel $settingModel;
 
     public function __construct()
     {
         helper(['url', 'form']);
-        $this->settingModel = new SettingModel();
         $this->userModel    = new UserModel();
-        $this->lockFile     = WRITEPATH . 'installed.lock';
+        $this->settingModel = new SettingModel();
     }
 
-    private function canManageUsers(): bool
+    private function respondOrRedirect(array $payload)
     {
-        if (! session()->get('isLoggedIn')) {
-            return false;
+        if ($this->request->isAJAX() || strpos((string) $this->request->getHeaderLine('Accept'), 'application/json') !== false) {
+            return $this->response->setJSON($payload);
         }
-        $role = (string) session()->get('role_slug');
-        return in_array($role, ['super_admin', 'admin'], true);
+        $flashKey = (($payload['status'] ?? '') === 'success') ? 'success' : 'error';
+        return redirect()->to(base_url('users'))->with($flashKey, $payload['message'] ?? 'Operation completed.');
     }
 
     /**
-     * Sidebar Module View: Add Users & Role Directory
+     * Full Cascade Cleanup across all LMS Add-On Tables when a Student or Parent is deleted!
      */
+    private function cascadeDeleteStudentRecords(int $studentId): void
+    {
+        if ($studentId <= 1) {
+            return;
+        }
+        $db = \Config\Database::connect();
+        $studentTables = [
+            'lms_hierarchy_enrollments'      => 'student_user_id',
+            'lms_student_subscriptions'      => 'student_user_id',
+            'lms_classroom_batch_students'   => 'student_user_id',
+            'lms_session_student_attendance' => 'student_user_id',
+            'lms_assessment_attempts'        => 'student_user_id',
+            'lms_certificates'               => 'student_user_id',
+            'lms_chat_messages'              => 'student_user_id',
+            'payment_transactions'           => 'student_user_id',
+            'cms_user_meta'                  => 'user_id',
+        ];
+
+        foreach ($studentTables as $table => $col) {
+            try {
+                if ($db->tableExists($table)) {
+                    $db->table($table)->where($col, $studentId)->delete();
+                }
+            } catch (Throwable $e) {
+            }
+        }
+    }
+
     public function index()
     {
-        if (! is_file($this->lockFile)) {
-            return redirect()->to(base_url('install'));
-        }
-
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
+        if (function_exists('cms_has_permission') && ! cms_has_permission(['users.view', 'users.create', 'users.edit', 'users.delete'])) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Access denied.');
+        }
 
-        $settings = $this->settingModel->getSystemSettings();
-        $roles    = $this->userModel->getAvailableRoles();
-        $users    = $this->userModel->getAllUsersWithRoles();
-        $stats    = $this->userModel->getRoleDistributionStats();
-
-        return view('users/manage_view', [
+        return view('users/index_view', [
+            'pageTitle'  => 'Users & Role Directory',
             'activeMenu' => 'users',
-            'settings'   => $settings,
-            'roles'      => $roles,
-            'users'      => $users,
-            'stats'      => $stats,
+            'settings'   => $this->settingModel->getSystemSettings(),
+            'users'      => $this->userModel->getAllUsersWithRoles(),
+            'roles'      => $this->userModel->getAllRoles(),
             'user'       => session()->get(),
-            'pageTitle'  => ($settings['site_title'] ?? 'System') . ' — User & Role Management',
         ]);
     }
 
-    /**
-     * AJAX Endpoint: Create New User
-     */
     public function createUser()
     {
-        if (! $this->canManageUsers()) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Unauthorized: Only Super Admin or Admin can provision users.',
-            ]);
+        if (function_exists('cms_has_permission') && ! cms_has_permission('users.create')) {
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Access denied.']);
         }
 
-        $fullName = trim((string) $this->request->getPost('full_name'));
-        $email    = strtolower(trim((string) $this->request->getPost('email')));
-        $password = (string) $this->request->getPost('password');
-        $roleId   = (int) $this->request->getPost('role_id');
-        $status   = (string) ($this->request->getPost('status') ?: 'active');
-
-        if ($fullName === '' || $email === '' || $password === '' || $roleId <= 0) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'All fields (Full Name, Email, Password, and Assigned Role) are required.',
-            ]);
-        }
-
-        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Please enter a valid email address.',
-            ]);
-        }
-
-        if (strlen($password) < 6) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Password must be at least 6 characters long.',
-            ]);
-        }
-
-        $targetRole = $this->userModel->getRoleById($roleId);
-        if (! $targetRole) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Selected role does not exist.',
-            ]);
-        }
-
-        if ($targetRole['role_slug'] === 'super_admin' && session()->get('role_slug') !== 'super_admin') {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Only a Super Admin can assign the Super Admin role.',
-            ]);
-        }
-
-        $result = $this->userModel->insertNewUser([
-            'role_id'   => $roleId,
-            'full_name' => $fullName,
-            'email'     => $email,
-            'password'  => $password,
-            'status'    => in_array($status, ['active', 'suspended'], true) ? $status : 'active',
-        ]);
-
-        return $this->response->setJSON($result);
+        $res = $this->userModel->createNewUser($this->request->getPost());
+        return $this->respondOrRedirect($res);
     }
 
-    /**
-     * AJAX Endpoint: Reassign User Role
-     */
     public function updateUserRole()
     {
-        if (! $this->canManageUsers()) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Unauthorized action.',
-            ]);
+        if (function_exists('cms_has_permission') && ! cms_has_permission('users.edit')) {
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Access denied.']);
         }
 
-        $targetUserId = (int) $this->request->getPost('user_id');
-        $newRoleId    = (int) $this->request->getPost('role_id');
-        $currentId    = (int) session()->get('user_id');
+        $userId = (int) ($this->request->getPost('user_id') ?? 0);
+        $roleId = (int) ($this->request->getPost('role_id') ?? 0);
+        $res    = $this->userModel->assignRole($userId, $roleId);
 
-        if ($targetUserId === $currentId) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Safety Lock: You cannot demote or alter your own active role.',
-            ]);
+        // Sync `role_slug` in `users` table if present
+        try {
+            $db = \Config\Database::connect();
+            if ($db->tableExists('roles') && $db->tableExists('users')) {
+                $rRow = $db->table('roles')->where('id', $roleId)->get()->getRowArray();
+                if ($rRow && ! empty($rRow['role_slug'])) {
+                    $rSlug = strtolower(trim((string) $rRow['role_slug']));
+                    $upd   = ['role_slug' => $rSlug];
+                    if (in_array($rSlug, ['super_admin', 'admin', 'teacher', 'parent'], true)) {
+                        $upd['parent_user_id'] = null;
+                    }
+                    $db->table('users')->where('id', $userId)->update($upd);
+                }
+            }
+        } catch (Throwable $e) {
         }
 
-        $targetRole = $this->userModel->getRoleById($newRoleId);
-        if (! $targetRole) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Invalid role selected.',
-            ]);
-        }
-
-        if ($targetRole['role_slug'] === 'super_admin' && session()->get('role_slug') !== 'super_admin') {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Only a Super Admin can promote users to Super Admin.',
-            ]);
-        }
-
-        $updated = $this->userModel->changeUserRole($targetUserId, $newRoleId);
-
-        if ($updated) {
-            return $this->response->setJSON([
-                'status'    => 'success',
-                'message'   => 'User role updated to ' . $targetRole['role_name'] . '.',
-                'role_slug' => $targetRole['role_slug'],
-                'role_name' => $targetRole['role_name'],
-            ]);
-        }
-
-        return $this->response->setJSON([
-            'status'  => 'error',
-            'message' => 'Failed to update role.',
-        ]);
+        return $this->respondOrRedirect($res);
     }
 
-    /**
-     * AJAX Endpoint: Toggle User Status
-     */
     public function toggleUserStatus()
     {
-        if (! $this->canManageUsers()) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Unauthorized action.',
-            ]);
+        if (function_exists('cms_has_permission') && ! cms_has_permission('users.edit')) {
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Access denied.']);
         }
 
-        $targetUserId = (int) $this->request->getPost('user_id');
-        $currentId    = (int) session()->get('user_id');
-
-        if ($targetUserId === $currentId) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Safety Lock: You cannot suspend your own active account.',
-            ]);
-        }
-
-        $result = $this->userModel->flipUserStatus($targetUserId);
-        return $this->response->setJSON($result);
+        $userId = (int) ($this->request->getPost('user_id') ?? 0);
+        $res    = $this->userModel->toggleStatus($userId);
+        return $this->respondOrRedirect($res);
     }
 
     /**
-     * AJAX Endpoint: Delete User
+     * Deletes a User Account AND performs full Cascade Deletion:
+     * - If the deleted user is a Parent (or has linked children where `parent_user_id = $userId`),
+     *   deletes all linked Child Student accounts AND all their enrollments, subscriptions, attempts & attendance!
+     * - If the deleted user is a Student, deletes all their enrollments, subscriptions, attempts & attendance!
      */
     public function deleteUser()
     {
-        if (! $this->canManageUsers()) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Unauthorized action.',
-            ]);
+        if (function_exists('cms_has_permission') && ! cms_has_permission('users.delete')) {
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Access denied.']);
         }
 
-        $targetUserId = (int) $this->request->getPost('user_id');
-        $currentId    = (int) session()->get('user_id');
-
-        if ($targetUserId === $currentId) {
-            return $this->response->setJSON([
-                'status'  => 'error',
-                'message' => 'Safety Lock: You cannot delete your own logged-in account.',
-            ]);
+        $userId = (int) ($this->request->getPost('user_id') ?? ($this->request->getPost('id') ?? 0));
+        if ($userId <= 1) {
+            return $this->respondOrRedirect(['status' => 'error', 'message' => 'Root Super Admin account cannot be deleted.']);
         }
 
-        $deleted = $this->userModel->removeUserById($targetUserId);
+        $db = \Config\Database::connect();
+        $deletedChildrenCount = 0;
 
-        if ($deleted) {
-            return $this->response->setJSON([
-                'status'  => 'success',
-                'message' => 'User account permanently removed.',
-            ]);
+        try {
+            // 1. Find any linked children (`parent_user_id = $userId`) and cascade-delete their data + user accounts
+            if ($db->tableExists('users') && in_array('parent_user_id', $db->getFieldNames('users'), true)) {
+                $children = $db->table('users')->select('id')->where('parent_user_id', $userId)->get()->getResultArray();
+                foreach ($children as $ch) {
+                    $childId = (int) ($ch['id'] ?? 0);
+                    if ($childId > 1) {
+                        $this->cascadeDeleteStudentRecords($childId);
+                        $db->table('users')->where('id', $childId)->delete();
+                        $deletedChildrenCount++;
+                    }
+                }
+            }
+
+            // 2. Clean any parent-referenced rows in enrollments & subscriptions
+            foreach (['lms_hierarchy_enrollments', 'lms_student_subscriptions', 'payment_transactions'] as $pTbl) {
+                if ($db->tableExists($pTbl)) {
+                    $db->table($pTbl)->where('parent_user_id', $userId)->delete();
+                }
+            }
+
+            // 3. Clean student records if the deleted user was a Student themselves
+            $this->cascadeDeleteStudentRecords($userId);
+        } catch (Throwable $e) {
         }
 
-        return $this->response->setJSON([
-            'status'  => 'error',
-            'message' => 'Unable to remove user.',
-        ]);
+        $res = $this->userModel->removeUser($userId);
+        if (($res['status'] ?? '') === 'success' && $deletedChildrenCount > 0) {
+            $res['message'] = 'Parent account and ' . $deletedChildrenCount . ' linked student profile(s) (with all batch enrollments & records) deleted.';
+        }
+
+        return $this->respondOrRedirect($res);
     }
 }

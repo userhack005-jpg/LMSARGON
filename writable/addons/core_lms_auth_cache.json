@@ -1,5 +1,5 @@
 {
-    "updated_at": 1792759096,
+    "updated_at": 1793192160,
     "storage_timezone": "UTC",
     "role_map": {
         "super_admin": [
@@ -31,9 +31,8 @@
                 "Asia\/Kolkata"
             ],
             "is_enabled": 1,
-            "live_local_time": "23 Oct 2026, 06:08 PM",
-            "utc_offset": "UTC+05:30",
-            "is_dst_active": false
+            "live_local_time": "28 Oct 2026, 06:26 PM",
+            "utc_offset": "UTC+05:30"
         },
         "AE": {
             "code": "AE",
@@ -47,28 +46,8 @@
                 "Asia\/Dubai"
             ],
             "is_enabled": 1,
-            "live_local_time": "23 Oct 2026, 04:38 PM",
-            "utc_offset": "UTC+04:00",
-            "is_dst_active": false
-        },
-        "US": {
-            "code": "US",
-            "name": "United States (USA)",
-            "flag": "🇺🇸",
-            "currency_code": "USD",
-            "currency_sym": "$",
-            "dial_code": "+1",
-            "default_tz": "America\/New_York",
-            "timezones": [
-                "America\/New_York",
-                "America\/Chicago",
-                "America\/Denver",
-                "America\/Los_Angeles"
-            ],
-            "is_enabled": 1,
-            "live_local_time": "23 Oct 2026, 08:38 AM",
-            "utc_offset": "UTC-04:00",
-            "is_dst_active": true
+            "live_local_time": "28 Oct 2026, 04:56 PM",
+            "utc_offset": "UTC+04:00"
         }
     }
 }

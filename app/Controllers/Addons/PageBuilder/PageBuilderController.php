@@ -19,17 +19,17 @@ class PageBuilderController extends BaseController
         $this->settingModel = new SettingModel();
     }
 
-    private function canManagePages(): bool
+    private function checkPerm($permKeys): bool
     {
         if (! session()->get('isLoggedIn')) {
             return false;
         }
-        return in_array((string) session()->get('role_slug'), ['super_admin', 'admin'], true);
+        if (function_exists('cms_has_permission')) {
+            return cms_has_permission($permKeys);
+        }
+        return (int) session()->get('role_id') === 1 || (string) session()->get('role_slug') === 'super_admin';
     }
 
-    /**
-     * Helper: Returns JSON if AJAX request, otherwise cleanly redirects back
-     */
     private function respondOrRedirect(array $payload, string $redirectUrl)
     {
         if ($this->request->isAJAX()) {
@@ -40,8 +40,11 @@ class PageBuilderController extends BaseController
 
     public function index()
     {
-        if (! $this->canManagePages()) {
+        if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
+        }
+        if (! $this->checkPerm(['pages.view', 'pages.create', 'pages.edit', 'pages.delete'])) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Access denied: Missing Page Builder permission.');
         }
 
         return view('addons/page_builder/pages_list_view', [
@@ -50,14 +53,25 @@ class PageBuilderController extends BaseController
             'pages'      => $this->pbModel->getAllPages(),
             'components' => $this->pbModel->getAllComponents(false),
             'user'       => session()->get(),
+            'canCreate'  => $this->checkPerm('pages.create'),
+            'canEdit'    => $this->checkPerm('pages.edit'),
+            'canDelete'  => $this->checkPerm('pages.delete'),
             'pageTitle'  => 'Visual Page Builder & Component Registry',
         ]);
     }
 
     public function editor(?int $pageId = null)
     {
-        if (! $this->canManagePages()) {
+        if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
+        }
+
+        $isEdit = ($pageId !== null && $pageId > 0);
+        if ($isEdit && ! $this->checkPerm('pages.edit')) {
+            return redirect()->to(base_url('addons/page-builder'))->with('error', 'Access denied: Missing pages.edit permission.');
+        }
+        if (! $isEdit && ! $this->checkPerm('pages.create')) {
+            return redirect()->to(base_url('addons/page-builder'))->with('error', 'Access denied: Missing pages.create permission.');
         }
 
         $page = $pageId ? $this->pbModel->getPageById($pageId) : null;
@@ -87,8 +101,11 @@ class PageBuilderController extends BaseController
 
     public function savePage()
     {
-        if (! $this->canManagePages()) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        $pageId = (int) $this->request->getPost('page_id');
+        $needed = $pageId > 0 ? 'pages.edit' : 'pages.create';
+
+        if (! $this->checkPerm($needed)) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied: Missing ' . $needed . ' permission.']);
         }
 
         $title = trim((string) $this->request->getPost('title'));
@@ -102,7 +119,7 @@ class PageBuilderController extends BaseController
         }
 
         $result = $this->pbModel->savePageData([
-            'id'               => (int) $this->request->getPost('page_id'),
+            'id'               => $pageId,
             'title'            => $title,
             'slug'             => $slug,
             'blocks_json'      => (string) $this->request->getPost('blocks_json'),
@@ -118,8 +135,8 @@ class PageBuilderController extends BaseController
 
     public function deletePage()
     {
-        if (! $this->canManagePages()) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        if (! $this->checkPerm('pages.delete')) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied: Missing pages.delete permission.']);
         }
 
         $id = (int) $this->request->getPost('page_id');
@@ -133,8 +150,8 @@ class PageBuilderController extends BaseController
 
     public function toggleComponent()
     {
-        if (! $this->canManagePages()) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        if (! $this->checkPerm('pages.edit')) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied: Missing pages.edit permission.']);
         }
 
         $compId = (int) $this->request->getPost('component_id');
@@ -143,7 +160,7 @@ class PageBuilderController extends BaseController
 
     public function uploadMedia()
     {
-        if (! $this->canManagePages()) {
+        if (! $this->checkPerm(['pages.create', 'pages.edit'])) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
         }
 
@@ -172,13 +189,13 @@ class PageBuilderController extends BaseController
         ]);
     }
 
-    /**
-     * Visual Footer Builder Workspace
-     */
     public function footerEditor()
     {
-        if (! $this->canManagePages()) {
+        if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
+        }
+        if (! $this->checkPerm('pages.edit')) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Access denied: Missing pages.edit permission.');
         }
 
         $footers      = $this->pbModel->getAllFooters();
@@ -257,8 +274,8 @@ class PageBuilderController extends BaseController
 
     public function saveFooter()
     {
-        if (! $this->canManagePages()) {
-            return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
+        if (! $this->checkPerm('pages.edit')) {
+            return $this->response->setJSON(['status' => 'error', 'message' => 'Access denied: Missing pages.edit permission.']);
         }
 
         $styleKey = trim((string) $this->request->getPost('style_key')) ?: 'style_3col';
@@ -281,12 +298,12 @@ class PageBuilderController extends BaseController
     public function contentHub()
     {
         return redirect()->to(base_url('addons/page-builder'))
-            ->with('pb_notice', 'Announcements, FAQs, and Reviews are now managed via their dedicated independent Add-On modules.');
+            ->with('pb_notice', 'Announcements, FAQs, and Reviews are managed via their dedicated independent Add-On modules.');
     }
 
     public function saveAnnouncement()
     {
-        if (! $this->canManagePages()) {
+        if (! $this->checkPerm(['announcements.create', 'announcements.edit'])) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
         }
 
@@ -310,7 +327,7 @@ class PageBuilderController extends BaseController
 
     public function deleteAnnouncement()
     {
-        if (! $this->canManagePages()) {
+        if (! $this->checkPerm('announcements.delete')) {
             return $this->response->setJSON(['status' => 'error']);
         }
         $this->pbModel->deleteAnnouncementRecord((int) $this->request->getPost('id'));
@@ -323,7 +340,7 @@ class PageBuilderController extends BaseController
 
     public function saveReview()
     {
-        if (! $this->canManagePages()) {
+        if (! $this->checkPerm(['reviews.create', 'reviews.edit'])) {
             return $this->response->setJSON(['status' => 'error', 'message' => 'Unauthorized']);
         }
 
@@ -348,7 +365,7 @@ class PageBuilderController extends BaseController
 
     public function deleteReview()
     {
-        if (! $this->canManagePages()) {
+        if (! $this->checkPerm('reviews.delete')) {
             return $this->response->setJSON(['status' => 'error']);
         }
         $this->pbModel->deleteReviewRecord((int) $this->request->getPost('id'));

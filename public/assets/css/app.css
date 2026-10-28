@@ -454,6 +454,13 @@ body.theme-obsidian {
     grid-template-columns: repeat(3, 1fr);
     gap: 0.9rem;
 }
+
+.grid-4-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+    gap: 0.85rem;
+}
+
 .upload-tile {
     position: relative;
     user-select: none;
@@ -556,8 +563,8 @@ body.theme-obsidian {
     border: 1px solid var(--border-subtle);
 }
 
-.alert-banner.is-hidden {
-    display: none;
+.alert-banner.is-hidden, .is-hidden {
+    display: none !important;
 }
 
 .alert-error {
@@ -665,6 +672,7 @@ body.theme-obsidian {
 .text-cyan { color: var(--accent-cyan); }
 .text-amber { color: var(--accent-amber); }
 .text-violet { color: var(--accent-violet); }
+.text-danger { color: var(--danger-crimson); }
 
 .metric-sub {
     font-size: 0.75rem;
@@ -965,7 +973,7 @@ body.theme-obsidian {
 }
 
 /* ==========================================
-   SITE SETTINGS, SEO & CODE EDITOR STYLES
+   SITE SETTINGS, SEO & CODE EDITOR STYLES (RESTORED 100%)
    ========================================== */
 .settings-tabs {
     display: flex;
@@ -1070,7 +1078,6 @@ body.theme-obsidian {
     resize: vertical;
 }
 
-
 /* ==========================================
    HOTFIX: GUARANTEED FILE PICKER & TABS
    ========================================== */
@@ -1099,7 +1106,7 @@ body.theme-obsidian {
 }
 
 .settings-tab * {
-    pointer-events: none; /* Taaki span par click hone par bhi button hi click ho */
+    pointer-events: none;
 }
 
 .settings-pane {
@@ -1148,7 +1155,6 @@ body.theme-obsidian {
     gap: 0.35rem;
     white-space: nowrap;
 }
-
 
 /* ==========================================
    ADD-ON BLUEPRINT CODE PREVIEW
@@ -1365,10 +1371,12 @@ body.theme-obsidian {
 }
 
 .cms-block {
+    position: relative;
     background: var(--bg-surface);
     border: 1px solid var(--border-subtle);
     border-radius: 14px;
     padding: 2.5rem;
+    overflow: hidden;
 }
 
 .cms-hero {
@@ -1600,6 +1608,7 @@ body.theme-obsidian {
 }
 
 .cms-block-wrapper {
+    position: relative;
     width: 100%;
     margin-bottom: 2rem;
 }
@@ -1628,7 +1637,6 @@ body.theme-obsidian {
     padding: 0 1.5rem;
 }
 
-/* No-Gap / Merged Blocks */
 .cms-block-wrapper.has-no-bottom-gap {
     margin-bottom: 0 !important;
 }
@@ -1644,7 +1652,6 @@ body.theme-obsidian {
     border-top-right-radius: 0 !important;
 }
 
-/* Seamless Unified Background (No Box Borders) */
 .cms-block.surface-seamless {
     background: transparent !important;
     border-color: transparent !important;
@@ -1666,7 +1673,6 @@ body.theme-obsidian {
     transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
 }
 
-/* Lazy Reveal Animation */
 .js-lazy-reveal {
     opacity: 0;
     transform: translateY(18px);
@@ -1691,8 +1697,8 @@ body.theme-obsidian {
     padding: 0.55rem 1.5rem;
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 0.85rem;
+    justify-content: space-between;
+    gap: 1rem;
     flex-wrap: wrap;
 }
 .cms-ann-badge {
@@ -1922,6 +1928,13 @@ body.theme-obsidian {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1.25rem;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.cms-testimonial-track.is-sliding {
+    opacity: 0;
+    transform: translateY(10px);
 }
 .cms-testimonial-slide {
     border: 1px solid var(--border-subtle);
@@ -1987,7 +2000,6 @@ body.theme-obsidian {
     display: block;
 }
 
-
 .cms-lead-input-group {
     display: flex;
     gap: 0.6rem;
@@ -2004,6 +2016,128 @@ body.theme-obsidian {
     padding-top: 4.5rem;
 }
 
+.cms-ann-main {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+}
+.cms-announcement-inner.align-left .cms-ann-main { justify-content: flex-start; }
+.cms-announcement-inner.align-center .cms-ann-main { justify-content: center; }
+.cms-announcement-inner.align-right .cms-ann-main { justify-content: flex-end; }
+.cms-ann-link.is-inline-link {
+    margin-left: 0.65rem;
+    display: inline-block;
+}
+.cms-ann-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+.cms-ann-close {
+    margin-left: 0 !important;
+    padding: 0.1rem 0.35rem;
+    line-height: 1;
+}
+
+.cms-faq-wrapper {
+    max-width: 860px;
+    width: 100%;
+}
+.cms-faq-wrapper.box-pos-left { margin-left: 0; margin-right: auto; }
+.cms-faq-wrapper.box-pos-center { margin-left: auto; margin-right: auto; }
+.cms-faq-wrapper.box-pos-right { margin-left: auto; margin-right: 0; }
+.cms-faq-q-text { flex: 1; }
+.cms-faq-wrapper.txt-align-left .cms-faq-q-text,
+.cms-faq-wrapper.txt-align-left .cms-faq-body { text-align: left; }
+.cms-faq-wrapper.txt-align-center .cms-faq-q-text,
+.cms-faq-wrapper.txt-align-center .cms-faq-body { text-align: center; }
+.cms-faq-wrapper.txt-align-right .cms-faq-q-text,
+.cms-faq-wrapper.txt-align-right .cms-faq-body { text-align: right; }
+
+/* ==========================================
+   UNIVERSAL DESIGN STUDIO DRAWER & SECTION SHAPES / WAVE DIVIDERS
+   ========================================== */
+.pb-design-studio-drawer {
+    background: var(--bg-surface);
+    border: 1px dashed var(--border-subtle);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.pb-studio-group {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.cms-block.shape-square,
+.cms-footer-block-box.shape-square {
+    border-radius: 0px !important;
+}
+
+.cms-block.shape-rounded,
+.cms-footer-block-box.shape-rounded {
+    border-radius: 18px !important;
+}
+
+.cms-block.shape-pill_curve,
+.cms-footer-block-box.shape-pill_curve {
+    border-radius: 42px !important;
+}
+
+.cms-block.shape-leaf_asym,
+.cms-footer-block-box.shape-leaf_asym {
+    border-radius: 48px 8px 48px 8px !important;
+}
+
+.cms-block.shape-arch_top,
+.cms-footer-block-box.shape-arch_top {
+    border-radius: 90px 90px 16px 16px !important;
+}
+
+.cms-block.shape-diagonal_slant,
+.cms-footer-block-box.shape-diagonal_slant {
+    clip-path: polygon(0 0, 100% 3%, 100% 100%, 0 97%);
+}
+
+.cms-shape-divider {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    overflow: hidden;
+    line-height: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+
+.cms-shape-divider svg {
+    position: relative;
+    display: block;
+    width: calc(100% + 1.3px);
+    height: 46px;
+}
+
+.cms-shape-divider-top {
+    top: -1px;
+    transform: rotate(180deg);
+}
+
+.cms-shape-divider-bottom {
+    bottom: -1px;
+}
+
+.cms-block.has-inner-dividers {
+    padding-top: 4.25rem;
+    padding-bottom: 4.25rem;
+}
+
 @media (max-width: 900px) {
     .cms-split-hero-grid,
     .cms-dynamic-grid.cols-2,
@@ -2014,107 +2148,5 @@ body.theme-obsidian {
     }
     .cms-split-title { font-size: 2rem; }
     .cms-lead-input-group { flex-direction: column; }
-}
-
-/* ==========================================
-   SMOOTH TESTIMONIAL CAROUSEL TRANSITION
-   ========================================== */
-.cms-testimonial-track {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.25rem;
-    opacity: 1;
-    transform: translateY(0);
-    transition: opacity 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.cms-testimonial-track.is-sliding {
-    opacity: 0;
-    transform: translateY(10px);
-}
-
-@media (max-width: 900px) {
-    .cms-testimonial-track {
-        grid-template-columns: 1fr;
-    }
-}
-
-
-/* ==========================================
-   ANNOUNCEMENT BAR LINK PLACEMENT & FAQ ALIGNMENT
-   ========================================== */
-.cms-announcement-inner {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 0.55rem 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-}
-
-.cms-ann-main {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    flex: 1;
-    min-width: 0;
-}
-
-.cms-announcement-inner.align-left .cms-ann-main { justify-content: flex-start; }
-.cms-announcement-inner.align-center .cms-ann-main { justify-content: center; }
-.cms-announcement-inner.align-right .cms-ann-main { justify-content: flex-end; }
-
-.cms-ann-link.is-inline-link {
-    margin-left: 0.65rem;
-    display: inline-block;
-}
-
-.cms-ann-right-actions {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    margin-left: auto;
-    flex-shrink: 0;
-}
-
-.cms-ann-close {
-    margin-left: 0 !important;
-    padding: 0.1rem 0.35rem;
-    line-height: 1;
-}
-
-/* FAQ Wrapper Box Position (Left / Center / Right within container) */
-.cms-faq-wrapper {
-    max-width: 860px;
-    width: 100%;
-}
-.cms-faq-wrapper.box-pos-left {
-    margin-left: 0;
-    margin-right: auto;
-}
-.cms-faq-wrapper.box-pos-center {
-    margin-left: auto;
-    margin-right: auto;
-}
-.cms-faq-wrapper.box-pos-right {
-    margin-left: auto;
-    margin-right: 0;
-}
-
-/* FAQ Inside Text Alignment (Left / Center / Right) */
-.cms-faq-q-text {
-    flex: 1;
-}
-.cms-faq-wrapper.txt-align-left .cms-faq-q-text,
-.cms-faq-wrapper.txt-align-left .cms-faq-body {
-    text-align: left;
-}
-.cms-faq-wrapper.txt-align-center .cms-faq-q-text,
-.cms-faq-wrapper.txt-align-center .cms-faq-body {
-    text-align: center;
-}
-.cms-faq-wrapper.txt-align-right .cms-faq-q-text,
-.cms-faq-wrapper.txt-align-right .cms-faq-body {
-    text-align: right;
+    .cms-shape-divider svg { height: 28px; }
 }

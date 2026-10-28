@@ -25,6 +25,62 @@ class AddonModel extends Model
         self::$activeAddonsCache = null;
     }
 
+    /**
+     * Automatically synchronizes `cms_rbac_features` and `rbac_permissions_cache.json`
+     * so ONLY currently ACTIVE add-ons' permissions exist in the RBAC Matrix!
+     */
+    public function syncRbacWithActiveAddons(): void
+    {
+        try {
+            $rbacModelFile = WRITEPATH . 'addons/extracted/rbac/Models/Addons/Rbac/RbacModel.php';
+            if (is_file($rbacModelFile)) {
+                require_once $rbacModelFile;
+                if (class_exists('\App\Models\Addons\Rbac\RbacModel')) {
+                    $rbacModel = new \App\Models\Addons\Rbac\RbacModel();
+                    $rbacModel->syncCoreAndAddonPermissions();
+                    $rbacModel->rebuildStaticCache();
+                    return;
+                }
+            }
+
+            // Fallback cleanup if RBAC model is not yet loaded
+            $db = Database::connect();
+            if (! $db->tableExists('cms_rbac_features')) {
+                return;
+            }
+            $activeAddons = $this->getActiveAddons();
+            $allowedPermKeys = [
+                'dashboard.view',
+                'settings.view', 'settings.edit',
+                'addons.manage',
+                'users.view', 'users.create', 'users.edit', 'users.delete',
+            ];
+
+            foreach ($activeAddons as $act) {
+                $slug = trim((string) ($act['slug'] ?? ''));
+                if ($slug === 'page_builder') {
+                    array_push($allowedPermKeys, 'pages.view', 'pages.create', 'pages.edit', 'pages.delete');
+                    continue;
+                }
+                $mFile = WRITEPATH . 'addons/extracted/' . $slug . '/addon.json';
+                if (is_file($mFile)) {
+                    $m = json_decode(ltrim((string) file_get_contents($mFile), "\xEF\xBB\xBF"), true);
+                    foreach (($m['permissions'] ?? []) as $p) {
+                        if (! empty($p['key'])) {
+                            $allowedPermKeys[] = trim((string) $p['key']);
+                        }
+                    }
+                }
+            }
+
+            $db->table('cms_rbac_features')
+                ->whereIn('source_type', ['core', 'addon'])
+                ->whereNotIn('perm_key', array_unique($allowedPermKeys))
+                ->delete();
+        } catch (Throwable $e) {
+        }
+    }
+
     public function ensureSchemaInitialized(): void
     {
         if (is_file($this->schemaLockFile)) {
@@ -89,7 +145,6 @@ class AddonModel extends Model
                 $db->query("ALTER TABLE `addons` ADD COLUMN `sort_order` INT(11) NOT NULL DEFAULT 0 AFTER `is_active`");
             }
 
-            // 1, 2, 3... come first in exact ascending order; all 0s come at the bottom!
             $rows = $db->query("
                 SELECT * FROM `addons`
                 WHERE `is_active` = 1
@@ -108,7 +163,7 @@ class AddonModel extends Model
                 if (isset($r['status']) && strtolower((string) $r['status']) !== 'active') {
                     continue;
                 }
-                if (is_dir(WRITEPATH . 'addons/extracted/' . $slug)) {
+                if ($slug === 'page_builder' || is_dir(WRITEPATH . 'addons/extracted/' . $slug)) {
                     $filtered[] = $r;
                 }
             }
@@ -123,8 +178,8 @@ class AddonModel extends Model
     public function isAddonActive(string $slug): bool
     {
         $slug = trim($slug);
-        if ($slug === '' || $slug === 'page_builder') {
-            return true;
+        if ($slug === '') {
+            return false;
         }
         foreach ($this->getActiveAddons() as $addon) {
             if (($addon['slug'] ?? '') === $slug) {
@@ -170,6 +225,9 @@ class AddonModel extends Model
             $db->table('addons')->where('id', $id)->update(['is_active' => $newState]);
             self::clearMemoryCache();
 
+            // Immediately sync RBAC permissions so deactivated add-on permissions disappear from Matrix
+            $this->syncRbacWithActiveAddons();
+
             return [
                 'status'    => 'success',
                 'is_active' => $newState,
@@ -180,9 +238,6 @@ class AddonModel extends Model
         }
     }
 
-    /**
-     * Complete Uninstall: Deletes deployed files, extracted folder & DB record
-     */
     public function uninstallAddon(int $id): array
     {
         try {
@@ -196,32 +251,38 @@ class AddonModel extends Model
             $extractDir = WRITEPATH . 'addons/extracted/' . $slug . '/';
             $payloadDir = $extractDir . 'payload/';
 
-            // 1. Remove deployed files from app/ and public/ that came from payload/
             if (is_dir($payloadDir)) {
                 $this->removeDeployedFiles($payloadDir, ROOTPATH);
             }
 
-            // 2. Delete writable/addons/extracted/<slug>/ folder
             if (is_dir($extractDir)) {
                 $this->deleteDirectory($extractDir);
             }
 
-            // 3. Delete database record
+            if (is_dir(FCPATH . 'assets/addons/' . $slug)) {
+                $this->deleteDirectory(FCPATH . 'assets/addons/' . $slug);
+            }
+
+            // Remove any Page Builder components belonging to this uninstalled add-on
+            if ($db->tableExists('cms_components')) {
+                $db->table('cms_components')->where('addon_slug', $slug)->delete();
+            }
+
             $db->table('addons')->where('id', $id)->delete();
             self::clearMemoryCache();
 
+            // Immediately purge uninstalled add-on's permissions from RBAC Matrix
+            $this->syncRbacWithActiveAddons();
+
             return [
                 'status'  => 'success',
-                'message' => 'Add-on "' . $addon['name'] . '" and its files have been completely removed.',
+                'message' => 'Add-on "' . $addon['name'] . '" and its permissions/files have been completely removed.',
             ];
         } catch (Throwable $e) {
             return ['status' => 'error', 'message' => 'Uninstall error: ' . $e->getMessage()];
         }
     }
 
-    /**
-     * Unzips, deploys files, runs 1-time DB init, and ALWAYS deletes the .zip file afterwards
-     */
     public function installFromZip(string $zipFilePath): array
     {
         $this->ensureSchemaInitialized();
@@ -253,12 +314,10 @@ class AddonModel extends Model
             $zip->extractTo($extractDir);
             $zip->close();
 
-            // Copy payload files to project root
             if (is_dir($extractDir . 'payload/')) {
                 $this->recursiveCopy($extractDir . 'payload/', ROOTPATH);
             }
 
-            // Run 1-Time DB Initializer if defined (Auto-requires model file from extracted folder first!)
             if (! empty($manifest['init_model'])) {
                 $initClass = ltrim((string) $manifest['init_model'], '\\');
                 if (! class_exists($initClass)) {
@@ -304,15 +363,15 @@ class AddonModel extends Model
             ]);
 
             self::clearMemoryCache();
+            $this->syncRbacWithActiveAddons();
 
             return [
                 'status'  => 'success',
-                'message' => 'Add-On "' . $manifest['name'] . '" installed & temporary ZIP deleted!',
+                'message' => 'Add-On "' . $manifest['name'] . '" installed & permissions synced!',
             ];
         } catch (Throwable $e) {
             return ['status' => 'error', 'message' => $e->getMessage()];
         } finally {
-            // ALWAYS DELETE THE UPLOADED ZIP FILE AFTER INSTALLATION
             if (is_file($zipFilePath)) {
                 @unlink($zipFilePath);
             }

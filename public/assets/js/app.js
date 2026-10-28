@@ -1,5 +1,5 @@
 /**
- * Portal Core & Visual Page/Footer Builder Engine (Complete Master File)
+ * Portal Core & Visual Page/Footer Builder Engine (Complete Master File + Dual-Theme Design Studio)
  */
 (function () {
     'use strict';
@@ -31,6 +31,16 @@
             .replace(/"/g, '&quot;');
     };
 
+    const hexToRgba = function (hex, alpha) {
+        let h = String(hex || '#090a0f').replace('#', '').trim();
+        if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+        if (h.length !== 6) return 'rgba(9, 10, 15, ' + alpha + ')';
+        const r = parseInt(h.substring(0, 2), 16) || 9;
+        const g = parseInt(h.substring(2, 4), 16) || 10;
+        const b = parseInt(h.substring(4, 6), 16) || 15;
+        return 'rgba(' + r + ', ' + g + ', ' + b + ', ' + alpha + ')';
+    };
+
     // ==========================================
     // 2. BUILDER STATE & SYNC HELPERS
     // ==========================================
@@ -38,7 +48,6 @@
     let footerSections = [[], [], [], []];
     let draggedPaletteData = null;
     let draggedCanvasIdx = null;
-    let activeRoleFilter = 'all';
 
     const syncBlocksToHiddenInput = function () {
         const pbBlocksInput = document.getElementById('pb_blocks_json');
@@ -55,7 +64,341 @@
     };
 
     // ==========================================
-    // 3. UNIFIED COMPONENT FORM GENERATOR (ALL 14 COMPONENTS)
+    // 2B. UNIVERSAL DUAL-THEME (DARK + LIGHT PALETTE) DESIGN STUDIO DRAWER
+    // ==========================================
+    const buildDesignStudioDrawerHtml = function (d, idx, isFooter, colIdx) {
+        const clsField = isFooter ? 'js-f-field' : 'js-blk-field';
+        const clsBgUpload = isFooter ? 'js-f-bg-upload' : 'js-pb-bg-upload';
+        const attr = isFooter ? `data-col="${colIdx}" data-bidx="${idx}"` : `data-idx="${idx}"`;
+
+        const colorMode  = String(d.color_mode || 'auto');
+        const shapeStyle = String(d._shape_style || 'default');
+        const divTop     = String(d._divider_top || 'none');
+        const divBot     = String(d._divider_bottom || 'none');
+        const gradDir    = String(d._bg_grad_dir || '135deg');
+
+        // Dark Theme Palette Values (with fallback to legacy keys)
+        const dBgCol     = String(d._dark_bg_color || d._bg_color || '#11131c');
+        const dGradStart = String(d._dark_grad_start || d._bg_grad_start || '#0d1f1a');
+        const dGradEnd   = String(d._dark_grad_end || d._bg_grad_end || '#11131c');
+        const dOvCol     = String(d._dark_overlay_color || d._bg_overlay_color || '#090a0f');
+        const dOvOp      = String(d._dark_overlay_opacity !== undefined ? d._dark_overlay_opacity : (d._bg_overlay_opacity !== undefined ? d._bg_overlay_opacity : '55'));
+        const dDivCol    = String(d._dark_divider_color || d._divider_color || '#090a0f');
+        const dBdrCol    = String(d._dark_bdr_color || d._bdr_color || '#232738');
+        const dShadowCol = String(d._dark_shadow_color || d._shadow_color || '#10b981');
+        const dTxtHead   = String(d._dark_txt_heading || d._txt_heading_color || '');
+        const dTxtBody   = String(d._dark_txt_body || d.text_dark || d._txt_body_color || '');
+        const dTxtAcc    = String(d._dark_txt_accent || d._txt_accent_color || '');
+        const dCardBg    = String(d.card_bg_dark || d.card_bg || '#171a26');
+
+        // Light Theme Palette Values
+        const lBgCol     = String(d._light_bg_color || '#ffffff');
+        const lGradStart = String(d._light_grad_start || '#ecfdf5');
+        const lGradEnd   = String(d._light_grad_end || '#ffffff');
+        const lOvCol     = String(d._light_overlay_color || '#ffffff');
+        const lOvOp      = String(d._light_overlay_opacity !== undefined ? d._light_overlay_opacity : '40');
+        const lDivCol    = String(d._light_divider_color || '#f8fafc');
+        const lBdrCol    = String(d._light_bdr_color || '#e2e8f0');
+        const lShadowCol = String(d._light_shadow_color || '#10b981');
+        const lTxtHead   = String(d._light_txt_heading || '');
+        const lTxtBody   = String(d._light_txt_body || d.text_light || '');
+        const lTxtAcc    = String(d._light_txt_accent || '');
+        const lCardBg    = String(d.card_bg_light || '#f8fafc');
+
+        // Shared Geometry & Image Fit Settings
+        const bgImgUrl   = String(d._bg_img_url || '');
+        const bgImgSize  = String(d._bg_img_size || 'cover');
+        const bgImgPos   = String(d._bg_img_pos || 'center center');
+        const bgImgRep   = String(d._bg_img_repeat || 'no-repeat');
+        const bdrWidth   = String(d._bdr_width || '0');
+        const bdrStyle   = String(d._bdr_style || 'default');
+        const bdrRadius  = String(d._bdr_radius || 'default');
+        const shadowPre  = String(d._shadow_preset || 'default');
+
+        const txtFont    = String(d._txt_font || 'default');
+        const txtAlign   = String(d._txt_align || 'default');
+        const txtScale   = String(d._txt_scale || 'default');
+        const txtTrans   = String(d._txt_transform || 'default');
+        const padY       = String(d._pad_y || 'default');
+        const padX       = String(d._pad_x || 'default');
+
+        const isOpen = d._studio_open === '1';
+
+        return `
+            <div class="pb-design-studio-drawer ${isOpen ? '' : 'is-hidden'}">
+                <!-- 1. THEME MODE, CONTAINER SHAPE & WAVE DIVIDERS -->
+                <div class="pb-studio-group">
+                    <div class="mono-label text-emerald" style="margin-bottom:0.5rem;">1. COMPONENT THEME MODE, CONTAINER SHAPE & WAVE DIVIDERS</div>
+                    <div class="grid-4-col">
+                        <div class="field-group"><label class="field-label"><span>Component Theme Mode</span><span class="req-badge">DUAL THEME</span></label>
+                            <select class="field-select ${clsField}" ${attr} data-key="color_mode">
+                                <option value="auto" ${colorMode === 'auto' ? 'selected' : ''}>🌗 Auto (Follow Global Dark/Light)</option>
+                                <option value="dark" ${colorMode === 'dark' ? 'selected' : ''}>🌙 Force Dark Palette Always</option>
+                                <option value="light" ${colorMode === 'light' ? 'selected' : ''}>☀ Force Light Palette Always</option>
+                            </select>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Container Box Shape</span></label>
+                            <select class="field-select ${clsField}" ${attr} data-key="_shape_style">
+                                <option value="default" ${shapeStyle === 'default' ? 'selected' : ''}>Default Card</option>
+                                <option value="square" ${shapeStyle === 'square' ? 'selected' : ''}>Sharp Square (0px)</option>
+                                <option value="rounded" ${shapeStyle === 'rounded' ? 'selected' : ''}>Soft Rounded (18px)</option>
+                                <option value="pill_curve" ${shapeStyle === 'pill_curve' ? 'selected' : ''}>Super-Curved Pill (42px)</option>
+                                <option value="leaf_asym" ${shapeStyle === 'leaf_asym' ? 'selected' : ''}>Organic Leaf Curve</option>
+                                <option value="arch_top" ${shapeStyle === 'arch_top' ? 'selected' : ''}>Modern Arch Top</option>
+                                <option value="diagonal_slant" ${shapeStyle === 'diagonal_slant' ? 'selected' : ''}>Angled Slant Cut</option>
+                            </select>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Top Wave / Shape Divider</span></label>
+                            <select class="field-select ${clsField}" ${attr} data-key="_divider_top">
+                                <option value="none" ${divTop === 'none' ? 'selected' : ''}>None</option>
+                                <option value="wave_smooth" ${divTop === 'wave_smooth' ? 'selected' : ''}>🌊 Smooth Ocean Wave</option>
+                                <option value="wave_layered" ${divTop === 'wave_layered' ? 'selected' : ''}>🌊 Multi-Layer SaaS Wave</option>
+                                <option value="curve_in" ${divTop === 'curve_in' ? 'selected' : ''}>◡ Rounded Scoop Curve</option>
+                                <option value="tilt_slant" ${divTop === 'tilt_slant' ? 'selected' : ''}>📐 Diagonal Slant</option>
+                                <option value="triangle_asym" ${divTop === 'triangle_asym' ? 'selected' : ''}>▲ Asymmetric Peak</option>
+                            </select>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Bottom Wave / Shape Divider</span></label>
+                            <select class="field-select ${clsField}" ${attr} data-key="_divider_bottom">
+                                <option value="none" ${divBot === 'none' ? 'selected' : ''}>None</option>
+                                <option value="wave_smooth" ${divBot === 'wave_smooth' ? 'selected' : ''}>🌊 Smooth Ocean Wave</option>
+                                <option value="wave_layered" ${divBot === 'wave_layered' ? 'selected' : ''}>🌊 Multi-Layer SaaS Wave</option>
+                                <option value="curve_in" ${divBot === 'curve_in' ? 'selected' : ''}>◡ Rounded Scoop Curve</option>
+                                <option value="tilt_slant" ${divBot === 'tilt_slant' ? 'selected' : ''}>📐 Diagonal Slant</option>
+                                <option value="triangle_asym" ${divBot === 'triangle_asym' ? 'selected' : ''}>▲ Asymmetric Peak</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. DARK THEME PALETTE (APPLIES WHEN SITE OR BLOCK IS IN DARK MODE) -->
+                <div class="pb-studio-group" style="background:rgba(9,10,15,0.45); padding:0.75rem; border-radius:8px; border:1px solid var(--border-subtle);">
+                    <div class="mono-label text-emerald" style="margin-bottom:0.5rem;">2. 🌙 DARK THEME PALETTE (BG, GRADIENT, BORDERS, CARDS & TEXT IN DARK MODE)</div>
+                    <div class="grid-4-col">
+                        <div class="field-group"><label class="field-label"><span>Dark Solid BG & Inner Card BG</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_dark_bg_color" value="${escapeHtml(dBgCol)}" title="Dark Section BG">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="card_bg_dark" value="${escapeHtml(dCardBg)}" title="Dark Inner Card BG">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Dark Gradient (Start & End)</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_dark_grad_start" value="${escapeHtml(dGradStart)}">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_dark_grad_end" value="${escapeHtml(dGradEnd)}">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Dark Border, Wave & Glow</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_dark_bdr_color" value="${escapeHtml(dBdrCol)}" title="Dark Border Color">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_dark_divider_color" value="${escapeHtml(dDivCol)}" title="Dark Wave Divider Fill">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_dark_shadow_color" value="${escapeHtml(dShadowCol)}" title="Dark Glow Color">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Dark BG Image Overlay & %</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_dark_overlay_color" value="${escapeHtml(dOvCol)}">
+                                <input type="number" class="field-input mono-input ${clsField}" ${attr} data-key="_dark_overlay_opacity" value="${escapeHtml(dOvOp)}" min="0" max="95" step="5">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid-3-col" style="margin-top:0.35rem;">
+                        <div class="field-group"><label class="field-label"><span>Dark Heading Color</span></label>
+                            <div class="color-picker-row">
+                                <input type="text" class="field-input mono-input ${clsField}" ${attr} data-key="_dark_txt_heading" value="${escapeHtml(dTxtHead)}" placeholder="#f3f4f6 (Auto)">
+                                <input type="color" class="color-swatch-input js-color-sync" value="${escapeHtml(dTxtHead || '#f3f4f6')}">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Dark Body Text Color</span></label>
+                            <div class="color-picker-row">
+                                <input type="text" class="field-input mono-input ${clsField}" ${attr} data-key="_dark_txt_body" value="${escapeHtml(dTxtBody)}" placeholder="#9ca3af (Auto)">
+                                <input type="color" class="color-swatch-input js-color-sync" value="${escapeHtml(dTxtBody || '#9ca3af')}">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Dark Button / Accent Color</span></label>
+                            <div class="color-picker-row">
+                                <input type="text" class="field-input mono-input ${clsField}" ${attr} data-key="_dark_txt_accent" value="${escapeHtml(dTxtAcc)}" placeholder="#10b981 (Auto)">
+                                <input type="color" class="color-swatch-input js-color-sync" value="${escapeHtml(dTxtAcc || '#10b981')}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. LIGHT THEME PALETTE (APPLIES WHEN SITE OR BLOCK IS IN LIGHT MODE) -->
+                <div class="pb-studio-group" style="background:rgba(255,255,255,0.03); padding:0.75rem; border-radius:8px; border:1px solid var(--border-subtle);">
+                    <div class="mono-label text-cyan" style="margin-bottom:0.5rem;">3. ☀ LIGHT THEME PALETTE (BG, GRADIENT, BORDERS, CARDS & TEXT IN LIGHT MODE)</div>
+                    <div class="grid-4-col">
+                        <div class="field-group"><label class="field-label"><span>Light Solid BG & Inner Card BG</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_light_bg_color" value="${escapeHtml(lBgCol)}" title="Light Section BG">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="card_bg_light" value="${escapeHtml(lCardBg)}" title="Light Inner Card BG">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Light Gradient (Start & End)</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_light_grad_start" value="${escapeHtml(lGradStart)}">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_light_grad_end" value="${escapeHtml(lGradEnd)}">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Light Border, Wave & Glow</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_light_bdr_color" value="${escapeHtml(lBdrCol)}" title="Light Border Color">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_light_divider_color" value="${escapeHtml(lDivCol)}" title="Light Wave Divider Fill">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_light_shadow_color" value="${escapeHtml(lShadowCol)}" title="Light Glow Color">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Light BG Image Overlay & %</span></label>
+                            <div class="color-picker-row">
+                                <input type="color" class="color-swatch-input ${clsField}" ${attr} data-key="_light_overlay_color" value="${escapeHtml(lOvCol)}">
+                                <input type="number" class="field-input mono-input ${clsField}" ${attr} data-key="_light_overlay_opacity" value="${escapeHtml(lOvOp)}" min="0" max="95" step="5">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid-3-col" style="margin-top:0.35rem;">
+                        <div class="field-group"><label class="field-label"><span>Light Heading Color</span></label>
+                            <div class="color-picker-row">
+                                <input type="text" class="field-input mono-input ${clsField}" ${attr} data-key="_light_txt_heading" value="${escapeHtml(lTxtHead)}" placeholder="#0f172a (Auto)">
+                                <input type="color" class="color-swatch-input js-color-sync" value="${escapeHtml(lTxtHead || '#0f172a')}">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Light Body Text Color</span></label>
+                            <div class="color-picker-row">
+                                <input type="text" class="field-input mono-input ${clsField}" ${attr} data-key="_light_txt_body" value="${escapeHtml(lTxtBody)}" placeholder="#334155 (Auto)">
+                                <input type="color" class="color-swatch-input js-color-sync" value="${escapeHtml(lTxtBody || '#334155')}">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Light Button / Accent Color</span></label>
+                            <div class="color-picker-row">
+                                <input type="text" class="field-input mono-input ${clsField}" ${attr} data-key="_light_txt_accent" value="${escapeHtml(lTxtAcc)}" placeholder="#059669 (Auto)">
+                                <input type="color" class="color-swatch-input js-color-sync" value="${escapeHtml(lTxtAcc || '#059669')}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. BACKGROUND IMAGE, BORDERS, SHADOWS & TYPOGRAPHY GEOMETRY -->
+                <div class="pb-studio-group" style="border-bottom:none; padding-bottom:0;">
+                    <div class="mono-label text-emerald" style="margin-bottom:0.5rem;">4. BACKGROUND IMAGE UPLOAD, BORDER GEOMETRY, SHADOWS & TYPOGRAPHY</div>
+                    <div class="grid-4-col">
+                        <div class="field-group">
+                            <label class="field-label"><span>BG Image (Upload or URL)</span></label>
+                            <div style="display:flex; gap:0.4rem;">
+                                <input type="file" class="field-input ${clsBgUpload}" ${attr} accept="image/*">
+                                <input type="text" class="field-input mono-input ${clsField}" ${attr} data-key="_bg_img_url" value="${escapeHtml(bgImgUrl)}" placeholder="Image URL">
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>BG Fit & Position</span></label>
+                            <div style="display:flex; gap:0.35rem;">
+                                <select class="field-select ${clsField}" ${attr} data-key="_bg_img_size">
+                                    <option value="cover" ${bgImgSize === 'cover' ? 'selected' : ''}>Cover</option>
+                                    <option value="contain" ${bgImgSize === 'contain' ? 'selected' : ''}>Contain</option>
+                                    <option value="100% 100%" ${bgImgSize === '100% 100%' ? 'selected' : ''}>Stretch</option>
+                                </select>
+                                <select class="field-select ${clsField}" ${attr} data-key="_bg_img_pos">
+                                    <option value="center center" ${bgImgPos === 'center center' ? 'selected' : ''}>Center</option>
+                                    <option value="top center" ${bgImgPos === 'top center' ? 'selected' : ''}>Top</option>
+                                    <option value="bottom center" ${bgImgPos === 'bottom center' ? 'selected' : ''}>Bottom</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>BG Repeat & Gradient Angle</span></label>
+                            <div style="display:flex; gap:0.35rem;">
+                                <select class="field-select ${clsField}" ${attr} data-key="_bg_img_repeat">
+                                    <option value="no-repeat" ${bgImgRep === 'no-repeat' ? 'selected' : ''}>No Repeat</option>
+                                    <option value="repeat" ${bgImgRep === 'repeat' ? 'selected' : ''}>Tile</option>
+                                    <option value="fixed" ${bgImgRep === 'fixed' ? 'selected' : ''}>Parallax</option>
+                                </select>
+                                <select class="field-select ${clsField}" ${attr} data-key="_bg_grad_dir">
+                                    <option value="135deg" ${gradDir === '135deg' ? 'selected' : ''}>135°</option>
+                                    <option value="90deg" ${gradDir === '90deg' ? 'selected' : ''}>90°</option>
+                                    <option value="180deg" ${gradDir === '180deg' ? 'selected' : ''}>180°</option>
+                                    <option value="radial" ${gradDir === 'radial' ? 'selected' : ''}>Radial</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Border Style & Width (px)</span></label>
+                            <div style="display:flex; gap:0.35rem;">
+                                <select class="field-select ${clsField}" ${attr} data-key="_bdr_style">
+                                    <option value="default" ${bdrStyle === 'default' ? 'selected' : ''}>Default</option>
+                                    <option value="none" ${bdrStyle === 'none' ? 'selected' : ''}>None</option>
+                                    <option value="solid" ${bdrStyle === 'solid' ? 'selected' : ''}>Solid</option>
+                                    <option value="dashed" ${bdrStyle === 'dashed' ? 'selected' : ''}>Dashed</option>
+                                </select>
+                                <input type="number" class="field-input mono-input ${clsField}" ${attr} data-key="_bdr_width" value="${escapeHtml(bdrWidth)}" min="0" max="16" style="width:70px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-4-col">
+                        <div class="field-group"><label class="field-label"><span>Corner Radius & Shadow</span></label>
+                            <div style="display:flex; gap:0.35rem;">
+                                <select class="field-select ${clsField}" ${attr} data-key="_bdr_radius">
+                                    <option value="default" ${bdrRadius === 'default' ? 'selected' : ''}>Default</option>
+                                    <option value="0px" ${bdrRadius === '0px' ? 'selected' : ''}>0px</option>
+                                    <option value="16px" ${bdrRadius === '16px' ? 'selected' : ''}>16px</option>
+                                    <option value="32px" ${bdrRadius === '32px' ? 'selected' : ''}>32px</option>
+                                    <option value="48px" ${bdrRadius === '48px' ? 'selected' : ''}>48px</option>
+                                </select>
+                                <select class="field-select ${clsField}" ${attr} data-key="_shadow_preset">
+                                    <option value="default" ${shadowPre === 'default' ? 'selected' : ''}>Default</option>
+                                    <option value="none" ${shadowPre === 'none' ? 'selected' : ''}>No Shadow</option>
+                                    <option value="soft" ${shadowPre === 'soft' ? 'selected' : ''}>Soft</option>
+                                    <option value="deep" ${shadowPre === 'deep' ? 'selected' : ''}>Deep 3D</option>
+                                    <option value="glow" ${shadowPre === 'glow' ? 'selected' : ''}>✨ Glow</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Font Family</span></label>
+                            <select class="field-select ${clsField}" ${attr} data-key="_txt_font">
+                                <option value="default" ${txtFont === 'default' ? 'selected' : ''}>Inherit Global Font</option>
+                                <option value="Inter" ${txtFont === 'Inter' ? 'selected' : ''}>Inter</option>
+                                <option value="Poppins" ${txtFont === 'Poppins' ? 'selected' : ''}>Poppins</option>
+                                <option value="Plus Jakarta Sans" ${txtFont === 'Plus Jakarta Sans' ? 'selected' : ''}>Plus Jakarta Sans</option>
+                                <option value="Outfit" ${txtFont === 'Outfit' ? 'selected' : ''}>Outfit</option>
+                                <option value="Space Grotesk" ${txtFont === 'Space Grotesk' ? 'selected' : ''}>Space Grotesk</option>
+                                <option value="Playfair Display" ${txtFont === 'Playfair Display' ? 'selected' : ''}>Playfair Display</option>
+                                <option value="JetBrains Mono" ${txtFont === 'JetBrains Mono' ? 'selected' : ''}>JetBrains Mono</option>
+                            </select>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Text Align & Scale</span></label>
+                            <div style="display:flex; gap:0.35rem;">
+                                <select class="field-select ${clsField}" ${attr} data-key="_txt_align">
+                                    <option value="default" ${txtAlign === 'default' ? 'selected' : ''}>Default</option>
+                                    <option value="left" ${txtAlign === 'left' ? 'selected' : ''}>Left</option>
+                                    <option value="center" ${txtAlign === 'center' ? 'selected' : ''}>Center</option>
+                                    <option value="right" ${txtAlign === 'right' ? 'selected' : ''}>Right</option>
+                                </select>
+                                <select class="field-select ${clsField}" ${attr} data-key="_txt_scale">
+                                    <option value="default" ${txtScale === 'default' ? 'selected' : ''}>1.0x</option>
+                                    <option value="0.88" ${txtScale === '0.88' ? 'selected' : ''}>0.88x</option>
+                                    <option value="1.15" ${txtScale === '1.15' ? 'selected' : ''}>1.15x</option>
+                                    <option value="1.28" ${txtScale === '1.28' ? 'selected' : ''}>1.28x</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field-group"><label class="field-label"><span>Padding (Vertical & Horizontal)</span></label>
+                            <div style="display:flex; gap:0.35rem;">
+                                <select class="field-select ${clsField}" ${attr} data-key="_pad_y">
+                                    <option value="default" ${padY === 'default' ? 'selected' : ''}>Pad Y: Auto</option>
+                                    <option value="1.25rem" ${padY === '1.25rem' ? 'selected' : ''}>Compact</option>
+                                    <option value="2.5rem" ${padY === '2.5rem' ? 'selected' : ''}>Medium</option>
+                                    <option value="4.25rem" ${padY === '4.25rem' ? 'selected' : ''}>Spacious</option>
+                                </select>
+                                <select class="field-select ${clsField}" ${attr} data-key="_pad_x">
+                                    <option value="default" ${padX === 'default' ? 'selected' : ''}>Pad X: Auto</option>
+                                    <option value="1.25rem" ${padX === '1.25rem' ? 'selected' : ''}>Compact</option>
+                                    <option value="2.5rem" ${padX === '2.5rem' ? 'selected' : ''}>Medium</option>
+                                    <option value="4rem" ${padX === '4rem' ? 'selected' : ''}>Wide</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    };
+
+    // ==========================================
+    // 3. UNIFIED COMPONENT FORM GENERATOR (ALL 14 COMPONENTS — 100% ORIGINAL)
     // ==========================================
     const buildBlockFieldsHtml = function (blk, idx, isFooter, colIdx) {
         if (window.CMS_ADDON_BLOCK_RENDERERS && typeof window.CMS_ADDON_BLOCK_RENDERERS[blk.type] === 'function') {
@@ -208,7 +551,6 @@
                 <span class="field-hint">★ Manage reviews inside <strong>Sidebar → Announcements, FAQs & Reviews</strong>.</span>
             `;
         } else if (blk.type === 'newsletter_cta') {
-			
             return `
                 <div class="grid-3-col">
                     <div class="field-group"><label class="field-label"><span>Heading</span></label><input type="text" class="field-input ${clsField}" ${attr} data-key="heading" value="${escapeHtml(d.heading)}"></div>
@@ -323,7 +665,7 @@
     };
 
     // ==========================================
-    // 4. CANVAS RENDERERS (FIXED BUTTON CLICKS vs DRAG HANDLE)
+    // 4. CANVAS RENDERERS (ORIGINAL + DUAL-THEME DESIGN STUDIO BUTTON)
     // ==========================================
     const renderBuilderCanvas = function () {
         const pbCanvas = document.getElementById('pb-canvas-dropzone');
@@ -340,9 +682,9 @@
             const gapMode = d._gap || 'normal';
             const widthMode = d._width || 'default';
             const bgMode = d._bg_mode || 'default';
-            const bgCustom = d._bg_color || '#11131c';
+            const bgDarkCustom  = d._dark_bg_color || d._bg_color || '#11131c';
+            const bgLightCustom = d._light_bg_color || '#ffffff';
 
-            // Notice: draggable="true" is placed ONLY on the badge drag-handle so buttons (Remove/Up/Down) & inputs NEVER get hijacked by HTML5 drag!
             return `
                 <div class="pb-block-card ${gapMode === 'none' ? 'pb-merge-next' : ''}" data-block-idx="${idx}">
                     <div class="pb-block-header" style="flex-wrap: wrap; gap: 0.6rem;">
@@ -363,13 +705,23 @@
                                 <option value="default" ${bgMode === 'default' ? 'selected' : ''}>🎨 BG: Global Default</option>
                                 <option value="seamless" ${bgMode === 'seamless' ? 'selected' : ''}>✨ Seamless (Unified Page BG)</option>
                                 <option value="card" ${bgMode === 'card' ? 'selected' : ''}>▣ Boxed Card Surface</option>
-                                <option value="custom" ${bgMode === 'custom' ? 'selected' : ''}>🖌 Custom Color</option>
+                                <option value="custom" ${bgMode === 'custom' ? 'selected' : ''}>🖌 Custom Dual Color (Dark/Light)</option>
+                                <option value="gradient" ${bgMode === 'gradient' ? 'selected' : ''}>🌈 Dual Gradient (Dark/Light)</option>
+                                <option value="image" ${bgMode === 'image' ? 'selected' : ''}>🖼 BG Image + Dual Overlay</option>
                             </select>
                             <input type="color"
                                    class="color-swatch-xs js-blk-field ${bgMode === 'custom' ? '' : 'is-hidden'}"
                                    data-idx="${idx}"
-                                   data-key="_bg_color"
-                                   value="${escapeHtml(bgCustom)}">
+                                   data-key="_dark_bg_color"
+                                   title="Dark Mode BG Color"
+                                   value="${escapeHtml(bgDarkCustom)}">
+                            <input type="color"
+                                   class="color-swatch-xs js-blk-field ${bgMode === 'custom' ? '' : 'is-hidden'}"
+                                   data-idx="${idx}"
+                                   data-key="_light_bg_color"
+                                   title="Light Mode BG Color"
+                                   value="${escapeHtml(bgLightCustom)}">
+                            <button type="button" class="btn-action js-toggle-design-studio" data-idx="${idx}">🎨 Dual-Theme Studio ▾</button>
                         </div>
                         <div class="action-btn-group">
                             <button type="button" class="btn-action js-pb-move-up" data-idx="${idx}">↑ Up</button>
@@ -377,6 +729,7 @@
                             <button type="button" class="btn-action btn-action-danger js-pb-remove-block" data-idx="${idx}">✕ Remove</button>
                         </div>
                     </div>
+                    ${buildDesignStudioDrawerHtml(d, idx, false, 0)}
                     ${buildBlockFieldsHtml(blk, idx, false, 0)}
                 </div>
             `;
@@ -397,16 +750,19 @@
             const colBlocks = footerSections[c];
 
             const blocksHtml = colBlocks.map(function (blk, bIdx) {
+                const d = blk.data || {};
                 return `
                     <div class="pb-block-card">
-                        <div class="pb-block-header">
+                        <div class="pb-block-header" style="flex-wrap:wrap; gap:0.4rem;">
                             <span class="role-badge role-admin">0${bIdx + 1} // ${escapeHtml(blk.type.toUpperCase())}</span>
                             <div class="action-btn-group">
+                                <button type="button" class="btn-action js-toggle-f-studio" data-col="${c}" data-bidx="${bIdx}">🎨 Dual-Theme Style</button>
                                 <button type="button" class="btn-action js-f-move-up" data-col="${c}" data-bidx="${bIdx}">↑</button>
                                 <button type="button" class="btn-action js-f-move-down" data-col="${c}" data-bidx="${bIdx}">↓</button>
                                 <button type="button" class="btn-action btn-action-danger js-f-rm-blk" data-col="${c}" data-bidx="${bIdx}">✕</button>
                             </div>
                         </div>
+                        ${buildDesignStudioDrawerHtml(d, bIdx, true, c)}
                         ${buildBlockFieldsHtml(blk, bIdx, true, c)}
                     </div>
                 `;
@@ -434,7 +790,6 @@
         renderFooterBuilder();
     };
 
-    // Smooth Carousel Transition Helper
     const rotateCarousel = function (track, direction) {
         if (!track || track.classList.contains('is-sliding')) return;
         track.classList.add('is-sliding');
@@ -453,7 +808,6 @@
     // 5. UNIFIED CLICK DISPATCHER
     // ==========================================
     document.addEventListener('click', function (event) {
-        // Sidebar Mobile Toggle
         const sidebarToggle = event.target.closest('#sidebar-toggle-btn');
         if (sidebarToggle) {
             const sidebar = document.getElementById('app-sidebar');
@@ -461,7 +815,6 @@
             return;
         }
 
-        // Settings & Content Hub Tabs
         const tabBtn = event.target.closest('.settings-tab');
         if (tabBtn) {
             const targetId = tabBtn.getAttribute('data-tab-target');
@@ -475,7 +828,39 @@
             return;
         }
 
-        // Add Block from Palette (+ Add Click)
+        const studioBtn = event.target.closest('.js-toggle-design-studio');
+        if (studioBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+            const idx = parseInt(studioBtn.getAttribute('data-idx'), 10);
+            const card = studioBtn.closest('.pb-block-card');
+            const drawer = card ? card.querySelector('.pb-design-studio-drawer') : null;
+            if (drawer && pbBlocks[idx]) {
+                const willOpen = drawer.classList.contains('is-hidden');
+                drawer.classList.toggle('is-hidden');
+                pbBlocks[idx].data._studio_open = willOpen ? '1' : '0';
+                syncBlocksToHiddenInput();
+            }
+            return;
+        }
+
+        const fStudioBtn = event.target.closest('.js-toggle-f-studio');
+        if (fStudioBtn) {
+            event.preventDefault();
+            event.stopPropagation();
+            const c = parseInt(fStudioBtn.getAttribute('data-col'), 10);
+            const b = parseInt(fStudioBtn.getAttribute('data-bidx'), 10);
+            const card = fStudioBtn.closest('.pb-block-card');
+            const drawer = card ? card.querySelector('.pb-design-studio-drawer') : null;
+            if (drawer && footerSections[c] && footerSections[c][b]) {
+                const willOpen = drawer.classList.contains('is-hidden');
+                drawer.classList.toggle('is-hidden');
+                footerSections[c][b].data._studio_open = willOpen ? '1' : '0';
+                syncFooterJson();
+            }
+            return;
+        }
+
         const addBlkBtn = event.target.closest('.js-pb-add-block');
         if (addBlkBtn) {
             event.preventDefault();
@@ -495,7 +880,6 @@
             return;
         }
 
-        // Page Builder Remove Block (100% Reliable Click!)
         const rmBtn = event.target.closest('.js-pb-remove-block');
         if (rmBtn) {
             event.preventDefault();
@@ -508,7 +892,6 @@
             return;
         }
 
-        // Page Builder Move Up
         const upBtn = event.target.closest('.js-pb-move-up');
         if (upBtn) {
             event.preventDefault();
@@ -523,7 +906,6 @@
             return;
         }
 
-        // Page Builder Move Down
         const downBtn = event.target.closest('.js-pb-move-down');
         if (downBtn) {
             event.preventDefault();
@@ -538,7 +920,6 @@
             return;
         }
 
-        // Clear All Blocks
         const clearBtn = event.target.closest('#btn-pb-clear-all');
         if (clearBtn) {
             event.preventDefault();
@@ -549,7 +930,6 @@
             return;
         }
 
-        // Footer Builder Up / Down / Remove
         const fUpBtn = event.target.closest('.js-f-move-up');
         if (fUpBtn) {
             const c = parseInt(fUpBtn.getAttribute('data-col'), 10);
@@ -587,9 +967,6 @@
             return;
         }
 
-        // ==========================================
-        // CONTENT HUB EDIT & CANCEL EDIT HANDLERS (ANNOUNCEMENTS, FAQS, REVIEWS)
-        // ==========================================
         const editAnnBtn = event.target.closest('.js-edit-ann');
         if (editAnnBtn) {
             document.getElementById('ann_id').value = editAnnBtn.getAttribute('data-id');
@@ -612,9 +989,6 @@
             document.getElementById('ann-cancel-edit').classList.add('is-hidden');
             return;
         }
-
-       
-
 
         const editRevBtn = event.target.closest('.js-edit-rev');
         if (editRevBtn) {
@@ -639,7 +1013,6 @@
             return;
         }
 
-        // Rich Text WYSIWYG Commands
         const rteBtn = event.target.closest('.js-rte-cmd');
         if (rteBtn) {
             event.preventDefault();
@@ -654,7 +1027,6 @@
             return;
         }
 
-        // Toggle Component in Registry
         const compToggle = event.target.closest('.js-pb-toggle-comp');
         if (compToggle) {
             const compId = compToggle.getAttribute('data-comp-id');
@@ -667,7 +1039,6 @@
             return;
         }
 
-        // Delete Dynamic Page
         const delPageBtn = event.target.closest('.js-pb-delete-page');
         if (delPageBtn) {
             event.preventDefault();
@@ -686,7 +1057,6 @@
             return;
         }
 
-        // Delete Announcement, FAQ, or Review DB Item
         const delDbBtn = event.target.closest('.js-del-db-item');
         if (delDbBtn) {
             if (!window.confirm('Delete this item permanently?')) return;
@@ -700,7 +1070,6 @@
             return;
         }
 
-        // Toggle Add-On Enable/Disable
         const toggleAddonBtn = event.target.closest('.js-toggle-addon');
         if (toggleAddonBtn) {
             event.preventDefault();
@@ -714,7 +1083,6 @@
             return;
         }
 
-        // Delete Add-On
         const delAddonBtn = event.target.closest('.js-delete-addon');
         if (delAddonBtn) {
             event.preventDefault();
@@ -733,7 +1101,6 @@
             return;
         }
 
-        // Frontend Interactions: Close Announcement, FAQ Toggle, Video Modal, Testimonial Slider, Quiz
         const closeAnn = event.target.closest('.js-close-ann');
         if (closeAnn) {
             const bar = closeAnn.closest('.cms-announcement-bar');
@@ -741,7 +1108,6 @@
             return;
         }
 
-     
         const playBtn = event.target.closest('.js-open-video-modal');
         if (playBtn) {
             const videoUrl = playBtn.getAttribute('data-video-url');
@@ -810,12 +1176,23 @@
             return;
         }
 
+        const colorSync = event.target.closest('.js-color-sync');
+        if (colorSync && colorSync.previousElementSibling) {
+            const txtInp = colorSync.previousElementSibling;
+            txtInp.value = colorSync.value;
+            txtInp.dispatchEvent(new Event('input', { bubbles: true }));
+            return;
+        }
+
         const blkField = event.target.closest('.js-blk-field');
         if (blkField) {
             const idx = parseInt(blkField.getAttribute('data-idx'), 10);
             const key = blkField.getAttribute('data-key');
             if (pbBlocks[idx] && key) {
                 pbBlocks[idx].data[key] = blkField.value;
+                if (key === '_dark_bg_color') {
+                    pbBlocks[idx].data._bg_color = blkField.value;
+                }
                 syncBlocksToHiddenInput();
             }
             return;
@@ -838,6 +1215,9 @@
             const k = fField.getAttribute('data-key');
             if (footerSections[c] && footerSections[c][b]) {
                 footerSections[c][b].data[k] = fField.value;
+                if (k === '_dark_bg_color') {
+                    footerSections[c][b].data._bg_color = fField.value;
+                }
                 syncFooterJson();
             }
             return;
@@ -857,11 +1237,20 @@
     document.addEventListener('change', function (event) {
         const target = event.target;
 
+        if (target.classList.contains('sr-file') && target.files && target.files[0]) {
+            const tile = target.closest('.upload-tile');
+            const titleEl = tile ? tile.querySelector('.upload-title') : null;
+            if (titleEl) titleEl.textContent = target.files[0].name;
+        }
+
         if (target.classList.contains('js-blk-field')) {
             const key = target.getAttribute('data-key');
             const idx = parseInt(target.getAttribute('data-idx'), 10);
             if (pbBlocks[idx] && key) {
                 pbBlocks[idx].data[key] = target.value;
+                if (key === '_dark_bg_color') {
+                    pbBlocks[idx].data._bg_color = target.value;
+                }
                 syncBlocksToHiddenInput();
             }
             if (key === '_bg_mode' || key === '_gap') {
@@ -875,9 +1264,15 @@
             return;
         }
 
-        if (target.classList.contains('js-pb-media-upload') || target.classList.contains('js-f-media-upload')) {
+        if (
+            target.classList.contains('js-pb-media-upload') ||
+            target.classList.contains('js-f-media-upload') ||
+            target.classList.contains('js-pb-bg-upload') ||
+            target.classList.contains('js-f-bg-upload')
+        ) {
             if (!target.files || target.files.length === 0) return;
-            const isFooter = target.classList.contains('js-f-media-upload');
+            const isFooter = target.classList.contains('js-f-media-upload') || target.classList.contains('js-f-bg-upload');
+            const isBgStudio = target.classList.contains('js-pb-bg-upload') || target.classList.contains('js-f-bg-upload');
             const baseUrl = (document.body.getAttribute('data-base-url') || '/').replace(/\/$/, '');
             const uploadUrl = baseUrl + '/addons/page-builder/upload-media';
 
@@ -887,18 +1282,31 @@
             fetch(uploadUrl, { method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
                 .then(function (r) { return r.json(); })
                 .then(function (res) {
-                    if (res.status === 'success') {
+                    const uploadedUrl = res.image_url || res.file_url || '';
+                    if (res.status === 'success' && uploadedUrl) {
                         if (isFooter) {
                             const c = parseInt(target.getAttribute('data-col'), 10);
                             const b = parseInt(target.getAttribute('data-bidx'), 10);
                             if (footerSections[c] && footerSections[c][b]) {
-                                footerSections[c][b].data.image_url = res.image_url;
+                                if (isBgStudio) {
+                                    footerSections[c][b].data._bg_img_url = uploadedUrl;
+                                    footerSections[c][b].data._bg_mode = 'image';
+                                    footerSections[c][b].data._studio_open = '1';
+                                } else {
+                                    footerSections[c][b].data.image_url = uploadedUrl;
+                                }
                                 renderFooterBuilder();
                             }
                         } else {
                             const idx = parseInt(target.getAttribute('data-idx'), 10);
                             if (pbBlocks[idx]) {
-                                pbBlocks[idx].data.image_url = res.image_url;
+                                if (isBgStudio) {
+                                    pbBlocks[idx].data._bg_img_url = uploadedUrl;
+                                    pbBlocks[idx].data._bg_mode = 'image';
+                                    pbBlocks[idx].data._studio_open = '1';
+                                } else {
+                                    pbBlocks[idx].data.image_url = uploadedUrl;
+                                }
                                 renderBuilderCanvas();
                             }
                         }
@@ -922,8 +1330,6 @@
                 .then(function () { window.location.reload(); });
             return;
         }
-
-       
 
         const handledIds = ['installer-form', 'create-user-form', 'global-settings-form', 'addon-upload-form', 'pb-save-form', 'pb-footer-form'];
         if (!handledIds.includes(form.id)) return;
@@ -977,7 +1383,7 @@
     });
 
     // ==========================================
-    // 8. HTML5 DRAG & DROP ENGINE (USES .pb-drag-handle)
+    // 8. HTML5 DRAG & DROP ENGINE
     // ==========================================
     document.addEventListener('dragstart', function (e) {
         const paletteItem = e.target.closest('.pb-palette-item');
@@ -1057,7 +1463,7 @@
     });
 
     // ==========================================
-    // 9. BOOT CANVASES, TOP LOADER, AUTO-SCROLL & LAZY REVEAL
+    // 9. BOOT CANVASES, TOP LOADER, LAZY BG IMAGES & REVEAL
     // ==========================================
     document.addEventListener('cms:addon-renderer-ready', function () {
         if (document.getElementById('pb-canvas-dropzone')) {
@@ -1086,7 +1492,6 @@
             renderFooterBuilder();
         }
 
-        // Edustray Top Loading Bar
         const topLoader = document.getElementById('edustray-top-loader');
         if (topLoader) {
             topLoader.style.width = '75%';
@@ -1096,7 +1501,6 @@
             });
         }
 
-        // Testimonial Auto-Scroll with Smooth Fade/Slide
         document.querySelectorAll('.cms-testimonial-carousel').forEach(function (carousel) {
             const sec = parseInt(carousel.getAttribute('data-autoplay') || '0', 10);
             const track = carousel.querySelector('.cms-testimonial-track');
@@ -1113,19 +1517,46 @@
             }, sec * 1000);
         });
 
-        // Lazy Section Reveal
+        // Theme-Aware Lazy Below-the-Fold Background Image Loader
+        const applyLazyBg = function (node) {
+            const imgUrl = node.getAttribute('data-bg-lazy');
+            if (!imgUrl) return;
+            node.removeAttribute('data-bg-lazy');
+
+            const currentTheme = (document.documentElement.getAttribute('data-theme') || 'dark').toLowerCase();
+            const ovCol = node.getAttribute('data-bg-overlay') || (currentTheme === 'light' ? '#ffffff' : '#090a0f');
+            const ovOp  = parseInt(node.getAttribute('data-bg-opacity') || '55', 10);
+            const target = node.classList.contains('cms-block') || node.classList.contains('cms-footer-block-box')
+                ? node
+                : (node.querySelector('.cms-block') || node);
+            const safeUrl = imgUrl.replace(/['"();]/g, '');
+            if (ovOp > 0) {
+                const rgba = hexToRgba(ovCol, Math.max(0, Math.min(1, ovOp / 100)));
+                target.style.setProperty('background-image', 'linear-gradient(' + rgba + ', ' + rgba + '), url("' + safeUrl + '")', 'important');
+            } else {
+                target.style.setProperty('background-image', 'url("' + safeUrl + '")', 'important');
+            }
+        };
+
         if ('IntersectionObserver' in window) {
             const revealObserver = new IntersectionObserver(function (entries, obs) {
                 entries.forEach(function (entry) {
                     if (entry.isIntersecting) {
                         entry.target.classList.add('is-revealed');
+                        if (entry.target.hasAttribute('data-bg-lazy')) {
+                            applyLazyBg(entry.target);
+                        }
                         obs.unobserve(entry.target);
                     }
                 });
-            }, { threshold: 0.08 });
-            document.querySelectorAll('.js-lazy-reveal').forEach(function (el) { revealObserver.observe(el); });
+            }, { rootMargin: '200px 0px', threshold: 0.05 });
+
+            document.querySelectorAll('.js-lazy-reveal, [data-bg-lazy]').forEach(function (el) {
+                revealObserver.observe(el);
+            });
         } else {
             document.querySelectorAll('.js-lazy-reveal').forEach(function (el) { el.classList.add('is-revealed'); });
+            document.querySelectorAll('[data-bg-lazy]').forEach(applyLazyBg);
         }
     };
 

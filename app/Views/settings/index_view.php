@@ -83,6 +83,22 @@
                 <input type="email" id="contact_email" name="contact_email" class="field-input mono-input" value="<?= esc($settings['contact_email'] ?? '') ?>" placeholder="support@yourdomain.com">
             </div>
 
+			<div class="field-group">
+				<label for="system_environment_mode" class="field-label">
+					<span>System Environment Mode (Sandbox vs Live Production)</span>
+					<span class="req-badge">MASTER SWITCH</span>
+				</label>
+				<?php $envMode = strtolower(trim((string) ($settings['system_environment_mode'] ?? 'testing'))); ?>
+				<select id="system_environment_mode" name="system_environment_mode" class="field-select">
+					<option value="testing" <?= $envMode !== 'production' ? 'selected' : '' ?>>
+						🧪 Testing / Sandbox Mode (Enable Admin Simulators & Demo Previews)
+					</option>
+					<option value="production" <?= $envMode === 'production' ? 'selected' : '' ?>>
+						🚀 Live Production Mode (Strict Live Website — Hide All Testing Simulators)
+					</option>
+				</select>
+				<span class="field-hint">Switch to "Live Production Mode" when launching your website to hide all testing simulators across all add-ons.</span>
+			</div>
             <div class="section-divider">
                 <span class="mono-label">BRAND ASSETS (LOGO & FAVICON REPLACEMENT)</span>
             </div>
