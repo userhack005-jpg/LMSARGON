@@ -11,24 +11,24 @@
 <div class="aps-compact-bar">
     <div>
         <h3 style="margin:0;">
-            <?php if ($effectiveRole === 'student'): ?>
+            <?php if (($effectiveRole ?? '') === 'student'): ?>
                 🧮 My 3D Soroban &amp; Mental Math Speed Arena
             <?php elseif (! empty($isParentOverview)): ?>
                 👨‍👩‍👧‍👦 Family Abacus Lab &amp; Children's Speed Progress
             <?php else: ?>
-                🧮 3D Soroban Lab, Flash Anzan &amp; Batch Analytics
+                🧮 3D Soroban Lab (5–17 Rods) &amp; Flash Anzan Speed Arena
             <?php endif; ?>
         </h3>
     </div>
 
     <div class="settings-tabs" style="margin:0;">
         <a href="<?= base_url('abacus/arena') ?>" class="settings-tab <?= $currSub === 'arena' ? 'is-active' : '' ?>" style="text-decoration:none;">
-            <span>🧮 3D Soroban Lab</span>
+            <span>🧮 3D Soroban Lab (5–17 Rods)</span>
         </a>
         <a href="<?= base_url('abacus/anzan') ?>" class="settings-tab <?= $currSub === 'anzan' ? 'is-active' : '' ?>" style="text-decoration:none;">
-            <span>⚡ Flash Anzan &amp; Voice Drill</span>
+            <span>⚡ Flash Anzan &amp; Hindi/Eng Voice</span>
         </a>
-        <?php if (in_array($effectiveRole, ['student', 'parent'], true)): ?>
+        <?php if (! empty($isLoggedIn) && in_array($effectiveRole ?? '', ['student', 'parent'], true)): ?>
             <a href="<?= base_url('abacus/my-progress') ?>" class="settings-tab <?= $currSub === 'progress' ? 'is-active' : '' ?>" style="text-decoration:none;">
                 <span>🏆 My Speed &amp; Badges</span>
             </a>

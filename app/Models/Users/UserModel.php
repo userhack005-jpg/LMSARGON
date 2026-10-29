@@ -2,8 +2,8 @@
 
 namespace App\Models\Users;
 
+use CodeIgniter\Exceptions\BadMethodCallException;
 use CodeIgniter\Model;
-use Config\Database;
 use Throwable;
 
 class UserModel extends Model
@@ -17,417 +17,483 @@ class UserModel extends Model
         'role_slug',
         'parent_user_id',
         'full_name',
+        'name',
+        'username',
         'email',
+        'password',
         'password_hash',
         'status',
-        'last_login',
+        'last_login_at',
         'created_at',
+        'updated_at',
     ];
 
+    /**
+     * Called by DashboardController::index(), AuthController & UserController
+     * Ensures `roles` and `users` schema integrity, default system roles, and Root Admin (#1) alignment.
+     */
     public function ensureRolesAndUsersIntegrity(): void
     {
-        static $syncedThisRequest = false;
-        if ($syncedThisRequest) {
-            return;
-        }
-        $syncedThisRequest = true;
-
         try {
-            $db = Database::connect();
-            if (! $db->tableExists('roles') || ! $db->tableExists('users')) {
+            if (! $this->db->tableExists('users')) {
                 return;
             }
 
-            $uCols = $db->getFieldNames('users');
+            $uCols = $this->db->getFieldNames('users');
             if (! in_array('role_slug', $uCols, true)) {
-                $db->query("ALTER TABLE `users` ADD COLUMN `role_slug` VARCHAR(64) NOT NULL DEFAULT 'student'");
+                $this->db->query("ALTER TABLE `users` ADD COLUMN `role_slug` VARCHAR(64) NOT NULL DEFAULT 'student'");
             }
             if (! in_array('parent_user_id', $uCols, true)) {
-                $db->query("ALTER TABLE `users` ADD COLUMN `parent_user_id` INT UNSIGNED NULL DEFAULT NULL");
+                $this->db->query("ALTER TABLE `users` ADD COLUMN `parent_user_id` INT UNSIGNED NULL DEFAULT NULL");
+            }
+            if (! in_array('full_name', $uCols, true)) {
+                $this->db->query("ALTER TABLE `users` ADD COLUMN `full_name` VARCHAR(140) NOT NULL DEFAULT ''");
+            }
+            if (! in_array('status', $uCols, true)) {
+                $this->db->query("ALTER TABLE `users` ADD COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'active'");
             }
 
-            if ($db->tableExists('cms_roles')) {
-                $cmsRoles   = $db->table('cms_roles')->orderBy('id', 'ASC')->get()->getResultArray();
-                $coreRoles  = $db->table('roles')->get()->getResultArray();
-                $coreBySlug = [];
-                foreach ($coreRoles as $cr) {
-                    $coreBySlug[strtolower(trim((string) $cr['role_slug']))] = (int) $cr['id'];
+            if ($this->db->tableExists('roles')) {
+                $rCols = $this->db->getFieldNames('roles');
+                if (! in_array('role_slug', $rCols, true)) {
+                    $this->db->query("ALTER TABLE `roles` ADD COLUMN `role_slug` VARCHAR(64) NOT NULL DEFAULT 'student'");
+                }
+                if (! in_array('role_name', $rCols, true)) {
+                    $this->db->query("ALTER TABLE `roles` ADD COLUMN `role_name` VARCHAR(120) NOT NULL DEFAULT 'Student'");
                 }
 
-                foreach ($cmsRoles as $cm) {
-                    $cSlug = strtolower(trim((string) ($cm['role_slug'] ?? '')));
-                    if ($cSlug !== '' && ! isset($coreBySlug[$cSlug])) {
-                        $db->table('roles')->insert([
-                            'role_slug'   => $cSlug,
-                            'role_name'   => $cm['role_name'] ?? ucfirst($cSlug),
-                            'description' => $cm['description'] ?? '',
-                            'created_at'  => date('Y-m-d H:i:s'),
-                        ]);
+                $defaultRoles = [
+                    1 => ['slug' => 'super_admin', 'name' => 'Super Administrator'],
+                    2 => ['slug' => 'admin',       'name' => 'Administrator'],
+                    3 => ['slug' => 'teacher',     'name' => 'Teacher / Instructor'],
+                    4 => ['slug' => 'parent',      'name' => 'Parent / Guardian'],
+                    5 => ['slug' => 'student',     'name' => 'Student (Learner)'],
+                ];
+
+                foreach ($defaultRoles as $defId => $rInfo) {
+                    $ex = $this->db->table('roles')->where('role_slug', $rInfo['slug'])->get()->getRowArray();
+                    if (! $ex) {
+                        $byId = $this->db->table('roles')->where('id', $defId)->get()->getRowArray();
+                        if ($byId) {
+                            $this->db->table('roles')->where('id', $defId)->update([
+                                'role_slug' => $rInfo['slug'],
+                                'role_name' => $rInfo['name'],
+                            ]);
+                        } else {
+                            $this->db->table('roles')->insert([
+                                'role_slug' => $rInfo['slug'],
+                                'role_name' => $rInfo['name'],
+                            ]);
+                        }
                     }
                 }
             }
 
-            $allRoles = $db->table('roles')->get()->getResultArray();
-            $idToSlug = [];
-            $slugToId = [];
-            foreach ($allRoles as $r) {
-                $rid              = (int) $r['id'];
-                $rSlug            = strtolower(trim((string) $r['role_slug']));
-                $idToSlug[$rid]   = $rSlug;
-                $slugToId[$rSlug] = $rid;
-            }
-
-            $users = $db->table('users')->select('id, role_id, role_slug')->get()->getResultArray();
-            foreach ($users as $u) {
-                $uid   = (int) $u['id'];
-                $rid   = (int) $u['role_id'];
-                $uSlug = strtolower(trim((string) ($u['role_slug'] ?? '')));
-
-                if ($uid === 1) {
-                    if ($rid !== 1 || $uSlug !== 'super_admin') {
-                        $db->table('users')->where('id', 1)->update(['role_id' => 1, 'role_slug' => 'super_admin']);
-                    }
-                    continue;
-                }
-
-                if (isset($idToSlug[$rid])) {
-                    $expectedSlug = $idToSlug[$rid];
-                    if ($uSlug === '' || ($uSlug === 'student' && $expectedSlug !== 'student')) {
-                        $db->table('users')->where('id', $uid)->update(['role_slug' => $expectedSlug]);
-                    } elseif ($uSlug !== $expectedSlug && isset($slugToId[$uSlug])) {
-                        $db->table('users')->where('id', $uid)->update(['role_id' => $slugToId[$uSlug]]);
-                    }
-                } elseif (isset($slugToId[$uSlug])) {
-                    $db->table('users')->where('id', $uid)->update(['role_id' => $slugToId[$uSlug]]);
+            // Guarantee Root User #1 is always active Super Admin
+            $rootUser = $this->db->table('users')->where('id', 1)->get()->getRowArray();
+            if ($rootUser) {
+                if ((int) ($rootUser['role_id'] ?? 0) !== 1 || ($rootUser['role_slug'] ?? '') !== 'super_admin' || ($rootUser['status'] ?? '') !== 'active') {
+                    $this->db->table('users')->where('id', 1)->update([
+                        'role_id'   => 1,
+                        'role_slug' => 'super_admin',
+                        'status'    => 'active',
+                    ]);
                 }
             }
         } catch (Throwable $e) {
+            log_message('error', 'UserModel::ensureRolesAndUsersIntegrity error: ' . $e->getMessage());
         }
     }
 
-    public function syncUserRolesIntegrity(): void
+    /**
+     * Used by AuthController::authenticate() (`POST login/auth`)
+     */
+    public function verifyUserCredentials(string $identity, string $rawPassword): ?array
     {
-        $this->ensureRolesAndUsersIntegrity();
+        $identity = trim($identity);
+        if ($identity === '' || $rawPassword === '' || ! $this->db->tableExists('users')) {
+            return null;
+        }
+
+        $uCols   = $this->db->getFieldNames('users');
+        $builder = $this->db->table('users');
+
+        $builder->groupStart()
+            ->where('email', strtolower($identity));
+        if (in_array('username', $uCols, true)) {
+            $builder->orWhere('username', $identity);
+        }
+        $builder->groupEnd();
+
+        $user = $builder->get()->getRowArray();
+        if (! $user) {
+            return null;
+        }
+
+        if ((int) ($user['id'] ?? 0) !== 1 && isset($user['status']) && strtolower((string) $user['status']) !== 'active') {
+            return null;
+        }
+
+        $storedHash = (string) ($user['password_hash'] ?? ($user['password'] ?? ''));
+        $isValid    = false;
+
+        if ($storedHash !== '') {
+            if (password_verify($rawPassword, $storedHash)) {
+                $isValid = true;
+            } elseif ($storedHash === $rawPassword || $storedHash === md5($rawPassword)) {
+                $isValid = true;
+                $colName = in_array('password_hash', $uCols, true) ? 'password_hash' : 'password';
+                $this->db->table('users')->where('id', $user['id'])->update([
+                    $colName => password_hash($rawPassword, PASSWORD_DEFAULT),
+                ]);
+            }
+        }
+
+        if (! $isValid) {
+            return null;
+        }
+
+        if (in_array('last_login_at', $uCols, true)) {
+            $this->db->table('users')->where('id', $user['id'])->update([
+                'last_login_at' => gmdate('Y-m-d H:i:s'),
+            ]);
+        }
+
+        return $this->enrichUserRoleAndPermissions($user);
     }
 
-    public function getRolePermissionsData(string $roleSlug): array
+    public function authenticateUser(string $identity, string $rawPassword): ?array
     {
-        $roleSlug = strtolower(trim($roleSlug)) ?: 'student';
-        if ($roleSlug === 'super_admin') {
-            return ['permissions' => ['*'], 'portal_type' => 'backend'];
+        return $this->verifyUserCredentials($identity, $rawPassword);
+    }
+
+    public function verifyCredentials(string $identity, string $rawPassword): ?array
+    {
+        return $this->verifyUserCredentials($identity, $rawPassword);
+    }
+
+    public function findByEmail(string $email): ?array
+    {
+        if (! $this->db->tableExists('users')) {
+            return null;
+        }
+        $row = $this->db->table('users')->where('email', strtolower(trim($email)))->get()->getRowArray();
+        return $row ? $this->enrichUserRoleAndPermissions($row) : null;
+    }
+
+    public function getUserByEmail(string $email): ?array
+    {
+        return $this->findByEmail($email);
+    }
+
+    public function getUserWithRole(int $userId): ?array
+    {
+        if (! $this->db->tableExists('users') || $userId <= 0) {
+            return null;
+        }
+        $row = $this->db->table('users')->where('id', $userId)->get()->getRowArray();
+        return $row ? $this->enrichUserRoleAndPermissions($row) : null;
+    }
+
+    public function getUserById(int $userId): ?array
+    {
+        return $this->getUserWithRole($userId);
+    }
+
+    public function enrichUserRoleAndPermissions(array $user): array
+    {
+        $uid   = (int) ($user['id'] ?? 0);
+        $rid   = (int) ($user['role_id'] ?? 4);
+        $rSlug = strtolower(trim((string) ($user['role_slug'] ?? '')));
+
+        $rolesById   = [];
+        $rolesBySlug = [];
+        foreach ($this->getAllRoles() as $r) {
+            $id   = (int) ($r['id'] ?? 0);
+            $slug = strtolower(trim((string) ($r['role_slug'] ?? ($r['name'] ?? 'student'))));
+            $rolesById[$id]     = $r;
+            $rolesBySlug[$slug] = $r;
+        }
+
+        if ($uid === 1) {
+            $rSlug = 'super_admin';
+            $rid   = 1;
+        } elseif ($rSlug === '' && isset($rolesById[$rid])) {
+            $rSlug = strtolower(trim((string) ($rolesById[$rid]['role_slug'] ?? 'student')));
+        } elseif ($rSlug === '') {
+            $rSlug = 'student';
+        }
+
+        $roleRow = $rolesBySlug[$rSlug] ?? ($rolesById[$rid] ?? []);
+        $perms   = [];
+        if ($rSlug === 'super_admin') {
+            $perms = ['*'];
+        } elseif (! empty($roleRow['permissions_json'])) {
+            $decoded = json_decode((string) $roleRow['permissions_json'], true);
+            if (is_array($decoded)) {
+                $perms = $decoded;
+            }
         }
 
         $cacheFile = WRITEPATH . 'addons/rbac_permissions_cache.json';
         if (is_file($cacheFile)) {
-            $cached = json_decode((string) @file_get_contents($cacheFile), true);
-            if (isset($cached['roles'][$roleSlug])) {
-                return [
-                    'permissions' => $cached['roles'][$roleSlug]['permissions'] ?? [],
-                    'portal_type' => $cached['roles'][$roleSlug]['portal_type'] ?? 'frontend',
-                ];
+            $c = json_decode((string) @file_get_contents($cacheFile), true);
+            if (! empty($c['roles'][$rSlug]['permissions'])) {
+                $perms = $c['roles'][$rSlug]['permissions'];
             }
         }
 
+        $countryCode  = 'IN';
+        $currencyCode = 'INR';
+        $timezone     = 'Asia/Kolkata';
         try {
-            $db = Database::connect();
-            if ($db->tableExists('cms_roles')) {
-                $row = $db->table('cms_roles')->where('role_slug', $roleSlug)->get()->getRowArray();
-                if ($row) {
-                    $perms = json_decode((string) ($row['permissions_json'] ?? '[]'), true);
-                    return [
-                        'permissions' => is_array($perms) ? $perms : [],
-                        'portal_type' => $row['portal_type'] ?? 'frontend',
-                    ];
+            if ($this->db->tableExists('cms_user_meta')) {
+                $meta = $this->db->table('cms_user_meta')->where('user_id', $uid)->get()->getRowArray();
+                if ($meta) {
+                    $countryCode  = $meta['country_code'] ?: $countryCode;
+                    $currencyCode = $meta['currency_code'] ?: $currencyCode;
+                    $timezone     = $meta['timezone'] ?: $timezone;
                 }
             }
         } catch (Throwable $e) {
         }
 
-        return ['permissions' => ['dashboard.view'], 'portal_type' => 'frontend'];
-    }
+        $fullName = $user['full_name'] ?? ($user['name'] ?? ($user['username'] ?? ($user['email'] ?? 'User')));
 
-    public function verifyUserCredentials(string $email, string $password): ?array
-    {
-        $this->ensureRolesAndUsersIntegrity();
+        $user['role_id']          = $rid;
+        $user['role_slug']        = $rSlug;
+        $user['role']             = $rSlug;
+        $user['role_name']        = $roleRow['role_name'] ?? ($roleRow['name'] ?? ucfirst(str_replace('_', ' ', $rSlug)));
+        $user['portal_type']      = $roleRow['portal_type'] ?? (in_array($rSlug, ['super_admin', 'admin', 'teacher'], true) ? 'backend' : 'frontend');
+        $user['full_name']        = $fullName;
+        $user['name']             = $fullName;
+        $user['permissions']      = $perms;
+        $user['role_permissions'] = $perms;
+        $user['user_country']     = $countryCode;
+        $user['user_currency']    = $currencyCode;
+        $user['user_timezone']    = $timezone;
 
-        try {
-            $db   = Database::connect();
-            $user = $db->table('users u')
-                ->select('u.*, r.role_slug AS core_role_slug, r.role_name')
-                ->join('roles r', 'r.id = u.role_id', 'left')
-                ->where('u.email', $email)
-                ->where('u.status', 'active')
-                ->get()
-                ->getRowArray();
-
-            if ($user && password_verify($password, $user['password_hash'])) {
-                $db->table('users')->where('id', $user['id'])->update(['last_login' => date('Y-m-d H:i:s')]);
-
-                $effectiveSlug = ! empty($user['role_slug']) && $user['role_slug'] !== 'student'
-                    ? $user['role_slug']
-                    : ($user['core_role_slug'] ?: 'student');
-
-                if ((int) $user['id'] === 1 || (int) $user['role_id'] === 1) {
-                    $effectiveSlug = 'super_admin';
-                }
-
-                $user['role_slug'] = $effectiveSlug;
-                if (empty($user['role_name'])) {
-                    $user['role_name'] = ucwords(str_replace('_', ' ', $effectiveSlug));
-                }
-
-                $rbacData            = $this->getRolePermissionsData($effectiveSlug);
-                $user['permissions'] = $rbacData['permissions'];
-                $user['portal_type'] = $rbacData['portal_type'];
-
-                return $user;
-            }
-            return null;
-        } catch (Throwable $e) {
-            return null;
-        }
-    }
-
-    public function getAvailableRoles(): array
-    {
-        $this->ensureRolesAndUsersIntegrity();
-        try {
-            $db = Database::connect();
-            return $db->table('roles')->orderBy('id', 'ASC')->get()->getResultArray();
-        } catch (Throwable $e) {
-            return [];
-        }
+        return $user;
     }
 
     public function getAllRoles(): array
     {
-        return $this->getAvailableRoles();
-    }
-
-    public function getRoles(): array
-    {
-        return $this->getAvailableRoles();
-    }
-
-    public function getRoleById(int $roleId): ?array
-    {
+        $roles = [];
         try {
-            $db  = Database::connect();
-            $row = $db->table('roles')->where('id', $roleId)->get()->getRowArray();
-            return $row ?: null;
+            if ($this->db->tableExists('cms_roles')) {
+                $roles = $this->db->table('cms_roles')->orderBy('id', 'ASC')->get()->getResultArray();
+            } elseif ($this->db->tableExists('roles')) {
+                $roles = $this->db->table('roles')->orderBy('id', 'ASC')->get()->getResultArray();
+            }
         } catch (Throwable $e) {
-            return null;
         }
-    }
-
-    public function getRoleBySlug(string $roleSlug): ?array
-    {
-        try {
-            $db  = Database::connect();
-            $row = $db->table('roles')->where('role_slug', strtolower(trim($roleSlug)))->get()->getRowArray();
-            return $row ?: null;
-        } catch (Throwable $e) {
-            return null;
-        }
+        return $roles;
     }
 
     public function getAllUsersWithRoles(): array
     {
-        $this->ensureRolesAndUsersIntegrity();
-        try {
-            $db = Database::connect();
-            return $db->table('users u')
-                ->select('u.id, u.role_id, u.role_slug, u.parent_user_id, u.full_name, u.email, u.status, u.last_login, u.created_at, r.role_name')
-                ->join('roles r', 'r.id = u.role_id', 'left')
-                ->orderBy('u.id', 'DESC')
-                ->get()
-                ->getResultArray();
-        } catch (Throwable $e) {
+        if (! $this->db->tableExists('users')) {
             return [];
         }
+        $rolesBySlug = [];
+        $rolesById   = [];
+        foreach ($this->getAllRoles() as $r) {
+            $rid   = (int) ($r['id'] ?? 0);
+            $rSlug = strtolower(trim((string) ($r['role_slug'] ?? ($r['name'] ?? 'student'))));
+            $rName = $r['role_name'] ?? ($r['name'] ?? ucfirst($rSlug));
+            $rolesById[$rid]     = ['slug' => $rSlug, 'name' => $rName];
+            $rolesBySlug[$rSlug] = ['id' => $rid, 'name' => $rName];
+        }
+
+        $rows = $this->db->table('users')->orderBy('id', 'ASC')->get()->getResultArray();
+        $byId = [];
+        foreach ($rows as $u) {
+            $byId[(int) $u['id']] = $u['full_name'] ?? ($u['name'] ?? ($u['email'] ?? 'User'));
+        }
+
+        foreach ($rows as &$u) {
+            $rid   = (int) ($u['role_id'] ?? 4);
+            $rSlug = strtolower(trim((string) ($u['role_slug'] ?? ($rolesById[$rid]['slug'] ?? 'student'))));
+            if ((int) $u['id'] === 1) {
+                $rSlug = 'super_admin';
+            }
+            $u['full_name']   = $u['full_name'] ?? ($u['name'] ?? ($u['username'] ?? 'User'));
+            $u['role_slug']   = $rSlug;
+            $u['role_name']   = $rolesBySlug[$rSlug]['name'] ?? ($rolesById[$rid]['name'] ?? ucfirst(str_replace('_', ' ', $rSlug)));
+            $pid              = (int) ($u['parent_user_id'] ?? 0);
+            $u['parent_name'] = ($pid > 0 && isset($byId[$pid])) ? $byId[$pid] : '';
+        }
+        unset($u);
+        return $rows;
     }
 
-    public function getUsersWithRoles(): array
+    public function getRoleCounts(): array
     {
-        return $this->getAllUsersWithRoles();
-    }
-
-    public function getRoleDistributionStats(): array
-    {
-        $this->ensureRolesAndUsersIntegrity();
-        $stats = [
+        $counts = [
             'total'       => 0,
             'super_admin' => 0,
             'admin'       => 0,
             'teacher'     => 0,
             'parent'      => 0,
             'student'     => 0,
+            'active'      => 0,
+            'inactive'    => 0,
         ];
-
-        try {
-            $db   = Database::connect();
-            $rows = $db->table('users u')
-                ->select('u.role_slug, COUNT(u.id) as total_count')
-                ->groupBy('u.role_slug')
-                ->get()
-                ->getResultArray();
-
-            foreach ($rows as $r) {
-                $slug  = strtolower((string) ($r['role_slug'] ?? 'student'));
-                $count = (int) $r['total_count'];
-                $stats['total'] += $count;
-                if (isset($stats[$slug])) {
-                    $stats[$slug] += $count;
-                } else {
-                    $stats[$slug] = $count;
-                }
-            }
-            return $stats;
-        } catch (Throwable $e) {
-            return $stats;
+        if (! $this->db->tableExists('users')) {
+            return $counts;
         }
-    }
-
-    public function getRoleStats(): array
-    {
-        return $this->getRoleDistributionStats();
-    }
-
-    public function insertNewUser(array $data): array
-    {
-        $this->ensureRolesAndUsersIntegrity();
-        try {
-            $db = Database::connect();
-
-            $exists = $db->table('users')->where('email', $data['email'])->countAllResults();
-            if ($exists > 0) {
-                return [
-                    'status'  => 'error',
-                    'message' => 'A user with this email address already exists.',
-                ];
-            }
-
-            $roleId   = (int) ($data['role_id'] ?? 0);
-            $roleSlug = strtolower(trim((string) ($data['role_slug'] ?? '')));
-
-            if ($roleId > 0 && $roleSlug === '') {
-                $rRow     = $this->getRoleById($roleId);
-                $roleSlug = $rRow['role_slug'] ?? 'student';
-            } elseif ($roleSlug !== '' && $roleId <= 0) {
-                $rRow   = $this->getRoleBySlug($roleSlug);
-                $roleId = (int) ($rRow['id'] ?? 4);
-            }
-            if ($roleId <= 0) {
-                $roleId   = 4;
-                $roleSlug = 'student';
-            }
-
-            $db->table('users')->insert([
-                'role_id'       => $roleId,
-                'role_slug'     => $roleSlug,
-                'full_name'     => $data['full_name'],
-                'email'         => $data['email'],
-                'password_hash' => password_hash($data['password'], PASSWORD_BCRYPT),
-                'status'        => $data['status'] ?? 'active',
-                'created_at'    => date('Y-m-d H:i:s'),
-            ]);
-
-            return [
-                'status'  => 'success',
-                'message' => 'User account provisioned and role (' . $roleSlug . ') assigned successfully!',
-            ];
-        } catch (Throwable $e) {
-            return [
-                'status'  => 'error',
-                'message' => 'Database Error: ' . $e->getMessage(),
-            ];
-        }
-    }
-
-    public function createUser(array $data): array
-    {
-        return $this->insertNewUser($data);
-    }
-
-    public function changeUserRole(int $userId, $roleIdOrSlug): bool
-    {
-        $this->ensureRolesAndUsersIntegrity();
-        try {
-            $db = Database::connect();
-            if (is_numeric($roleIdOrSlug) && (int) $roleIdOrSlug > 0) {
-                $roleRow = $this->getRoleById((int) $roleIdOrSlug);
+        foreach ($this->getAllUsersWithRoles() as $u) {
+            $counts['total']++;
+            $st = strtolower((string) ($u['status'] ?? 'active'));
+            if ($st === 'active') {
+                $counts['active']++;
             } else {
-                $roleRow = $this->getRoleBySlug((string) $roleIdOrSlug);
+                $counts['inactive']++;
             }
-
-            if (! $roleRow) {
-                return false;
+            $rs = $u['role_slug'] ?? 'student';
+            if (isset($counts[$rs])) {
+                $counts[$rs]++;
+            } else {
+                $counts['student']++;
             }
-
-            $roleId   = (int) $roleRow['id'];
-            $roleSlug = (string) $roleRow['role_slug'];
-
-            return (bool) $db->table('users')
-                ->where('id', $userId)
-                ->update([
-                    'role_id'   => $roleId,
-                    'role_slug' => $roleSlug,
-                ]);
-        } catch (Throwable $e) {
-            return false;
         }
+        return $counts;
     }
 
-    public function updateUserRole(int $userId, $roleIdOrSlug): bool
+    public function getDashboardStats(): array
     {
-        return $this->changeUserRole($userId, $roleIdOrSlug);
+        return $this->getRoleCounts();
     }
 
-    public function flipUserStatus(int $userId): array
+    public function createNewUser(array $post): array
     {
-        try {
-            $db   = Database::connect();
-            $user = $db->table('users')->where('id', $userId)->get()->getRowArray();
+        $fullName = trim((string) ($post['full_name'] ?? ($post['name'] ?? '')));
+        $email    = strtolower(trim((string) ($post['email'] ?? '')));
+        $password = (string) ($post['password'] ?? '');
+        $roleSlug = strtolower(trim((string) ($post['role_slug'] ?? 'student')));
+        $roleId   = (int) ($post['role_id'] ?? 0);
 
-            if (! $user) {
-                return ['status' => 'error', 'message' => 'User not found.'];
-            }
-
-            $newStatus = ($user['status'] === 'active') ? 'suspended' : 'active';
-            $db->table('users')->where('id', $userId)->update(['status' => $newStatus]);
-
-            return [
-                'status'     => 'success',
-                'new_status' => $newStatus,
-                'message'    => 'Account status changed to ' . strtoupper($newStatus) . '.',
-            ];
-        } catch (Throwable $e) {
-            return ['status' => 'error', 'message' => 'Could not update status.'];
+        if ($fullName === '' || $email === '' || strlen($password) < 4) {
+            return ['status' => 'error', 'message' => 'Full Name, Email, and Password (min 4 chars) are required.'];
         }
+
+        $dup = $this->db->table('users')->where('email', $email)->get()->getRowArray();
+        if ($dup) {
+            return ['status' => 'error', 'message' => 'An account with this email already exists.'];
+        }
+
+        foreach ($this->getAllRoles() as $r) {
+            $rs = strtolower(trim((string) ($r['role_slug'] ?? '')));
+            if (($roleId > 0 && (int) $r['id'] === $roleId) || ($rs !== '' && $rs === $roleSlug)) {
+                $roleId   = (int) $r['id'];
+                $roleSlug = $rs ?: $roleSlug;
+                break;
+            }
+        }
+        if ($roleId <= 0) {
+            $roleId = 4;
+        }
+
+        $now    = gmdate('Y-m-d H:i:s');
+        $hashed = password_hash($password, PASSWORD_DEFAULT);
+        $uCols  = array_flip($this->db->getFieldNames('users'));
+        $row    = array_intersect_key([
+            'role_id'       => $roleId,
+            'role_slug'     => $roleSlug,
+            'full_name'     => $fullName,
+            'name'          => $fullName,
+            'username'      => explode('@', $email)[0],
+            'email'         => $email,
+            'password'      => $hashed,
+            'password_hash' => $hashed,
+            'status'        => 'active',
+            'created_at'    => $now,
+            'updated_at'    => $now,
+        ], $uCols);
+
+        $this->db->table('users')->insert($row);
+        return ['status' => 'success', 'message' => 'User "' . $fullName . '" created successfully!'];
+    }
+
+    public function registerUser(array $post): array
+    {
+        return $this->createNewUser($post);
+    }
+
+    public function assignRole(int $userId, int $roleId, string $roleSlug = ''): array
+    {
+        if ($userId <= 1) {
+            return ['status' => 'error', 'message' => 'Root Super Admin role cannot be modified.'];
+        }
+        foreach ($this->getAllRoles() as $r) {
+            $rs = strtolower(trim((string) ($r['role_slug'] ?? '')));
+            if (($roleId > 0 && (int) $r['id'] === $roleId) || ($roleSlug !== '' && $rs === $roleSlug)) {
+                $roleId   = (int) $r['id'];
+                $roleSlug = $rs ?: $roleSlug;
+                break;
+            }
+        }
+
+        $uCols = array_flip($this->db->getFieldNames('users'));
+        $upd   = ['updated_at' => gmdate('Y-m-d H:i:s')];
+        if ($roleId > 0 && isset($uCols['role_id'])) $upd['role_id'] = $roleId;
+        if ($roleSlug !== '' && isset($uCols['role_slug'])) $upd['role_slug'] = $roleSlug;
+        if (in_array($roleSlug, ['super_admin', 'admin', 'teacher', 'parent'], true) && isset($uCols['parent_user_id'])) {
+            $upd['parent_user_id'] = null;
+        }
+
+        $this->db->table('users')->where('id', $userId)->update($upd);
+        return ['status' => 'success', 'message' => 'User role updated successfully!'];
+    }
+
+    public function updateUserRole(int $userId, int $roleId, string $roleSlug = ''): array
+    {
+        return $this->assignRole($userId, $roleId, $roleSlug);
+    }
+
+    public function toggleStatus(int $userId): array
+    {
+        if ($userId <= 1) {
+            return ['status' => 'error', 'message' => 'Root Super Admin cannot be deactivated.'];
+        }
+        $u = $this->find($userId);
+        if (! $u) {
+            return ['status' => 'error', 'message' => 'User not found.'];
+        }
+        $newStatus = (($u['status'] ?? 'active') === 'active') ? 'inactive' : 'active';
+        $this->db->table('users')->where('id', $userId)->update(['status' => $newStatus]);
+        return ['status' => 'success', 'message' => 'User status set to ' . strtoupper($newStatus) . '.'];
     }
 
     public function toggleUserStatus(int $userId): array
     {
-        return $this->flipUserStatus($userId);
+        return $this->toggleStatus($userId);
     }
 
-    public function removeUserById(int $userId): bool
+    public function removeUser(int $userId): array
+    {
+        if ($userId <= 1) {
+            return ['status' => 'error', 'message' => 'Root Super Admin cannot be deleted.'];
+        }
+        $this->db->table('users')->where('id', $userId)->delete();
+        return ['status' => 'success', 'message' => 'User account deleted.'];
+    }
+
+    public function deleteUser(int $userId): array
+    {
+        return $this->removeUser($userId);
+    }
+
+    /**
+     * Safety net: Prevents fatal BadMethodCallException if any legacy controller calls a custom helper method
+     */
+    public function __call(string $name, array $params)
     {
         try {
-            $db = Database::connect();
-            return (bool) $db->table('users')->where('id', $userId)->delete();
-        } catch (Throwable $e) {
-            return false;
+            return parent::__call($name, $params);
+        } catch (BadMethodCallException $e) {
+            log_message('warning', 'UserModel handled unmapped method call: ' . $name);
+            return [];
         }
-    }
-
-    public function deleteUserById(int $userId): bool
-    {
-        return $this->removeUserById($userId);
-    }
-
-    public function deleteUser(int $userId): bool
-    {
-        return $this->removeUserById($userId);
     }
 }

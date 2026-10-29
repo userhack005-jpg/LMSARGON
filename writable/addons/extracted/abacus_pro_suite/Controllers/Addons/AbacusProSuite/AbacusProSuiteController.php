@@ -48,7 +48,7 @@ class AbacusProSuiteController extends BaseController
             $data['activeMenu'] = 'addon_abacus_pro_suite';
         }
         if (empty($data['user'])) {
-            $data['user'] = session()->get();
+            $data['user'] = session()->get() ?: [];
         }
 
         $cleanView = ltrim($viewRelPath, '/');
@@ -63,21 +63,22 @@ class AbacusProSuiteController extends BaseController
     private function buildCommonContext(string $activeSubTab, string $pageTitle): array
     {
         $model = $this->getModel();
+        $model->syncPageBuilderComponents();
         $model->mirrorAssets(false);
 
-        $effectiveRole = function_exists('cms_get_effective_role')
-            ? cms_get_effective_role()
-            : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
+        $isLoggedIn    = (bool) session()->get('isLoggedIn');
+        $effectiveRole = $isLoggedIn
+            ? (function_exists('cms_get_effective_role') ? cms_get_effective_role() : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student'))))
+            : 'guest';
 
-        $uid            = (int) (session()->get('user_id') ?: 1);
-        $activeStuId    = (int) (session()->get('active_student_id') ?: 0);
-        $portalViewMode = (string) (session()->get('portal_view_mode') ?: 'default');
-
+        $uid              = (int) (session()->get('user_id') ?: 0);
+        $activeStuId      = (int) (session()->get('active_student_id') ?: 0);
+        $portalViewMode   = (string) (session()->get('portal_view_mode') ?: 'default');
         $isParentOverview = ($effectiveRole === 'parent' && ($portalViewMode !== 'student' || $activeStuId <= 0));
         $parentKidsMap    = [];
         $targetStudentIds = [];
 
-        if ($isParentOverview) {
+        if ($isParentOverview && $uid > 0) {
             $db = \Config\Database::connect();
             if ($db->tableExists('users')) {
                 foreach ($db->table('users')->select('id, full_name')->where('parent_user_id', $uid)->orderBy('id', 'ASC')->get()->getResultArray() as $k) {
@@ -86,7 +87,7 @@ class AbacusProSuiteController extends BaseController
                     $targetStudentIds[]    = $kidId;
                 }
             }
-        } elseif ($effectiveRole === 'student') {
+        } elseif ($effectiveRole === 'student' && ($activeStuId > 0 || $uid > 0)) {
             $targetStudentIds = [$activeStuId > 0 ? $activeStuId : $uid];
         }
 
@@ -97,14 +98,15 @@ class AbacusProSuiteController extends BaseController
             'activeSubTab'     => $activeSubTab,
             'settings'         => $model->getGlobalSiteSettings(),
             'abacusConfig'     => $model->getAbacusConfig(),
-            'user'             => session()->get(),
+            'user'             => session()->get() ?: [],
+            'isLoggedIn'       => $isLoggedIn,
             'effectiveRole'    => $effectiveRole,
             'uid'              => $uid,
             'activeStuId'      => $activeStuId > 0 ? $activeStuId : $uid,
             'isParentOverview' => $isParentOverview,
             'parentKidsMap'    => $parentKidsMap,
             'targetStudentIds' => $targetStudentIds,
-            'canPractice'      => $this->hasPermission('abacus_pro_suite.practice'),
+            'canPractice'      => true,
             'canViewAnalytics' => $this->hasPermission('abacus_pro_suite.view'),
             'canEditSettings'  => $this->hasPermission('abacus_pro_suite.edit'),
             'canDelete'        => $this->hasPermission('abacus_pro_suite.delete'),
@@ -113,9 +115,6 @@ class AbacusProSuiteController extends BaseController
 
     public function index()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
         if ($this->hasPermission('abacus_pro_suite.view')) {
             return $this->batchAnalyticsView();
         }
@@ -123,14 +122,11 @@ class AbacusProSuiteController extends BaseController
     }
 
     /**
-     * Sub-View 1: Interactive 3D Soroban Abacus Lab (`/abacus/arena`)
+     * Works for both Logged-in Users AND Non-Logged-in Public Visitors!
      */
     public function arenaView()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if ((int) session()->get('lms_child_fee_locked') === 1) {
+        if (session()->get('isLoggedIn') && (int) session()->get('lms_child_fee_locked') === 1) {
             return redirect()->to(base_url('finance/portal?locked=1'));
         }
         $data = $this->buildCommonContext('arena', '3D Soroban Abacus Lab');
@@ -138,38 +134,27 @@ class AbacusProSuiteController extends BaseController
     }
 
     /**
-     * Sub-View 2: Flash Anzan & Voice Dictation Speed Arena (`/abacus/anzan`)
+     * Works for both Logged-in Users AND Non-Logged-in Public Visitors!
      */
     public function anzanView()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if ((int) session()->get('lms_child_fee_locked') === 1) {
+        if (session()->get('isLoggedIn') && (int) session()->get('lms_child_fee_locked') === 1) {
             return redirect()->to(base_url('finance/portal?locked=1'));
         }
         $data = $this->buildCommonContext('anzan', 'Flash Anzan & Voice Dictation Speed Arena');
         return $this->renderAddonView('addons/abacus_pro_suite/anzan_view', $data);
     }
 
-    /**
-     * Sub-View 3: Student & Parent Speed, Accuracy & Gamified Badges (`/abacus/my-progress`)
-     */
     public function myProgressView()
     {
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
-        $data     = $this->buildCommonContext('progress', 'My Abacus Speed & Achievement Badges');
-        $progress = $this->getModel()->getStudentProgressAndBadges($data['targetStudentIds']);
-
-        $data['progressData'] = $progress;
+        $data = $this->buildCommonContext('progress', 'My Abacus Speed & Achievement Badges');
+        $data['progressData'] = $this->getModel()->getStudentProgressAndBadges($data['targetStudentIds']);
         return $this->renderAddonView('addons/abacus_pro_suite/progress_view', $data);
     }
 
-    /**
-     * Sub-View 4: Teacher & Admin Batch Practice Analytics (`/addons/abacus-pro-suite/analytics`)
-     */
     public function batchAnalyticsView()
     {
         if (! session()->get('isLoggedIn')) {
@@ -178,7 +163,6 @@ class AbacusProSuiteController extends BaseController
         if (! $this->hasPermission(['abacus_pro_suite.view', 'abacus_pro_suite.edit'])) {
             return redirect()->to(base_url('abacus/arena'));
         }
-
         $data            = $this->buildCommonContext('analytics', 'Batch Student Abacus Practice Analytics');
         $teacherFilter   = ($data['effectiveRole'] === 'teacher') ? (int) $data['uid'] : 0;
         $selectedCohort  = (int) ($this->request->getGet('cohort_id') ?? 0);
@@ -192,9 +176,6 @@ class AbacusProSuiteController extends BaseController
         return $this->renderAddonView('addons/abacus_pro_suite/analytics_view', $data);
     }
 
-    /**
-     * Sub-View 5: Admin Soroban Theme & Drill Settings (`/addons/abacus-pro-suite/settings`)
-     */
     public function settingsView()
     {
         if (! session()->get('isLoggedIn')) {
@@ -203,22 +184,21 @@ class AbacusProSuiteController extends BaseController
         if (! $this->hasPermission('abacus_pro_suite.edit')) {
             return redirect()->to(base_url('abacus/arena'));
         }
-
         $data = $this->buildCommonContext('settings', 'Abacus Theme & Default Drill Settings');
         return $this->renderAddonView('addons/abacus_pro_suite/settings_view', $data);
     }
 
+    /**
+     * Works for Guests (Non-Logged-In) AND Logged-In Students!
+     * Guests get instant score calculation (`saved_to_db: false`), while logged-in Students save to DB!
+     */
     public function logAttemptAjax()
     {
-        if (! session()->get('isLoggedIn')) {
-            return $this->response->setStatusCode(401)->setJSON(['ok' => false, 'message' => 'Unauthorized']);
-        }
-
-        $effectiveRole = function_exists('cms_get_effective_role')
-            ? cms_get_effective_role()
-            : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
-
-        $uid         = (int) (session()->get('user_id') ?: 1);
+        $isLoggedIn    = (bool) session()->get('isLoggedIn');
+        $effectiveRole = $isLoggedIn
+            ? (function_exists('cms_get_effective_role') ? cms_get_effective_role() : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student'))))
+            : 'guest';
+        $uid         = (int) (session()->get('user_id') ?: 0);
         $activeStuId = (int) (session()->get('active_student_id') ?: 0);
         $targetStuId = $activeStuId > 0 ? $activeStuId : $uid;
 
@@ -228,7 +208,6 @@ class AbacusProSuiteController extends BaseController
 
         $res = $this->getModel()->logStudentAttemptStrict($effectiveRole, $targetStuId, $this->request->getPost());
         $res['csrf_token'] = csrf_hash();
-
         return $this->response->setJSON($res);
     }
 
@@ -238,8 +217,7 @@ class AbacusProSuiteController extends BaseController
             return redirect()->back()->with('error', 'Access denied.');
         }
         $this->getModel()->saveAbacusConfig($this->request->getPost());
-        return redirect()->to(base_url('addons/abacus-pro-suite/settings'))
-            ->with('success', 'Soroban Theme & Default Drill Settings saved!');
+        return redirect()->to(base_url('addons/abacus-pro-suite/settings'))->with('success', 'Settings saved!');
     }
 
     public function deleteAttempt()
@@ -262,14 +240,10 @@ class AbacusProSuiteController extends BaseController
         $safeFile = basename((string) $file);
         $fullPath = $this->addonPath . '/assets/' . $safeFile;
         if (! is_file($fullPath)) {
-            return $this->response->setStatusCode(404)->setBody('/* Asset not found */');
+            return $this->response->setStatusCode(404)->setBody('');
         }
         $ext  = strtolower((string) pathinfo($safeFile, PATHINFO_EXTENSION));
         $mime = ($ext === 'css') ? 'text/css; charset=UTF-8' : 'application/javascript; charset=UTF-8';
-
-        return $this->response
-            ->setHeader('Content-Type', $mime)
-            ->setHeader('Cache-Control', 'no-cache, must-revalidate')
-            ->setBody((string) file_get_contents($fullPath));
+        return $this->response->setHeader('Content-Type', $mime)->setHeader('Cache-Control', 'no-cache, must-revalidate')->setBody((string) file_get_contents($fullPath));
     }
 }

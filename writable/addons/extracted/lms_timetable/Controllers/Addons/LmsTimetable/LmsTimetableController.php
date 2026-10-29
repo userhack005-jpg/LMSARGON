@@ -87,6 +87,7 @@ class LmsTimetableController extends BaseController
             'unassignedQueue'    => $model->getUnassignedSubscribedStudents(),
             'teachers'           => $roleUsers['teachers'],
             'students'           => $roleUsers['students'],
+            'parents'            => $roleUsers['parents'],
             'sessions'           => $model->getEnrichedSessions($userTz),
             'subRequests'        => $model->getSubstituteRequestsWithThreads(),
             'userTz'             => $userTz,
@@ -100,83 +101,95 @@ class LmsTimetableController extends BaseController
 
     public function index()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if ($this->hasPermission(['lms_timetable.create', 'lms_timetable.edit'])) {
-            return $this->cohortsManager();
-        }
+        if (! session()->get('isLoggedIn')) return redirect()->to(base_url('login'));
+        if ($this->hasPermission(['lms_timetable.create', 'lms_timetable.edit'])) return $this->cohortsManager();
         return $this->portalTimetable();
     }
 
     public function cohortsManager()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if (! $this->hasPermission(['lms_timetable.create', 'lms_timetable.edit'])) {
-            return redirect()->to(base_url('timetable/portal'));
-        }
-        $data = $this->buildCommonAdminData('cohorts', 'Live Classroom Batches & Student Auto-Queue');
-        return $this->renderAddonView('addons/lms_timetable/cohorts_view', $data);
+        if (! session()->get('isLoggedIn')) return redirect()->to(base_url('login'));
+        if (! $this->hasPermission(['lms_timetable.create', 'lms_timetable.edit'])) return redirect()->to(base_url('timetable/portal'));
+        return $this->renderAddonView('addons/lms_timetable/cohorts_view', $this->buildCommonAdminData('cohorts', 'Live Classroom Batches & Student Auto-Queue'));
     }
 
     public function sessionsManager()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if (! $this->hasPermission(['lms_timetable.create', 'lms_timetable.edit'])) {
-            return redirect()->to(base_url('timetable/portal'));
-        }
-        $data = $this->buildCommonAdminData('sessions', 'Master Class Schedule, Reschedule & Makeup Classes');
-        return $this->renderAddonView('addons/lms_timetable/sessions_view', $data);
+        if (! session()->get('isLoggedIn')) return redirect()->to(base_url('login'));
+        if (! $this->hasPermission(['lms_timetable.create', 'lms_timetable.edit'])) return redirect()->to(base_url('timetable/portal'));
+        return $this->renderAddonView('addons/lms_timetable/sessions_view', $this->buildCommonAdminData('sessions', 'Master Class Schedule, Reschedule & Makeup Classes'));
     }
 
     public function substitutesInbox()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
+        if (! session()->get('isLoggedIn')) return redirect()->to(base_url('login'));
+        if (! $this->hasPermission(['lms_timetable.edit', 'lms_timetable.create'])) return redirect()->to(base_url('timetable/portal'));
+        $data = $this->buildCommonAdminData('substitutes', 'Multi-Teacher Leave & Substitute Allocation Desk');
+        $selReqId = (int) ($this->request->getGet('req_id') ?? 0);
+        $activeReq = null;
+        foreach ($data['subRequests'] as $sr) {
+            if ((int) $sr['id'] === $selReqId) {
+                $activeReq = $sr;
+                break;
+            }
         }
-        if (! $this->hasPermission(['lms_timetable.edit', 'lms_timetable.create'])) {
-            return redirect()->to(base_url('timetable/portal'));
+        if (! $activeReq && ! empty($data['subRequests'])) {
+            $activeReq = $data['subRequests'][0];
         }
-        $data = $this->buildCommonAdminData('substitutes', 'Teacher Leave & Substitute Allocation Inbox');
+        $data['activeSubReq'] = $activeReq;
         return $this->renderAddonView('addons/lms_timetable/substitutes_view', $data);
     }
 
     public function portalTimetable()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if ((int) session()->get('lms_child_fee_locked') === 1) {
-            return redirect()->to(base_url('finance/portal?locked=1'));
+        if (! session()->get('isLoggedIn')) return redirect()->to(base_url('login'));
+        if ((int) session()->get('lms_child_fee_locked') === 1) return redirect()->to(base_url('finance/portal?locked=1'));
+
+        $data            = $this->buildCommonAdminData('portal', 'My Live Class Schedule');
+        $model           = $this->getModel();
+        $effectiveRole   = $data['effectiveRole'];
+        $uid             = (int) (session()->get('user_id') ?: 1);
+        $activeStuId     = (int) (session()->get('active_student_id') ?: 0);
+        $portalViewMode  = (string) (session()->get('portal_view_mode') ?: 'default');
+        $userTz          = $data['userTz'];
+        $canManageAdmin  = $this->hasPermission(['lms_timetable.create', 'lms_timetable.edit']);
+
+        // Default Admin / Super Admin visiting `/timetable/portal` to Teacher Console Preview (with ability to switch!)
+        $simRole = strtolower(trim((string) ($this->request->getGet('sim_role') ?? '')));
+        if ($canManageAdmin && in_array($effectiveRole, ['super_admin', 'admin'], true) && $simRole === '') {
+            $simRole = 'teacher';
         }
 
-        $data           = $this->buildCommonAdminData('portal', 'My Live Class Schedule');
-        $model          = $this->getModel();
-        $effectiveRole  = $data['effectiveRole'];
-        $uid            = (int) (session()->get('user_id') ?: 1);
-        $activeStuId    = (int) (session()->get('active_student_id') ?: 0);
-        $portalViewMode = (string) (session()->get('portal_view_mode') ?: 'default');
-        $userTz         = $data['userTz'];
-
-        $isTeacherMode    = ($effectiveRole === 'teacher');
-        $isParentOverview = ($effectiveRole === 'parent' && ($portalViewMode !== 'student' || $activeStuId <= 0));
+        $isTeacherMode    = ($effectiveRole === 'teacher') || ($canManageAdmin && $simRole === 'teacher');
+        $isParentOverview = ($effectiveRole === 'parent' && ($portalViewMode !== 'student' || $activeStuId <= 0)) || ($canManageAdmin && $simRole === 'parent');
         $teacherTab       = trim((string) ($this->request->getGet('tab') ?? 'classes')) ?: 'classes';
 
         $parentChildrenMap = [];
         $enrolledStuIds    = [];
+        $simTeacherId      = (int) ($this->request->getGet('sim_teacher_id') ?? 0);
+        $simStudentId      = (int) ($this->request->getGet('sim_student_id') ?? 0);
 
         if ($isTeacherMode) {
-            $data['myCohorts']     = $model->getEnrichedCohorts($uid, []);
-            $data['mySessions']    = $model->getEnrichedSessions($userTz, $uid, []);
-            $data['mySubRequests'] = $model->getSubstituteRequestsWithThreads($uid);
+            $targetTid = ($effectiveRole === 'teacher') ? $uid : $simTeacherId;
+            $myCohorts  = $model->getEnrichedCohorts($targetTid, []);
+            $mySessions = $model->getEnrichedSessions($userTz, $targetTid, []);
+            if (empty($mySessions) && $canManageAdmin && $targetTid === 0) {
+                $myCohorts  = $data['cohorts'];
+                $mySessions = $data['sessions'];
+            }
+            $data['myCohorts']     = $myCohorts;
+            $data['mySessions']    = $mySessions;
+            $data['mySubRequests'] = $model->getSubstituteRequestsWithThreads($targetTid);
         } elseif ($isParentOverview) {
             $db = \Config\Database::connect();
             if ($db->tableExists('users')) {
-                foreach ($db->table('users')->select('id, full_name')->where('parent_user_id', $uid)->orderBy('id', 'ASC')->get()->getResultArray() as $k) {
+                $q = $db->table('users')->select('id, full_name')->orderBy('id', 'ASC');
+                if ($effectiveRole === 'parent') {
+                    $q->where('parent_user_id', $uid);
+                } else {
+                    $q->where('parent_user_id >', 0);
+                }
+                foreach ($q->get()->getResultArray() as $k) {
                     $kidId = (int) $k['id'];
                     $enrolledStuIds[] = $kidId;
                     $parentChildrenMap[$kidId] = $k['full_name'] ?: 'Child';
@@ -186,8 +199,11 @@ class LmsTimetableController extends BaseController
             $data['mySessions']    = ! empty($enrolledStuIds) ? $model->getEnrichedSessions($userTz, 0, $enrolledStuIds) : [];
             $data['mySubRequests'] = [];
         } else {
-            $targetStuId      = $activeStuId > 0 ? $activeStuId : $uid;
-            $enrolledStuIds   = [$targetStuId];
+            $targetStuId = $simStudentId > 0 ? $simStudentId : ($activeStuId > 0 ? $activeStuId : $uid);
+            if ($canManageAdmin && ! isset($data['students'][$targetStuId]) && ! empty($data['students'])) {
+                $targetStuId = (int) array_key_first($data['students']);
+            }
+            $enrolledStuIds        = [$targetStuId];
             $data['myCohorts']     = $model->getEnrichedCohorts(0, [$targetStuId]);
             $data['mySessions']    = $model->getEnrichedSessions($userTz, 0, [$targetStuId]);
             $data['mySubRequests'] = [];
@@ -195,10 +211,13 @@ class LmsTimetableController extends BaseController
 
         $data['isTeacherMode']     = $isTeacherMode;
         $data['isParentOverview']  = $isParentOverview;
+        $data['simRole']           = $simRole;
+        $data['simTeacherId']      = $simTeacherId;
+        $data['simStudentId']      = $simStudentId;
         $data['parentChildrenMap'] = $parentChildrenMap;
         $data['enrolledStuIdsCsv'] = implode(',', $enrolledStuIds);
         $data['teacherTab']        = $teacherTab;
-        $data['canManageAdmin']    = $this->hasPermission(['lms_timetable.create', 'lms_timetable.edit']);
+        $data['canManageAdmin']    = $canManageAdmin;
 
         return $this->renderAddonView('addons/lms_timetable/portal_view', $data);
     }
@@ -385,7 +404,7 @@ class LmsTimetableController extends BaseController
             $filterTid = ($senderRole === 'teacher' && ! $canEdit) ? $senderId : 0;
             return $this->response->setJSON(['ok' => $res['ok'], 'message' => $res['message'], 'requests' => $model->getSubstituteRequestsWithThreads($filterTid), 'csrf_token' => csrf_hash()]);
         }
-        return redirect()->back()->with($res['ok'] ? 'success' : 'error', $res['message']);
+        return redirect()->to(base_url('addons/lms-timetable/substitutes?req_id=' . $reqId))->with($res['ok'] ? 'success' : 'error', $res['message']);
     }
 
     public function assignSubstituteTeacher()
@@ -398,7 +417,7 @@ class LmsTimetableController extends BaseController
         if ($this->request->isAJAX()) {
             return $this->response->setJSON(['ok' => $res['ok'], 'message' => $res['message'], 'requests' => $model->getSubstituteRequestsWithThreads(0), 'csrf_token' => csrf_hash()]);
         }
-        return redirect()->to(base_url('addons/lms-timetable/substitutes'))->with($res['ok'] ? 'success' : 'error', $res['message']);
+        return redirect()->to(base_url('addons/lms-timetable/substitutes?req_id=' . $reqId))->with($res['ok'] ? 'success' : 'error', $res['message']);
     }
 
     public function addGuestStudent()

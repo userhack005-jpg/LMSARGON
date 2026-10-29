@@ -17,6 +17,17 @@
 
     <?php if (! empty($canManageAdmin)): ?>
         <?php include __DIR__ . '/partials/admin_nav.php'; ?>
+        <div class="ltt-compact-bar" style="border-color: rgba(6, 182, 212, 0.45);">
+            <div>
+                <span class="mono-label text-cyan">ADMIN ROLE PORTAL PREVIEWER</span>
+                <div class="muted-cell" style="font-size:0.8rem;">Switch between Teacher Console, Student Schedule, and Parent Family View:</div>
+            </div>
+            <div class="action-btn-group">
+                <a href="<?= base_url('timetable/portal?sim_role=teacher') ?>" class="btn-action <?= ! empty($isTeacherMode) ? 'is-active text-emerald' : '' ?>" style="text-decoration:none;">👩‍🏫 Teacher Console</a>
+                <a href="<?= base_url('timetable/portal?sim_role=student') ?>" class="btn-action <?= empty($isTeacherMode) && empty($isParentOverview) ? 'is-active text-emerald' : '' ?>" style="text-decoration:none;">🎓 Student View</a>
+                <a href="<?= base_url('timetable/portal?sim_role=parent') ?>" class="btn-action <?= ! empty($isParentOverview) ? 'is-active text-emerald' : '' ?>" style="text-decoration:none;">👨‍👩‍👧‍👦 Parent View</a>
+            </div>
+        </div>
     <?php endif; ?>
 
     <!-- =====================================================================

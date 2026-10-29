@@ -2,9 +2,9 @@
     "slug": "abacus_pro_suite",
     "name": "3D Abacus & Flash Anzan Lab",
     "category": "core_lms",
-    "version": "8.0.0",
+    "version": "8.5.0",
     "author": "Core Architecture Team",
-    "description": "Interactive Soroban Abacus Lab, Flash Anzan & Voice Dictation Speed Arena, Gamified Student Badges, Teacher Batch-Scoped Analytics & Strict Student-Only Database Logging.",
+    "description": "5-to-17 Rod 3D Soroban Abacus Lab, Ultra-Smooth 0.3s-2.0s Hindi & English Voice Dictation Flash Anzan, 2 Frontend Page Builder Blocks (Guest Play Enabled) & Strict Student-Only DB Logging.",
     "admin_route": "addons/abacus-pro-suite/analytics",
     "frontend_route": "abacus/arena",
     "init_model": "App\\Models\\Addons\\AbacusProSuite\\AbacusProSuiteModel",
@@ -13,7 +13,7 @@
         "js": ["addons/abacus-pro-suite/assets/abacus_pro_suite.js"]
     },
     "default_config": {
-        "default_rods": "13",
+        "default_rods": "5",
         "default_theme": "cyber_emerald",
         "default_speed_sec": "1.0",
         "enable_sound": "1",

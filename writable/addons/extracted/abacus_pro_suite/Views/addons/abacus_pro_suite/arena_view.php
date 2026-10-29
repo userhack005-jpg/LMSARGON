@@ -1,9 +1,12 @@
-<?= $this->extend('layouts/master_layout') ?>
+<?php
+    $layoutToExtend = ! empty($isLoggedIn) ? 'layouts/master_layout' : 'layouts/frontend_layout';
+?>
+<?= $this->extend($layoutToExtend) ?>
 
 <?= $this->section('content') ?>
 <?php
     $cfg          = $abacusConfig ?? [];
-    $defaultRods  = (int) ($cfg['default_rods'] ?? 13);
+    $defaultRods  = (int) ($cfg['default_rods'] ?? 5);
     $defaultTheme = (string) ($cfg['default_theme'] ?? 'cyber_emerald');
     $soundOn      = (int) ($cfg['enable_sound'] ?? 1) === 1;
 ?>
@@ -15,7 +18,6 @@
 
     <?php include __DIR__ . '/partials/sub_nav.php'; ?>
 
-    <!-- Top Interactive Control Deck & Digital Readout -->
     <div class="aps-soroban-toolbar">
         <div class="aps-readout-group">
             <div>
@@ -30,9 +32,9 @@
         </div>
 
         <div class="aps-controls-group">
-            <select id="js-soroban-rods-select" class="field-select" style="width:130px;">
-                <?php foreach ([7, 9, 11, 13, 15, 17] as $rCnt): ?>
-                    <option value="<?= $rCnt ?>" <?= $defaultRods === $rCnt ? 'selected' : '' ?>><?= $rCnt ?> Rods</option>
+            <select id="js-soroban-rods-select" class="field-select" style="width:155px;">
+                <?php foreach ([5 => '5 Rods (Beginner)', 7 => '7 Rods (Jr Level)', 9 => '9 Rods (Intermediate)', 11 => '11 Rods', 13 => '13 Rods (Standard)', 15 => '15 Rods', 17 => '17 Rods (Master)'] as $rCnt => $rLbl): ?>
+                    <option value="<?= $rCnt ?>" <?= $defaultRods === $rCnt ? 'selected' : '' ?>><?= $rLbl ?></option>
                 <?php endforeach; ?>
             </select>
 
@@ -51,20 +53,19 @@
             </button>
 
             <button type="button" class="btn-secondary btn-sm" id="js-soroban-clear-btn">
-                ↺ Reset Abacus (0)
+                ↺ Reset (0)
             </button>
         </div>
     </div>
 
     <div id="js-soroban-challenge-toast" class="alert-banner alert-success is-hidden" style="margin-bottom:1rem;"></div>
 
-    <!-- Main Interactive 3D Soroban Frame -->
     <section class="aps-soroban-stage theme-<?= esc($defaultTheme) ?>" id="js-soroban-frame-wrap">
         <div class="aps-soroban-outer-frame">
             <div class="aps-soroban-rods-container" id="js-soroban-rods-container"></div>
         </div>
         <div class="aps-soroban-helper-strip">
-            <span>💡 <strong>How to Use:</strong> Click any <strong>Upper Bead (Value = 5)</strong> to move it down toward the reckoning bar, or click any <strong>Lower Bead (Value = 1)</strong> to slide it up.</span>
+            <span>💡 <strong>Tip:</strong> Click any <strong>Upper Bead (Value = 5)</strong> to toggle it down, or click any <strong>Lower Bead (Value = 1–4)</strong> to slide it up. Starts from <strong>5 Rods</strong> for beginner learners up to <strong>17 Rods</strong>.</span>
         </div>
     </section>
 </div>

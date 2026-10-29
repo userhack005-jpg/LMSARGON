@@ -12,18 +12,9 @@ class AbacusProSuiteModel extends Model
     protected $useAutoIncrement = true;
     protected $returnType       = 'array';
     protected $allowedFields    = [
-        'student_user_id',
-        'node_id',
-        'cohort_id',
-        'drill_mode',
-        'digits_count',
-        'rows_count',
-        'speed_seconds',
-        'total_questions',
-        'correct_answers',
-        'accuracy_pct',
-        'time_taken_sec',
-        'created_at',
+        'student_user_id', 'node_id', 'cohort_id', 'drill_mode',
+        'digits_count', 'rows_count', 'speed_seconds', 'total_questions',
+        'correct_answers', 'accuracy_pct', 'time_taken_sec', 'created_at',
     ];
 
     protected static ?array $globalSettingsCache = null;
@@ -62,43 +53,18 @@ class AbacusProSuiteModel extends Model
                         KEY `idx_cohort_mode` (`cohort_id`, `drill_mode`)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                 ");
-            } else {
-                $aCols = $this->db->getFieldNames('lms_abacus_attempts');
-                $aAlters = [
-                    'node_id'         => "ADD COLUMN `node_id` INT UNSIGNED NOT NULL DEFAULT 0",
-                    'cohort_id'       => "ADD COLUMN `cohort_id` INT UNSIGNED NOT NULL DEFAULT 0",
-                    'drill_mode'      => "ADD COLUMN `drill_mode` VARCHAR(40) NOT NULL DEFAULT 'flash_anzan'",
-                    'digits_count'    => "ADD COLUMN `digits_count` TINYINT UNSIGNED NOT NULL DEFAULT 1",
-                    'rows_count'      => "ADD COLUMN `rows_count` SMALLINT UNSIGNED NOT NULL DEFAULT 5",
-                    'speed_seconds'   => "ADD COLUMN `speed_seconds` DECIMAL(5,2) NOT NULL DEFAULT 1.00",
-                    'total_questions' => "ADD COLUMN `total_questions` SMALLINT UNSIGNED NOT NULL DEFAULT 1",
-                    'correct_answers' => "ADD COLUMN `correct_answers` SMALLINT UNSIGNED NOT NULL DEFAULT 0",
-                    'accuracy_pct'    => "ADD COLUMN `accuracy_pct` DECIMAL(5,2) NOT NULL DEFAULT 0.00",
-                    'time_taken_sec'  => "ADD COLUMN `time_taken_sec` INT UNSIGNED NOT NULL DEFAULT 0",
-                    'created_at'      => "ADD COLUMN `created_at` DATETIME NULL",
-                ];
-                foreach ($aAlters as $col => $frag) {
-                    if (! in_array($col, $aCols, true)) {
-                        try {
-                            $this->db->query("ALTER TABLE `lms_abacus_attempts` " . $frag);
-                        } catch (Throwable $e) {
-                        }
-                    }
-                }
             }
 
-            // Always purge any historical attempts accidentally logged under Staff/Admin/Parent user IDs or deleted users!
             $this->cleanupNonStudentAndOrphanedAttempts();
+            $this->syncPageBuilderComponents();
 
-            $lockFile = WRITEPATH . 'addons/schema_addon_abacus_pro_suite_v80.lock';
+            $lockFile = WRITEPATH . 'addons/schema_addon_abacus_pro_suite_v85.lock';
             if (is_file($lockFile)) {
                 return;
             }
 
             if ($this->db->tableExists('addons')) {
-                $this->db->table('addons')
-                    ->where('slug', 'abacus_pro_suite')
-                    ->update(['name' => '3D Abacus & Flash Anzan Lab']);
+                $this->db->table('addons')->where('slug', 'abacus_pro_suite')->update(['name' => '3D Abacus & Flash Anzan Lab']);
             }
 
             $this->syncRbacPermissionsAndAutoEnableRoles();
@@ -112,8 +78,64 @@ class AbacusProSuiteModel extends Model
     }
 
     /**
-     * Strictly removes any attempt rows belonging to deleted users OR non-student roles (Super Admin, Admin, Teacher, Parent)!
+     * Registers TWO Distinct Frontend Page Builder Components in `cms_components`
+     * so Admin can drop 3D Soroban Abacus OR Flash Anzan (or both) on any public page for Non-Registered Visitors!
      */
+    public function syncPageBuilderComponents(): void
+    {
+        try {
+            if (! $this->db->tableExists('cms_components')) {
+                return;
+            }
+            $components = [
+                [
+                    'key'   => 'abacus_soroban_lab',
+                    'name'  => '3D Soroban Abacus Interactive Block (5-17 Rods)',
+                    'icon'  => '🧮',
+                    'order' => 14,
+                    'data'  => [
+                        'badge'        => 'INTERACTIVE 3D SOROBAN LAB',
+                        'heading'      => 'Try Our 3D Japanese Soroban Abacus Live',
+                        'subheading'   => 'Slide the beads or click New Target Challenge to test your mental math skills right now — no login required!',
+                        'widget_mode'  => 'soroban_only',
+                        'default_rods' => '5',
+                        'theme'        => 'cyber_emerald',
+                    ],
+                ],
+                [
+                    'key'   => 'abacus_flash_anzan',
+                    'name'  => 'Flash Anzan & Hindi/English Voice Dictation Block',
+                    'icon'  => '⚡',
+                    'order' => 15,
+                    'data'  => [
+                        'badge'        => 'SPEED MENTAL MATH ARENA',
+                        'heading'      => 'Flash Anzan & Voice Dictation Challenge',
+                        'subheading'   => 'Test your calculation speed from 2.0s down to 0.3s with Hindi & English voice dictation!',
+                        'widget_mode'  => 'anzan_only',
+                        'default_rods' => '5',
+                        'theme'        => 'cyber_emerald',
+                    ],
+                ],
+            ];
+
+            foreach ($components as $c) {
+                $json = json_encode($c['data'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                $this->db->query("
+                    INSERT INTO `cms_components`
+                        (`component_key`, `component_name`, `component_icon`, `category`, `addon_slug`, `default_schema_json`, `is_enabled`, `sort_order`)
+                    VALUES (?, ?, ?, 'interactive', 'abacus_pro_suite', ?, 1, ?)
+                    ON DUPLICATE KEY UPDATE
+                        `component_name`      = VALUES(`component_name`),
+                        `component_icon`      = VALUES(`component_icon`),
+                        `addon_slug`          = 'abacus_pro_suite',
+                        `default_schema_json` = VALUES(`default_schema_json`),
+                        `is_enabled`          = 1
+                ", [$c['key'], $c['name'], $c['icon'], $json, $c['order']]);
+            }
+        } catch (Throwable $e) {
+        }
+    }
+
     public function cleanupNonStudentAndOrphanedAttempts(): void
     {
         try {
@@ -148,48 +170,6 @@ class AbacusProSuiteModel extends Model
                         VALUES (?, ?, 'Add-on: 3D Abacus & Flash Anzan Lab', 'addon', ?)
                         ON DUPLICATE KEY UPDATE `perm_label` = VALUES(`perm_label`), `module_group` = VALUES(`module_group`)
                     ", [$p[0], $p[1], $now]);
-                }
-            }
-
-            if ($this->db->tableExists('cms_roles')) {
-                $roleAutoGrants = [
-                    'student' => ['abacus_pro_suite.practice'],
-                    'parent'  => ['abacus_pro_suite.practice'],
-                    'teacher' => ['abacus_pro_suite.practice', 'abacus_pro_suite.view'],
-                    'admin'   => ['abacus_pro_suite.practice', 'abacus_pro_suite.view', 'abacus_pro_suite.edit', 'abacus_pro_suite.delete'],
-                ];
-
-                $roles = $this->db->table('cms_roles')->get()->getResultArray();
-                foreach ($roles as $r) {
-                    $rSlug = strtolower(trim((string) ($r['role_slug'] ?? '')));
-                    if (! isset($roleAutoGrants[$rSlug])) {
-                        continue;
-                    }
-                    $currPerms = json_decode((string) ($r['permissions_json'] ?? '[]'), true);
-                    if (! is_array($currPerms)) {
-                        $currPerms = [];
-                    }
-                    $changed = false;
-                    foreach ($roleAutoGrants[$rSlug] as $grantKey) {
-                        if (! in_array($grantKey, $currPerms, true) && ! in_array('*', $currPerms, true)) {
-                            $currPerms[] = $grantKey;
-                            $changed     = true;
-                        }
-                    }
-                    if ($changed) {
-                        $this->db->table('cms_roles')->where('id', $r['id'])->update([
-                            'permissions_json' => json_encode(array_values(array_unique($currPerms))),
-                            'updated_at'       => $now,
-                        ]);
-                    }
-                }
-            }
-
-            $rbacModelFile = WRITEPATH . 'addons/extracted/rbac/Models/Addons/Rbac/RbacModel.php';
-            if (is_file($rbacModelFile)) {
-                require_once $rbacModelFile;
-                if (class_exists('\App\Models\Addons\Rbac\RbacModel')) {
-                    (new \App\Models\Addons\Rbac\RbacModel())->rebuildStaticCache();
                 }
             }
         } catch (Throwable $e) {
@@ -237,11 +217,12 @@ class AbacusProSuiteModel extends Model
         $cfg = $raw !== '' ? (json_decode((string) $raw, true) ?: []) : [];
 
         return array_merge([
-            'default_rods'      => 13,
+            'default_rods'      => 5,
             'default_theme'     => 'cyber_emerald',
             'default_digits'    => 1,
             'default_rows'      => 5,
             'default_speed_sec' => 1.0,
+            'default_lang'      => 'hi-IN',
             'enable_sound'      => 1,
             'enable_voice'      => 1,
         ], $cfg);
@@ -253,11 +234,12 @@ class AbacusProSuiteModel extends Model
             return;
         }
         $cfg = [
-            'default_rods'      => in_array((int) ($post['default_rods'] ?? 13), [7, 9, 11, 13, 15, 17], true) ? (int) $post['default_rods'] : 13,
+            'default_rods'      => in_array((int) ($post['default_rods'] ?? 5), [5, 7, 9, 11, 13, 15, 17], true) ? (int) $post['default_rods'] : 5,
             'default_theme'     => in_array($post['default_theme'] ?? '', ['cyber_emerald', 'classic_wood', 'royal_gold'], true) ? $post['default_theme'] : 'cyber_emerald',
             'default_digits'    => max(1, min(5, (int) ($post['default_digits'] ?? 1))),
             'default_rows'      => max(2, min(25, (int) ($post['default_rows'] ?? 5))),
             'default_speed_sec' => max(0.2, min(5.0, (float) ($post['default_speed_sec'] ?? 1.0))),
+            'default_lang'      => in_array($post['default_lang'] ?? '', ['hi-IN', 'en-IN'], true) ? $post['default_lang'] : 'hi-IN',
             'enable_sound'      => ! empty($post['enable_sound']) ? 1 : 0,
             'enable_voice'      => ! empty($post['enable_voice']) ? 1 : 0,
         ];
@@ -270,17 +252,9 @@ class AbacusProSuiteModel extends Model
         self::$globalSettingsCache = null;
     }
 
-    /**
-     * STRICT STUDENT-ONLY LOGGING ENGINE:
-     * Verifies that the active user is genuinely a Student (or a Parent switched into Child Learning Mode).
-     * If Super Admin, Admin, Teacher, or Parent (Main Mode) tests the tool, it returns the calculated score
-     * for instant UI feedback WITHOUT polluting `lms_abacus_attempts`!
-     */
     public function logStudentAttemptStrict(string $effectiveRole, int $targetStudentId, array $post): array
     {
-        $mode     = in_array($post['drill_mode'] ?? '', ['soroban_challenge', 'flash_anzan', 'voice_dictation'], true)
-            ? $post['drill_mode']
-            : 'flash_anzan';
+        $mode     = in_array($post['drill_mode'] ?? '', ['soroban_challenge', 'flash_anzan', 'voice_dictation'], true) ? $post['drill_mode'] : 'flash_anzan';
         $digits   = max(1, min(6, (int) ($post['digits_count'] ?? 1)));
         $rowsCnt  = max(1, min(30, (int) ($post['rows_count'] ?? 5)));
         $speedSec = max(0.1, min(10.0, (float) ($post['speed_seconds'] ?? 1.0)));
@@ -289,7 +263,6 @@ class AbacusProSuiteModel extends Model
         $timeSec  = max(1, (int) ($post['time_taken_sec'] ?? round($rowsCnt * $speedSec)));
         $accPct   = round(($correctQ / $totalQ) * 100, 2);
 
-        // Check if `$targetStudentId` is a genuine Student account
         $isGenuineStudent = false;
         if ($effectiveRole === 'student' && $targetStudentId > 0 && $this->db->tableExists('users')) {
             $uRow = $this->db->table('users')->where('id', $targetStudentId)->get()->getRowArray();
@@ -307,11 +280,10 @@ class AbacusProSuiteModel extends Model
                 'ok'           => true,
                 'saved_to_db'  => false,
                 'accuracy_pct' => $accPct,
-                'message'      => 'Demo / Instructor Preview Mode: Score ' . $accPct . '% calculated (Not logged to student progress database).',
+                'message'      => 'Score ' . $accPct . '%! (Log in with your Student account to save scores to your badge history).',
             ];
         }
 
-        // Resolve student's active cohort_id and node_id
         $cohortId = 0;
         $nodeId   = 0;
         if ($this->db->tableExists('lms_classroom_batch_students')) {
@@ -324,17 +296,6 @@ class AbacusProSuiteModel extends Model
             if ($cs) {
                 $cohortId = (int) $cs['cohort_id'];
                 $nodeId   = (int) $cs['leaf_node_id'];
-            }
-        }
-        if ($nodeId <= 0 && $this->db->tableExists('lms_hierarchy_enrollments')) {
-            $enr = $this->db->table('lms_hierarchy_enrollments')
-                ->where('student_user_id', $targetStudentId)
-                ->where('status', 'active')
-                ->orderBy('id', 'DESC')
-                ->get()
-                ->getRowArray();
-            if ($enr) {
-                $nodeId = (int) $enr['leaf_node_id'];
             }
         }
 
@@ -359,28 +320,17 @@ class AbacusProSuiteModel extends Model
             'saved_to_db'  => true,
             'accuracy_pct' => $accPct,
             'message'      => ($accPct >= 100
-                ? '🎉 Perfect 100% Accuracy! Saved to your Abacus Mastery Progress!'
-                : 'Practice logged (' . $accPct . '% Accuracy)! Keep practicing to unlock your next badge.'),
+                ? '🎉 100% Accuracy! Saved to your Student Progress & Badges!'
+                : 'Practice saved (' . $accPct . '% Accuracy)!'),
         ];
     }
 
-    /**
-     * Fetches Student Progress, Gamified Badges, and Recent Drill Attempts (Supports Multi-Child for Parents!)
-     */
     public function getStudentProgressAndBadges(array $studentIds): array
     {
         $this->cleanupNonStudentAndOrphanedAttempts();
-
         $cleanIds = array_values(array_filter(array_map('intval', $studentIds), static fn($v) => $v > 0));
         if (empty($cleanIds)) {
-            return [
-                'total_drills' => 0,
-                'avg_accuracy' => 0.0,
-                'best_speed'   => 0.0,
-                'perfect_cnt'  => 0,
-                'badges'       => [],
-                'attempts'     => [],
-            ];
+            return ['total_drills' => 0, 'avg_accuracy' => 0.0, 'best_speed' => 0.0, 'perfect_cnt' => 0, 'badges' => [], 'attempts' => []];
         }
 
         $users = [];
@@ -390,13 +340,7 @@ class AbacusProSuiteModel extends Model
             }
         }
 
-        $rows = $this->db->table($this->table)
-            ->whereIn('student_user_id', $cleanIds)
-            ->orderBy('id', 'DESC')
-            ->limit(100)
-            ->get()
-            ->getResultArray();
-
+        $rows = $this->db->table($this->table)->whereIn('student_user_id', $cleanIds)->orderBy('id', 'DESC')->limit(100)->get()->getResultArray();
         $totalDrills = count($rows);
         $accSum      = 0.0;
         $bestSpeed   = 99.0;
@@ -406,49 +350,20 @@ class AbacusProSuiteModel extends Model
             $sid = (int) $r['student_user_id'];
             $acc = (float) $r['accuracy_pct'];
             $spd = (float) $r['speed_seconds'];
-
             $r['student_name'] = $users[$sid] ?? 'Learner';
             $accSum += $acc;
-            if ($acc >= 100.0) {
-                $perfectCnt++;
-            }
-            if ($acc >= 80.0 && $spd > 0 && $spd < $bestSpeed) {
-                $bestSpeed = $spd;
-            }
+            if ($acc >= 100.0) $perfectCnt++;
+            if ($acc >= 80.0 && $spd > 0 && $spd < $bestSpeed) $bestSpeed = $spd;
         }
         unset($r);
-
-        if ($bestSpeed >= 99.0) {
-            $bestSpeed = 0.0;
-        }
-
+        if ($bestSpeed >= 99.0) $bestSpeed = 0.0;
         $avgAcc = $totalDrills > 0 ? round($accSum / $totalDrills, 1) : 0.0;
 
         $badges = [
-            [
-                'icon'     => '🧮',
-                'title'    => 'Soroban Explorer',
-                'desc'     => 'Complete your first interactive Abacus or Anzan drill',
-                'unlocked' => $totalDrills >= 1,
-            ],
-            [
-                'icon'     => '🎯',
-                'title'    => 'Sharp Shooter (100%)',
-                'desc'     => 'Achieve 100% accuracy in 3 or more speed drills',
-                'unlocked' => $perfectCnt >= 3,
-            ],
-            [
-                'icon'     => '⚡',
-                'title'    => 'Sub-Second Speedster',
-                'desc'     => 'Solve a Flash Anzan drill at 0.8s speed or faster',
-                'unlocked' => ($bestSpeed > 0 && $bestSpeed <= 0.8),
-            ],
-            [
-                'icon'     => '🔥',
-                'title'    => 'Grandmaster Calculator',
-                'desc'     => 'Complete 15+ practice drills with 80%+ average accuracy',
-                'unlocked' => ($totalDrills >= 15 && $avgAcc >= 80.0),
-            ],
+            ['icon' => '🧮', 'title' => 'Soroban Explorer',       'desc' => 'Complete your first Abacus or Anzan drill',     'unlocked' => $totalDrills >= 1],
+            ['icon' => '🎯', 'title' => 'Sharp Shooter (100%)',   'desc' => 'Achieve 100% accuracy in 3+ speed drills',     'unlocked' => $perfectCnt >= 3],
+            ['icon' => '⚡', 'title' => 'Sub-Second Speedster',   'desc' => 'Solve Flash Anzan at 0.7s speed or faster',    'unlocked' => ($bestSpeed > 0 && $bestSpeed <= 0.7)],
+            ['icon' => '🔥', 'title' => 'Grandmaster Calculator', 'desc' => 'Complete 15+ drills with 80%+ avg accuracy',   'unlocked' => ($totalDrills >= 15 && $avgAcc >= 80.0)],
         ];
 
         return [
@@ -461,19 +376,13 @@ class AbacusProSuiteModel extends Model
         ];
     }
 
-    /**
-     * Fetches Batch-Scoped Analytics for Teacher (Only their assigned batches/students) or Admin (All batches)
-     */
     public function getBatchAnalyticsForRole(int $teacherIdFilter = 0, int $selectedCohortId = 0): array
     {
         $this->cleanupNonStudentAndOrphanedAttempts();
-
         $cohortsMap = [];
         if ($this->db->tableExists('lms_classroom_batches')) {
             $cBuilder = $this->db->table('lms_classroom_batches')->orderBy('id', 'DESC');
-            if ($teacherIdFilter > 0) {
-                $cBuilder->where('teacher_user_id', $teacherIdFilter);
-            }
+            if ($teacherIdFilter > 0) $cBuilder->where('teacher_user_id', $teacherIdFilter);
             foreach ($cBuilder->get()->getResultArray() as $c) {
                 $cohortsMap[(int) $c['id']] = $c;
             }
@@ -500,16 +409,11 @@ class AbacusProSuiteModel extends Model
         }
 
         $aBuilder = $this->db->table($this->table)->orderBy('id', 'DESC')->limit(150);
-        if ($teacherIdFilter > 0) {
-            $aBuilder->whereIn('student_user_id', array_keys($allowedStudentIds));
-        }
-        if ($selectedCohortId > 0) {
-            $aBuilder->where('cohort_id', $selectedCohortId);
-        }
+        if ($teacherIdFilter > 0) $aBuilder->whereIn('student_user_id', array_keys($allowedStudentIds));
+        if ($selectedCohortId > 0) $aBuilder->where('cohort_id', $selectedCohortId);
 
         $attempts    = $aBuilder->get()->getResultArray();
         $leaderboard = [];
-
         foreach ($attempts as &$at) {
             $sid = (int) $at['student_user_id'];
             $cid = (int) ($at['cohort_id'] ?: ($allowedStudentIds[$sid] ?? 0));
@@ -517,14 +421,7 @@ class AbacusProSuiteModel extends Model
             $at['batch_title']  = isset($cohortsMap[$cid]) ? $cohortsMap[$cid]['cohort_title'] : 'Enrolled Batch';
 
             if (! isset($leaderboard[$sid])) {
-                $leaderboard[$sid] = [
-                    'student_id'   => $sid,
-                    'student_name' => $at['student_name'],
-                    'batch_title'  => $at['batch_title'],
-                    'drills_count' => 0,
-                    'acc_sum'      => 0.0,
-                    'best_speed'   => 99.0,
-                ];
+                $leaderboard[$sid] = ['student_id' => $sid, 'student_name' => $at['student_name'], 'batch_title' => $at['batch_title'], 'drills_count' => 0, 'acc_sum' => 0.0, 'best_speed' => 99.0];
             }
             $leaderboard[$sid]['drills_count']++;
             $leaderboard[$sid]['acc_sum'] += (float) $at['accuracy_pct'];
@@ -537,16 +434,10 @@ class AbacusProSuiteModel extends Model
 
         foreach ($leaderboard as &$lb) {
             $lb['avg_accuracy'] = $lb['drills_count'] > 0 ? round($lb['acc_sum'] / $lb['drills_count'], 1) : 0.0;
-            if ($lb['best_speed'] >= 99.0) {
-                $lb['best_speed'] = 0.0;
-            }
+            if ($lb['best_speed'] >= 99.0) $lb['best_speed'] = 0.0;
         }
         unset($lb);
 
-        return [
-            'cohorts'     => $cohortsMap,
-            'leaderboard' => array_values($leaderboard),
-            'attempts'    => $attempts,
-        ];
+        return ['cohorts' => $cohortsMap, 'leaderboard' => array_values($leaderboard), 'attempts' => $attempts];
     }
 }

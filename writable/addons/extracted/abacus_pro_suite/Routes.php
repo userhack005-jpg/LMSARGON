@@ -11,7 +11,6 @@ if (is_file($addonDir . '/Controllers/Addons/AbacusProSuite/AbacusProSuiteContro
 
 \Config\Services::autoloader()->addNamespace('AddonAbacusProSuite', $addonDir);
 
-// Admin & Teacher Analytics / Settings Routes
 $routes->group('addons/abacus-pro-suite', ['namespace' => 'App\Controllers\Addons\AbacusProSuite'], static function ($routes) {
     $routes->get('/', 'AbacusProSuiteController::index');
     $routes->get('analytics', 'AbacusProSuiteController::batchAnalyticsView');
@@ -26,7 +25,7 @@ $routes->group('addons/abacus-pro-suite', ['namespace' => 'App\Controllers\Addon
     $routes->get('assets/(:any)', 'AbacusProSuiteController::asset/$1');
 });
 
-// Clean Top-Level Student, Parent & Teacher Practice Arena Routes
+// Public / Guest & Student Practice Routes (Works WITH or WITHOUT Login!)
 $routes->group('abacus', ['namespace' => 'App\Controllers\Addons\AbacusProSuite'], static function ($routes) {
     $routes->get('/', 'AbacusProSuiteController::arenaView');
     $routes->get('arena', 'AbacusProSuiteController::arenaView');

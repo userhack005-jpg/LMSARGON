@@ -1,34 +1,141 @@
 (function () {
     'use strict';
-    if (window.__CMS_ABACUS_PRO_SUITE_V80__) return;
-    window.__CMS_ABACUS_PRO_SUITE_V80__ = true;
+    if (window.__CMS_ABACUS_PRO_SUITE_V85__) return;
+    window.__CMS_ABACUS_PRO_SUITE_V85__ = true;
+
+    function escapeHtml(str) {
+        return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // Register BOTH Frontend Page Builder Blocks!
+    if (!window.CMS_ADDON_BLOCK_RENDERERS) {
+        window.CMS_ADDON_BLOCK_RENDERERS = {};
+    }
+
+    window.CMS_ADDON_BLOCK_RENDERERS['abacus_soroban_lab'] = function (blk, idx, isFooter, colIdx) {
+        var d = blk.data ? blk.data : {};
+        var cls = isFooter ? 'js-f-field' : 'js-blk-field';
+        var attr = isFooter ? ('data-col="' + colIdx + '" data-bidx="' + idx + '"') : ('data-idx="' + idx + '"');
+        var rods = String(d.default_rods || '5');
+        var thm  = String(d.theme || 'cyber_emerald');
+        return '<div class="grid-3-col">' +
+            '<div class="field-group"><label class="field-label"><span>Heading</span></label>' +
+            '<input type="text" class="field-input ' + cls + '" ' + attr + ' data-key="heading" value="' + escapeHtml(d.heading || 'Try Our 3D Japanese Soroban Abacus Live') + '"></div>' +
+            '<div class="field-group"><label class="field-label"><span>Default Rods (5–17)</span></label>' +
+            '<select class="field-select ' + cls + '" ' + attr + ' data-key="default_rods">' +
+            ['5','7','9','11','13','15','17'].map(function(r){ return '<option value="'+r+'" '+(rods===r?'selected':'')+'>'+r+' Rods</option>'; }).join('') +
+            '</select></div>' +
+            '<div class="field-group"><label class="field-label"><span>Theme</span></label>' +
+            '<select class="field-select ' + cls + '" ' + attr + ' data-key="theme">' +
+            '<option value="cyber_emerald" '+(thm==='cyber_emerald'?'selected':'')+'>Cyber Emerald</option>' +
+            '<option value="classic_wood" '+(thm==='classic_wood'?'selected':'')+'>Classic Wood</option>' +
+            '<option value="royal_gold" '+(thm==='royal_gold'?'selected':'')+'>Royal Gold</option>' +
+            '</select></div></div>';
+    };
+
+    window.CMS_ADDON_BLOCK_RENDERERS['abacus_flash_anzan'] = function (blk, idx, isFooter, colIdx) {
+        var d = blk.data ? blk.data : {};
+        var cls = isFooter ? 'js-f-field' : 'js-blk-field';
+        var attr = isFooter ? ('data-col="' + colIdx + '" data-bidx="' + idx + '"') : ('data-idx="' + idx + '"');
+        return '<div class="grid-2-col">' +
+            '<div class="field-group"><label class="field-label"><span>Badge</span></label>' +
+            '<input type="text" class="field-input ' + cls + '" ' + attr + ' data-key="badge" value="' + escapeHtml(d.badge || 'SPEED MENTAL MATH ARENA') + '"></div>' +
+            '<div class="field-group"><label class="field-label"><span>Heading</span></label>' +
+            '<input type="text" class="field-input ' + cls + '" ' + attr + ' data-key="heading" value="' + escapeHtml(d.heading || 'Flash Anzan & Voice Dictation Challenge') + '"></div>' +
+            '</div>';
+    };
+
+    document.dispatchEvent(new CustomEvent('cms:addon-renderer-ready', { detail: { type: 'abacus_soroban_lab' } }));
+    document.dispatchEvent(new CustomEvent('cms:addon-renderer-ready', { detail: { type: 'abacus_flash_anzan' } }));
 
     var audioCtx = null;
-
     function playBeadClick(freq, durationMs) {
         try {
             if (!audioCtx && (window.AudioContext || window.webkitAudioContext)) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
             if (!audioCtx) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             var osc  = audioCtx.createOscillator();
             var gain = audioCtx.createGain();
             osc.type = 'triangle';
-            osc.frequency.setValueAtTime(freq || 520, audioCtx.currentTime);
-            gain.gain.setValueAtTime(0.14, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + ((durationMs || 45) / 1000));
+            osc.frequency.setValueAtTime(freq || 540, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.16, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + ((durationMs || 38) / 1000));
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + ((durationMs || 45) / 1000));
+            osc.stop(audioCtx.currentTime + ((durationMs || 38) / 1000));
         } catch (e) {}
     }
 
-    function updateCsrfToken(token) {
-        if (!token) return;
-        var meta = document.querySelector('meta[name="csrf-token"]');
-        if (meta) meta.setAttribute('content', token);
-        document.querySelectorAll('input[name="csrf_test_name"]').forEach(function (inp) { inp.value = token; });
+    // Authentic Hindi Number Words (1 to 99) for Crisp Hindi Dictation!
+    var HINDI_NUMS = {
+        0:'शून्य', 1:'एक', 2:'दो', 3:'तीन', 4:'चार', 5:'पाँच', 6:'छह', 7:'सात', 8:'आठ', 9:'नौ', 10:'दस',
+        11:'ग्यारह', 12:'बारह', 13:'तेरह', 14:'चौदह', 15:'पंद्रह', 16:'सोलह', 17:'सत्रह', 18:'अठारह', 19:'उन्नीस', 20:'बीस',
+        21:'इक्कीस', 22:'बाईस', 23:'तेईस', 24:'चौबीस', 25:'पच्चीस', 26:'छब्बीस', 27:'सत्ताईस', 28:'अट्ठाईस', 29:'उनतीस', 30:'तीस',
+        31:'इकतीस', 32:'बत्तीस', 33:'तैंतीस', 34:'चौंतीस', 35:'पैंतीस', 36:'छत्तीस', 37:'सैंतीस', 38:'अड़तीस', 39:'उनतालीस', 40:'चालीस',
+        41:'इकतालीस', 42:'बयालीस', 43:'तैंतालीस', 44:'चवालीस', 45:'पैंतालीस', 46:'छियालीस', 47:'सैंतालीस', 48:'अड़तालीस', 49:'उनचास', 50:'पचास'
+    };
+
+    var cachedVoices = [];
+    function loadVoices() {
+        if ('speechSynthesis' in window) {
+            cachedVoices = window.speechSynthesis.getVoices() || [];
+        }
+    }
+    if ('speechSynthesis' in window) {
+        loadVoices();
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+
+    /**
+     * Ultra-Smooth Fast Voice Dictation Engine (Supports 0.3s, 0.5s, 0.7s, 1.0s, 1.5s, 2.0s in Hindi & English!)
+     */
+    function speakCrispNumber(val, langCode, speedSec) {
+        playBeadClick(val >= 0 ? 600 : 420, 32);
+        try {
+            if (!('speechSynthesis' in window)) return;
+            var absVal = Math.abs(val);
+            var isHindi = (langCode === 'hi-IN');
+            var spokenText = '';
+
+            if (isHindi) {
+                var numWord = HINDI_NUMS[absVal] || String(absVal);
+                spokenText = val < 0 ? ('माइनस ' + numWord) : numWord;
+            } else {
+                spokenText = val < 0 ? ('Minus ' + absVal) : String(absVal);
+            }
+
+            // Dynamic Rate Scaling so 0.3s / 0.5s / 0.7s finishes speaking BEFORE the next number flashes!
+            var dynRate = 1.25;
+            if (speedSec <= 0.35) dynRate = 2.85;
+            else if (speedSec <= 0.55) dynRate = 2.25;
+            else if (speedSec <= 0.8) dynRate = 1.75;
+            else if (speedSec <= 1.1) dynRate = 1.35;
+
+            window.speechSynthesis.cancel();
+            var utter = new SpeechSynthesisUtterance(spokenText);
+            utter.lang  = isHindi ? 'hi-IN' : 'en-IN';
+            utter.rate  = dynRate;
+            utter.pitch = 1.05;
+
+            if (!cachedVoices.length) loadVoices();
+            var matchVoice = null;
+            for (var i = 0; i < cachedVoices.length; i++) {
+                var v = cachedVoices[i];
+                if (isHindi && (v.lang.indexOf('hi') === 0 || v.name.toLowerCase().indexOf('hindi') !== -1)) {
+                    matchVoice = v;
+                    break;
+                }
+                if (!isHindi && v.lang.indexOf('en') === 0) {
+                    matchVoice = v;
+                    break;
+                }
+            }
+            if (matchVoice) utter.voice = matchVoice;
+            window.speechSynthesis.speak(utter);
+        } catch (e) {}
     }
 
     function sendAttemptToServer(logUrl, payload, onDone) {
@@ -44,19 +151,14 @@
             body: fd
         })
         .then(function (r) { return r.json(); })
-        .then(function (res) {
-            if (res && res.csrf_token) updateCsrfToken(res.csrf_token);
-            if (typeof onDone === 'function') onDone(res);
-        })
+        .then(function (res) { if (typeof onDone === 'function') onDone(res); })
         .catch(function () {});
     }
 
-    /**
-     * 1. Interactive 3D Soroban Abacus Lab (`/abacus/arena`)
-     */
     function initSorobanLab() {
         var rootEl = document.getElementById('js-aps-soroban-root');
-        if (!rootEl) return;
+        if (!rootEl || rootEl.dataset.mounted === '1') return;
+        rootEl.dataset.mounted = '1';
 
         var rodsContainer = document.getElementById('js-soroban-rods-container');
         var currentValEl  = document.getElementById('js-soroban-current-val');
@@ -70,11 +172,11 @@
         var toastEl       = document.getElementById('js-soroban-challenge-toast');
         var logUrl        = rootEl.getAttribute('data-log-url') || '';
 
-        var rodsCount     = parseInt(rootEl.getAttribute('data-rods') || '13', 10);
-        var soundEnabled  = rootEl.getAttribute('data-sound') !== '0';
-        var rodValues     = [];
-        var targetNumber  = null;
-        var challStartTs  = 0;
+        var rodsCount    = parseInt(rootEl.getAttribute('data-rods') || '5', 10) || 5;
+        var soundEnabled = rootEl.getAttribute('data-sound') !== '0';
+        var rodValues    = [];
+        var targetNumber = null;
+        var challStartTs = 0;
 
         function buildSorobanRods(count) {
             rodsCount = count;
@@ -127,9 +229,7 @@
 
         function updateTotalReadout() {
             var totalStr = computeTotalAbacusValue();
-            if (currentValEl) {
-                currentValEl.textContent = Number(totalStr).toLocaleString('en-IN');
-            }
+            if (currentValEl) currentValEl.textContent = Number(totalStr).toLocaleString('en-IN');
 
             if (targetNumber !== null && String(targetNumber) === totalStr) {
                 var elapsedSec = Math.max(1, Math.round((Date.now() - challStartTs) / 1000));
@@ -147,9 +247,7 @@
                     time_taken_sec: elapsedSec
                 }, function (res) {
                     if (toastEl) {
-                        toastEl.textContent = (res && res.message)
-                            ? ('🎉 Target ' + solvedTarget + ' Matched in ' + elapsedSec + 's! ' + res.message)
-                            : ('🎉 Target ' + solvedTarget + ' Matched in ' + elapsedSec + 's!');
+                        toastEl.textContent = '🎉 Target ' + solvedTarget + ' Solved in ' + elapsedSec + 's! ' + ((res && res.message) ? res.message : '');
                         toastEl.classList.remove('is-hidden');
                     }
                 });
@@ -159,7 +257,6 @@
         rodsContainer.addEventListener('click', function (e) {
             var bead = e.target.closest('.aps-bead');
             if (!bead) return;
-
             var rodIdx   = parseInt(bead.getAttribute('data-rod'), 10);
             var type     = bead.getAttribute('data-type');
             var currVal  = rodValues[rodIdx] || 0;
@@ -174,41 +271,37 @@
             }
 
             rodValues[rodIdx] = (hasHeav ? 5 : 0) + earthVal;
-            if (soundEnabled) playBeadClick(type === 'heaven' ? 640 : 480, 40);
+            if (soundEnabled) playBeadClick(type === 'heaven' ? 660 : 490, 35);
             syncRodVisuals(rodIdx);
             updateTotalReadout();
         });
 
         if (rodsSel) {
             rodsSel.addEventListener('change', function () {
-                buildSorobanRods(parseInt(rodsSel.value, 10) || 13);
+                buildSorobanRods(parseInt(rodsSel.value, 10) || 5);
             });
         }
-
         if (themeSel && frameWrap) {
             themeSel.addEventListener('change', function () {
                 frameWrap.className = 'aps-soroban-stage theme-' + themeSel.value;
             });
         }
-
         if (soundBtn) {
             soundBtn.addEventListener('click', function () {
                 soundEnabled = !soundEnabled;
                 soundBtn.textContent = soundEnabled ? '🔊 Sound: ON' : '🔇 Sound: OFF';
             });
         }
-
         if (clearBtn) {
             clearBtn.addEventListener('click', function () {
                 for (var i = 0; i < rodsCount; i++) {
                     rodValues[i] = 0;
                     syncRodVisuals(i);
                 }
-                if (soundEnabled) playBeadClick(360, 60);
+                if (soundEnabled) playBeadClick(360, 50);
                 updateTotalReadout();
             });
         }
-
         if (newChallBtn) {
             newChallBtn.addEventListener('click', function () {
                 for (var i = 0; i < rodsCount; i++) {
@@ -216,7 +309,8 @@
                     syncRodVisuals(i);
                 }
                 updateTotalReadout();
-                targetNumber = Math.floor(100 + Math.random() * 9899);
+                var maxPow = Math.min(4, rodsCount);
+                targetNumber = Math.floor(10 + Math.random() * (Math.pow(10, maxPow) - 15));
                 challStartTs = Date.now();
                 if (targetValEl) targetValEl.textContent = Number(targetNumber).toLocaleString('en-IN');
                 if (toastEl) toastEl.classList.add('is-hidden');
@@ -226,14 +320,13 @@
         buildSorobanRods(rodsCount);
     }
 
-    /**
-     * 2. Flash Anzan & Voice Dictation Speed Arena (`/abacus/anzan`)
-     */
     function initFlashAnzanArena() {
         var rootEl = document.getElementById('js-aps-anzan-root');
-        if (!rootEl) return;
+        if (!rootEl || rootEl.dataset.mounted === '1') return;
+        rootEl.dataset.mounted = '1';
 
         var modeSel     = document.getElementById('js-anz-mode');
+        var langSel     = document.getElementById('js-anz-lang');
         var digitsSel   = document.getElementById('js-anz-digits');
         var rowsSel     = document.getElementById('js-anz-rows');
         var speedSel    = document.getElementById('js-anz-speed');
@@ -254,25 +347,15 @@
         var drillTimer  = null;
         var startTs     = 0;
 
-        function speakText(text) {
-            try {
-                if (!('speechSynthesis' in window)) return;
-                window.speechSynthesis.cancel();
-                var utter = new SpeechSynthesisUtterance(text);
-                utter.rate = 1.15;
-                window.speechSynthesis.speak(utter);
-            } catch (e) {}
-        }
-
         function generateSequence(digits, rows, allowSub) {
-            var minVal = Math.pow(10, digits - 1);
-            var maxVal = Math.pow(10, digits) - 1;
-            var seq    = [];
+            var minVal  = Math.pow(10, digits - 1);
+            var maxVal  = Math.pow(10, digits) - 1;
+            var seq     = [];
             var running = 0;
 
             for (var i = 0; i < rows; i++) {
                 var n = Math.floor(minVal + Math.random() * (maxVal - minVal + 1));
-                if (allowSub && i > 0 && running > n && Math.random() < 0.4) {
+                if (allowSub && i > 0 && running > n && Math.random() < 0.42) {
                     n = -n;
                 }
                 running += n;
@@ -283,28 +366,35 @@
         }
 
         function startDrill() {
-            clearInterval(drillTimer);
-            var mode     = modeSel ? modeSel.value : 'flash_anzan';
+            clearTimeout(drillTimer);
+            var mode     = modeSel ? modeSel.value : 'voice_dictation';
+            var lang     = langSel ? langSel.value : 'hi-IN';
             var digits   = parseInt(digitsSel ? digitsSel.value : '1', 10) || 1;
             var rows     = parseInt(rowsSel ? rowsSel.value : '5', 10) || 5;
             var speedSec = parseFloat(speedSel ? speedSel.value : '1.0') || 1.0;
             var allowSub = !opsSel || opsSel.value === 'add_sub';
+            var stepMs   = Math.max(250, Math.round(speedSec * 1000));
 
             sequence = generateSequence(digits, rows, allowSub);
             if (ansForm) ansForm.classList.add('is-hidden');
             if (resBanner) resBanner.classList.add('is-hidden');
             if (userAnsInp) userAnsInp.value = '';
-            if (subHintEl) subHintEl.textContent = 'Watch carefully and calculate on your mental abacus...';
+            if (subHintEl) subHintEl.textContent = 'Calculate on your mental abacus...';
 
             var idx = 0;
             startTs = Date.now();
 
             function stepFlash() {
                 if (idx >= sequence.length) {
-                    clearInterval(drillTimer);
                     bigNumEl.textContent = '?';
-                    progPill.textContent = 'ENTER YOUR ANSWER';
-                    if (mode === 'voice_dictation') speakText('Answer please');
+                    progPill.textContent = 'ENTER FINAL SUM';
+                    if (mode === 'voice_dictation' && ('speechSynthesis' in window)) {
+                        window.speechSynthesis.cancel();
+                        var endU = new SpeechSynthesisUtterance(lang === 'hi-IN' ? 'उत्तर बताइए' : 'Answer');
+                        endU.lang = lang;
+                        endU.rate = 1.4;
+                        window.speechSynthesis.speak(endU);
+                    }
                     if (ansForm) {
                         ansForm.classList.remove('is-hidden');
                         if (userAnsInp) userAnsInp.focus();
@@ -312,23 +402,31 @@
                     return;
                 }
 
-                var val      = sequence[idx];
-                var signStr  = val >= 0 ? ('+' + val) : String(val);
-                bigNumEl.textContent = signStr;
-                progPill.textContent = 'ROW ' + (idx + 1) + ' OF ' + sequence.length;
+                var val     = sequence[idx];
+                var signStr = val >= 0 ? ('+' + val) : String(val);
+
+                // Brief visual blanking (40ms) so consecutive identical numbers visibly flash!
+                bigNumEl.style.opacity = '0.25';
+                setTimeout(function () {
+                    bigNumEl.textContent   = signStr;
+                    bigNumEl.style.opacity = '1';
+                    bigNumEl.style.color   = val >= 0 ? '#10b981' : '#f59e0b';
+                }, 35);
+
+                progPill.textContent  = 'ROW ' + (idx + 1) + ' / ' + sequence.length;
                 timerPill.textContent = '⏱ ' + ((Date.now() - startTs) / 1000).toFixed(1) + 's';
 
                 if (mode === 'voice_dictation') {
-                    speakText(val >= 0 ? ('Plus ' + val) : ('Minus ' + Math.abs(val)));
+                    speakCrispNumber(val, lang, speedSec);
                 } else {
-                    playBeadClick(val >= 0 ? 580 : 420, 45);
+                    playBeadClick(val >= 0 ? 600 : 420, 35);
                 }
 
                 idx++;
+                drillTimer = setTimeout(stepFlash, stepMs);
             }
 
             stepFlash();
-            drillTimer = setInterval(stepFlash, Math.max(200, Math.round(speedSec * 1000)));
         }
 
         if (startBtn) startBtn.addEventListener('click', startDrill);
@@ -341,11 +439,12 @@
                 var isCorrect = (userVal === expectedSum);
                 var elapsed   = Math.max(1, Math.round((Date.now() - startTs) / 1000));
 
+                bigNumEl.style.color = isCorrect ? '#10b981' : '#f43f5e';
                 bigNumEl.textContent = isCorrect ? ('✓ ' + expectedSum) : ('Ans: ' + expectedSum);
                 if (isCorrect) playBeadClick(880, 150);
 
                 sendAttemptToServer(logUrl, {
-                    drill_mode: modeSel ? modeSel.value : 'flash_anzan',
+                    drill_mode: modeSel ? modeSel.value : 'voice_dictation',
                     digits_count: digitsSel ? digitsSel.value : 1,
                     rows_count: rowsSel ? rowsSel.value : 5,
                     speed_seconds: speedSel ? speedSel.value : 1.0,
@@ -362,25 +461,9 @@
         }
     }
 
-    function initParentChildFilter() {
-        var bar = document.getElementById('js-aps-child-filter-bar');
-        if (!bar) return;
-        bar.addEventListener('click', function (e) {
-            var btn = e.target.closest('.js-aps-child-tab');
-            if (!btn) return;
-            bar.querySelectorAll('.js-aps-child-tab').forEach(function (b) { b.classList.remove('is-active'); });
-            btn.classList.add('is-active');
-            var cid = btn.getAttribute('data-child-id') || 'all';
-            document.querySelectorAll('.js-aps-child-row').forEach(function (row) {
-                row.style.display = (cid === 'all' || row.getAttribute('data-child-id') === cid) ? '' : 'none';
-            });
-        });
-    }
-
     function initAll() {
         initSorobanLab();
         initFlashAnzanArena();
-        initParentChildFilter();
     }
 
     if (document.readyState === 'loading') {
