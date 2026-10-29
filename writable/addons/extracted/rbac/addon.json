@@ -1,0 +1,31 @@
+{
+    "slug": "rbac",
+    "name": "Roles, Permissions & Sidebar Architect",
+    "category": "core_security",
+    "version": "7.0.0",
+    "author": "Core Architecture Team",
+    "description": "Zero-Query (0ms) Dynamic RBAC Engine, iOS-Style Switch Permission Matrix, Child/Parent/Teacher-Friendly Sidebar Menu Renamer, Live Sidebar Previewer & Strict Child-Sandbox Lock.",
+    "admin_route": "addons/rbac",
+    "frontend_route": "",
+    "init_model": "App\\Models\\Addons\\Rbac\\RbacModel",
+    "assets": {
+        "css": ["addons/rbac/assets/rbac.css"],
+        "js": ["addons/rbac/assets/rbac.js"]
+    },
+    "default_config": {
+        "default_registration_role": "student",
+        "enable_parent_portal": "1",
+        "strict_rbac_mode": "1"
+    },
+    "permissions": [
+        { "key": "rbac.view",   "label": "View Roles, Permission Matrix & Live Sidebar Preview [Super Admin + Admin]" },
+        { "key": "rbac.create", "label": "Create Custom Roles & Register Custom Permission Keys [Super Admin]" },
+        { "key": "rbac.edit",   "label": "Update Role Permissions, Rename Sidebar Menus & Configure Workspaces [Super Admin]" },
+        { "key": "rbac.delete", "label": "Delete Custom Roles & Custom Permission Keys [Super Admin]" }
+    ],
+    "sub_views": [
+        { "key": "rbac.overview",  "label": "Roles & Live Sidebar Preview", "route": "addons/rbac",           "icon": "📊", "permission": "rbac.view" },
+        { "key": "rbac.matrix",    "label": "Permission Switch Matrix",     "route": "addons/rbac/matrix",    "icon": "🛡", "permission": "rbac.view" },
+        { "key": "rbac.workspace", "label": "Menu Renamer & Widgets",       "route": "addons/rbac/workspace", "icon": "🎨", "permission": "rbac.edit" }
+    ]
+}

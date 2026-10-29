@@ -1,0 +1,275 @@
+/* ==========================================================================
+   3D SOROBAN ABACUS & FLASH ANZAN LAB 8.0 (GAMIFIED & DUAL-THEME ADAPTIVE)
+   ========================================================================== */
+.aps-wrapper { width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
+.aps-flex-between { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; }
+
+.aps-compact-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding: 0.85rem 1.15rem;
+    border-radius: 12px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+}
+
+.aps-soroban-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border-radius: 14px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+    margin-bottom: 1.25rem;
+}
+.aps-readout-group { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.aps-digital-readout {
+    font-family: var(--font-mono, monospace);
+    font-size: 2rem;
+    font-weight: 900;
+    color: #10b981;
+    line-height: 1.1;
+}
+.aps-target-box {
+    padding: 0.45rem 0.95rem;
+    border-radius: 10px;
+    background: var(--bg-canvas, #090a0f);
+    border: 1px dashed #06b6d4;
+}
+.aps-target-val {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.45rem;
+    font-weight: 900;
+    color: #06b6d4;
+}
+.aps-controls-group { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+
+/* 3D Soroban Frame & Beads */
+.aps-soroban-stage {
+    padding: 1.5rem;
+    border-radius: 18px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.25);
+    overflow-x: auto;
+}
+.aps-soroban-outer-frame {
+    min-width: 680px;
+    padding: 1.25rem 1.5rem;
+    border-radius: 16px;
+    background: #090b12;
+    border: 8px solid #1e293b;
+    box-shadow: inset 0 8px 24px rgba(0, 0, 0, 0.75);
+}
+.aps-soroban-stage.theme-classic_wood .aps-soroban-outer-frame {
+    background: #1c120c;
+    border-color: #5c3317;
+}
+.aps-soroban-stage.theme-royal_gold .aps-soroban-outer-frame {
+    background: #0f111a;
+    border-color: #d97706;
+}
+
+.aps-soroban-rods-container {
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 0.35rem;
+    position: relative;
+    user-select: none;
+}
+.aps-rod-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 44px;
+    position: relative;
+}
+.aps-rod-line {
+    position: absolute;
+    top: 0;
+    bottom: 34px;
+    width: 6px;
+    background: linear-gradient(90deg, #475569, #94a3b8, #475569);
+    border-radius: 3px;
+    z-index: 1;
+}
+.aps-heaven-deck {
+    height: 82px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    width: 100%;
+    z-index: 2;
+    padding: 4px 0;
+}
+.aps-reckoning-beam {
+    width: 100%;
+    height: 12px;
+    background: linear-gradient(180deg, #334155, #0f172a);
+    border-top: 2px solid #64748b;
+    border-bottom: 2px solid #64748b;
+    z-index: 3;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.aps-unit-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f8fafc;
+    box-shadow: 0 0 6px #10b981;
+}
+.aps-earth-deck {
+    height: 175px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+    z-index: 2;
+    padding: 6px 0;
+}
+
+/* 3D Bi-Conical Bead Styling */
+.aps-bead {
+    width: 44px;
+    height: 28px;
+    border-radius: 50% / 42%;
+    cursor: pointer;
+    transition: transform 0.16s cubic-bezier(0.22, 1, 0.36, 1), background 0.16s ease, box-shadow 0.16s ease;
+    background: radial-gradient(circle at 35% 30%, #6ee7b7, #10b981 60%, #047857 100%);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.55), inset 0 2px 4px rgba(255, 255, 255, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.aps-soroban-stage.theme-classic_wood .aps-bead {
+    background: radial-gradient(circle at 35% 30%, #f59e0b, #b45309 65%, #78350f 100%);
+}
+.aps-soroban-stage.theme-royal_gold .aps-bead {
+    background: radial-gradient(circle at 35% 30%, #fef08a, #eab308 60%, #a16207 100%);
+}
+.aps-bead.is-active {
+    background: radial-gradient(circle at 35% 30%, #67e8f9, #06b6d4 60%, #0e7490 100%) !important;
+    box-shadow: 0 0 14px rgba(6, 182, 212, 0.7), inset 0 2px 4px rgba(255, 255, 255, 0.65);
+}
+.aps-heaven-bead.is-active {
+    transform: translateY(38px);
+}
+.aps-earth-bead.is-active {
+    transform: translateY(-28px);
+}
+
+.aps-rod-digit-box {
+    margin-top: 8px;
+    width: 34px;
+    height: 28px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid #334155;
+    color: #10b981;
+    font-family: var(--font-mono, monospace);
+    font-weight: 800;
+    font-size: 0.92rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3;
+}
+.aps-soroban-helper-strip {
+    margin-top: 1rem;
+    text-align: center;
+    font-size: 0.84rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+/* Flash Anzan Layout */
+.aps-anzan-layout {
+    display: grid;
+    grid-template-columns: 350px minmax(0, 1fr);
+    gap: 1.35rem;
+    align-items: stretch;
+}
+.aps-anzan-screen-card {
+    border-radius: 16px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 420px;
+}
+.aps-anzan-hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.aps-anzan-display-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    margin: 1rem 0;
+    padding: 2rem;
+    border-radius: 16px;
+    background: var(--bg-canvas, #090a0f);
+    border: 1px solid var(--border-subtle, #232738);
+}
+.aps-anzan-big-num {
+    font-family: var(--font-mono, monospace);
+    font-size: clamp(3rem, 7vw, 5.5rem);
+    font-weight: 900;
+    color: #10b981;
+    letter-spacing: 0.04em;
+    line-height: 1.1;
+}
+.aps-anzan-answer-bar {
+    display: flex;
+    gap: 0.65rem;
+    align-items: center;
+}
+
+/* Gamified Badges */
+.aps-badge-card {
+    padding: 1.15rem;
+    border-radius: 14px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+}
+.aps-badge-card.is-unlocked {
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 8px 22px rgba(16, 185, 129, 0.12);
+}
+.aps-badge-card.is-locked { opacity: 0.55; }
+.aps-badge-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(16, 185, 129, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+@media (max-width: 980px) {
+    .aps-anzan-layout { grid-template-columns: minmax(0, 1fr); }
+}

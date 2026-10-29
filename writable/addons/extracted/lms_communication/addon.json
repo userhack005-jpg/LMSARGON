@@ -1,0 +1,35 @@
+{
+    "slug": "lms_communication",
+    "name": "Classroom Chat, Teacher Feedback & Safety",
+    "category": "core_lms",
+    "version": "8.1.0",
+    "author": "Core Architecture Team",
+    "description": "Multi-Batch 1-to-1 Student-Teacher Messenger, Immutable Student-to-Teacher Feedback Cards, Student-Only Zero-Load Floating Chat Widget, DLP Shadow-Blocking Moderation & Alerts.",
+    "admin_route": "addons/lms-communication/moderation",
+    "frontend_route": "chat/portal",
+    "init_model": "App\\Models\\Addons\\LmsCommunication\\LmsCommunicationModel",
+    "assets": {
+        "css": ["addons/lms-communication/assets/lms_communication.css"],
+        "js": ["addons/lms-communication/assets/lms_communication.js"]
+    },
+    "default_config": {
+        "enable_dlp_guard": "1",
+        "block_phone_numbers": "1",
+        "block_emails": "1",
+        "block_links": "1"
+    },
+    "permissions": [
+        { "key": "lms_communication.chat",     "label": "Access 1-to-1 Batch Classroom Chat [Student + Teacher + Parent Read-Only]" },
+        { "key": "lms_communication.feedback", "label": "Submit & View 1-to-1 Teacher Feedback Cards [Student + Parent + Teacher + Admin]" },
+        { "key": "lms_communication.moderate", "label": "Review Shadow-Blocked & Flagged Chat Queue [Super Admin + Admin]" },
+        { "key": "lms_communication.filters",  "label": "Manage DLP Keyword & Regex Safety Filters [Super Admin + Admin]" },
+        { "key": "lms_communication.alerts",   "label": "View Email & WhatsApp Alert Logs [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "comm.chat",     "label": "1-to-1 Classroom Chat",        "route": "chat/portal",                          "icon": "💬", "permission": "lms_communication.chat" },
+        { "key": "comm.feedback", "label": "Teacher Feedback Cards",       "route": "chat/feedback",                        "icon": "⭐", "permission": "lms_communication.feedback" },
+        { "key": "comm.moderate", "label": "Chat Moderation [Admin]",      "route": "addons/lms-communication/moderation",  "icon": "🛡", "permission": "lms_communication.moderate" },
+        { "key": "comm.filters",  "label": "Safety Filter Rules [Admin]",  "route": "addons/lms-communication/dlp-filters", "icon": "🔒", "permission": "lms_communication.filters" },
+        { "key": "comm.alerts",   "label": "Email & WhatsApp Logs",        "route": "addons/lms-communication/alerts",      "icon": "🔔", "permission": "lms_communication.alerts" }
+    ]
+}

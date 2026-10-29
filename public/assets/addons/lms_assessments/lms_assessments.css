@@ -1,0 +1,153 @@
+/* ==========================================================================
+   EXAMS, WORKSHEETS & CERTIFICATES ENGINE 8.0 (CLEAN, MODULAR & RESPONSIVE)
+   ========================================================================== */
+.las-wrapper, .las-portal-wrapper { width: 100%; max-width: 100%; box-sizing: border-box; overflow-x: hidden; }
+.las-section-gap { margin-bottom: 1.75rem; }
+.las-inline-form { display: inline-block; margin: 0; }
+.las-select-xs { padding: 0.35rem 0.55rem !important; font-size: 0.78rem !important; }
+.las-flex-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.las-compact-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.35rem;
+    padding: 0.85rem 1.15rem;
+    border-radius: 12px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+}
+.las-stat-pills { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+
+.las-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.45fr);
+    gap: 1.35rem;
+    align-items: start;
+}
+.las-check-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.88rem;
+}
+
+.las-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.25rem;
+}
+.las-modern-card {
+    padding: 1.35rem;
+    border-radius: 14px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 1.1rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.las-modern-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--accent-emerald, #10b981);
+}
+.las-card-specs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+    margin-top: 0.85rem;
+    padding: 0.65rem;
+    border-radius: 10px;
+    background: var(--bg-canvas, #090a0f);
+    border: 1px solid var(--border-subtle, #232738);
+    text-align: center;
+}
+.las-card-specs strong { display: block; font-size: 0.92rem; margin-top: 0.15rem; font-family: var(--font-mono, monospace); }
+
+.las-score-bar-wrap { display: flex; align-items: baseline; gap: 0.4rem; }
+.las-mini-progress {
+    width: 140px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--bg-canvas, #090a0f);
+    overflow: hidden;
+    margin-top: 0.3rem;
+}
+.las-mini-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #06b6d4);
+    border-radius: 999px;
+}
+
+.las-qpicker-scroll {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 0.4rem;
+    border-radius: 8px;
+    background: var(--bg-canvas, #090a0f);
+    border: 1px solid var(--border-subtle, #232738);
+}
+.las-qpicker-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.55rem;
+    padding: 0.45rem 0.65rem;
+    border-radius: 6px;
+    background: var(--bg-surface, #11131c);
+    border: 1px solid var(--border-subtle, #232738);
+    cursor: pointer;
+    font-size: 0.82rem;
+}
+
+.las-timer-badge {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.25rem;
+    font-weight: 900;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid #10b981;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+}
+.las-questions-stack { display: flex; flex-direction: column; gap: 0.9rem; }
+.las-q-card { padding: 1.05rem !important; }
+.las-q-title { font-size: 1.05rem; margin-bottom: 0.7rem; }
+.las-opts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(125px, 1fr));
+    gap: 0.6rem;
+}
+.las-opt-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 10px;
+    background: var(--bg-canvas, #090a0f);
+    border: 1px solid var(--border-subtle, #232738);
+    cursor: pointer;
+    font-weight: 700;
+}
+.las-opt-pill:hover { border-color: #10b981; }
+
+.las-verifier-card { padding: 2rem !important; text-align: center; }
+.las-verify-bar { display: flex; max-width: 520px; margin: 1.25rem auto 0; gap: 0.6rem; }
+.las-cert-result { margin-top: 1rem; font-weight: 700; }
+
+@media (max-width: 1024px) {
+    .las-main-grid { grid-template-columns: minmax(0, 1fr); }
+}

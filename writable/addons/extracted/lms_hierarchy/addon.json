@@ -1,0 +1,36 @@
+{
+    "slug": "lms_hierarchy",
+    "name": "Courses & Academic Programs",
+    "category": "core_lms",
+    "version": "8.0.0",
+    "author": "Core Architecture Team",
+    "description": "Clean Course & Curriculum Level Builder (No Redundant Teacher/Schedule Clutter), Auto-Healing Schema Migration, Dedicated Course Detail Pages, Silent Geo-Currency Pricing, and Orphan-Safe Student Enrollment Upgrades.",
+    "admin_route": "addons/lms-hierarchy",
+    "frontend_route": "courses/catalog",
+    "init_model": "App\\Models\\Addons\\LmsHierarchy\\LmsHierarchyModel",
+    "assets": {
+        "css": ["addons/lms-hierarchy/assets/lms_hierarchy.css"],
+        "js": ["addons/lms-hierarchy/assets/lms_hierarchy.js"]
+    },
+    "default_config": {
+        "badge": "ACADEMIC PROGRAMS",
+        "heading": "Explore Our Courses & Learning Levels",
+        "subheading": "Select any program below to view curriculum details, level progression, and enrollment options.",
+        "display_mode": "drilldown_tree",
+        "selected_node_ids": ""
+    },
+    "permissions": [
+        { "key": "lms_hierarchy.view",    "label": "View Courses & Enrolled Programs [Student + Parent + Teacher + Admin]" },
+        { "key": "lms_hierarchy.create",  "label": "Create & Edit Courses & Curriculum Levels [Super Admin + Admin]" },
+        { "key": "lms_hierarchy.pricing", "label": "Configure Country-Wise Course Fees [Super Admin + Admin]" },
+        { "key": "lms_hierarchy.edit",    "label": "Enroll Students & Promote Course Levels [Super Admin + Admin]" },
+        { "key": "lms_hierarchy.delete",  "label": "Delete Courses & Levels [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "lhr.tree",        "label": "All Courses & Levels",      "route": "addons/lms-hierarchy",             "icon": "📚", "permission": "lms_hierarchy.create" },
+        { "key": "lhr.builder",     "label": "Add / Edit Course",         "route": "addons/lms-hierarchy/builder",     "icon": "➕", "permission": "lms_hierarchy.create" },
+        { "key": "lhr.pricing",     "label": "Course Fee Plans",          "route": "addons/lms-hierarchy/pricing",     "icon": "💳", "permission": "lms_hierarchy.pricing" },
+        { "key": "lhr.enrollments", "label": "Student Enrollments",       "route": "addons/lms-hierarchy/enrollments", "icon": "🎓", "permission": "lms_hierarchy.edit" },
+        { "key": "lhr.catalog",     "label": "My Courses",                "route": "courses/catalog",                  "icon": "📖", "permission": "lms_hierarchy.view" }
+    ]
+}

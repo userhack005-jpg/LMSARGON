@@ -1,0 +1,35 @@
+{
+    "slug": "abacus_pro_suite",
+    "name": "3D Abacus & Flash Anzan Lab",
+    "category": "core_lms",
+    "version": "8.0.0",
+    "author": "Core Architecture Team",
+    "description": "Interactive Soroban Abacus Lab, Flash Anzan & Voice Dictation Speed Arena, Gamified Student Badges, Teacher Batch-Scoped Analytics & Strict Student-Only Database Logging.",
+    "admin_route": "addons/abacus-pro-suite/analytics",
+    "frontend_route": "abacus/arena",
+    "init_model": "App\\Models\\Addons\\AbacusProSuite\\AbacusProSuiteModel",
+    "assets": {
+        "css": ["addons/abacus-pro-suite/assets/abacus_pro_suite.css"],
+        "js": ["addons/abacus-pro-suite/assets/abacus_pro_suite.js"]
+    },
+    "default_config": {
+        "default_rods": "13",
+        "default_theme": "cyber_emerald",
+        "default_speed_sec": "1.0",
+        "enable_sound": "1",
+        "enable_voice": "1"
+    },
+    "permissions": [
+        { "key": "abacus_pro_suite.practice", "label": "Access 3D Soroban Lab, Flash Anzan & My Speed Badges [Student + Parent + Teacher]" },
+        { "key": "abacus_pro_suite.view",     "label": "View Batch Student Abacus Practice Analytics [Teacher + Admin]" },
+        { "key": "abacus_pro_suite.edit",     "label": "Configure Soroban Themes, Rods & Default Drill Settings [Super Admin + Admin]" },
+        { "key": "abacus_pro_suite.delete",   "label": "Delete Practice Attempt Logs [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "aps.arena",     "label": "3D Soroban Abacus Lab",      "route": "abacus/arena",                      "icon": "🧮", "permission": "abacus_pro_suite.practice" },
+        { "key": "aps.anzan",     "label": "Flash Anzan & Voice Drill",  "route": "abacus/anzan",                      "icon": "⚡", "permission": "abacus_pro_suite.practice" },
+        { "key": "aps.progress",  "label": "My Speed & Badges",          "route": "abacus/my-progress",                "icon": "🏆", "permission": "abacus_pro_suite.practice" },
+        { "key": "aps.analytics", "label": "Batch Practice Analytics",   "route": "addons/abacus-pro-suite/analytics", "icon": "📊", "permission": "abacus_pro_suite.view" },
+        { "key": "aps.settings",  "label": "Abacus Theme & Settings",    "route": "addons/abacus-pro-suite/settings",  "icon": "⚙",  "permission": "abacus_pro_suite.edit" }
+    ]
+}

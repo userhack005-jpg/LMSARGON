@@ -1,0 +1,36 @@
+{
+    "slug": "lms_assessments",
+    "name": "Exams, Worksheets & Certificates",
+    "category": "core_lms",
+    "version": "8.0.0",
+    "author": "Core Architecture Team",
+    "description": "Explicit Start-Button Timed Exams, Persistent Anti-Reset Timer, Unlimited Randomized Practice Sets, Dedicated PDF Worksheets View, and Clean Student/Parent Score & Certificate Portals.",
+    "admin_route": "addons/lms-assessments/question-bank",
+    "frontend_route": "assessments/portal",
+    "init_model": "App\\Models\\Addons\\LmsAssessments\\LmsAssessmentsModel",
+    "assets": {
+        "css": ["addons/lms-assessments/assets/lms_assessments.css"],
+        "js": ["addons/lms-assessments/assets/lms_assessments.js"]
+    },
+    "default_config": {
+        "badge": "VERIFY ACADEMIC CREDENTIALS",
+        "heading": "Official Certificate Verification Portal",
+        "subheading": "Enter a student's unique certificate serial code below to verify course completion and exam accuracy."
+    },
+    "permissions": [
+        { "key": "lms_assessments.take_exam", "label": "Access Practice Drills, Exams, PDF Worksheets & Certificates [Student + Parent]" },
+        { "key": "lms_assessments.view",      "label": "View All Student Exam Scores & Certificates [Teacher + Admin]" },
+        { "key": "lms_assessments.create",    "label": "Manage Question Bank, Create Exams & Upload Worksheets [Teacher + Admin]" },
+        { "key": "lms_assessments.edit",      "label": "Edit Question Bank, Exams, Worksheets & Settings [Super Admin + Admin]" },
+        { "key": "lms_assessments.delete",    "label": "Delete Questions, Exams & Worksheets [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "ass.portal_exams", "label": "Practice & Timed Exams",      "route": "assessments/portal",                   "icon": "🎯", "permission": "lms_assessments.take_exam" },
+        { "key": "ass.portal_ws",    "label": "My PDF Worksheets",           "route": "assessments/portal/worksheets",        "icon": "📄", "permission": "lms_assessments.take_exam" },
+        { "key": "ass.portal_hist",  "label": "My Scores & Certificates",    "route": "assessments/portal/history",           "icon": "🏆", "permission": "lms_assessments.take_exam" },
+        { "key": "ass.qbank",        "label": "Question Bank [Admin/Tchr]",  "route": "addons/lms-assessments/question-bank", "icon": "🗃", "permission": "lms_assessments.create" },
+        { "key": "ass.exams",        "label": "Exam Builder [Admin/Tchr]",   "route": "addons/lms-assessments/exams",         "icon": "📝", "permission": "lms_assessments.create" },
+        { "key": "ass.worksheets",   "label": "Upload PDF Worksheets",       "route": "addons/lms-assessments/worksheets",    "icon": "📤", "permission": "lms_assessments.create" },
+        { "key": "ass.analytics",    "label": "Student Scores & Certs",      "route": "addons/lms-assessments/analytics",     "icon": "📊", "permission": "lms_assessments.view" }
+    ]
+}

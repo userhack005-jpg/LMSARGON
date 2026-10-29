@@ -1,0 +1,31 @@
+{
+    "slug": "lms_timetable",
+    "name": "Live Batches, Timetable & Attendance",
+    "category": "core_lms",
+    "version": "9.0.0",
+    "author": "Core Architecture Team",
+    "description": "Live Classroom Batches with Subscribed Student Auto-Queue, 1-Click Class Rescheduler, Multi-Student Makeup Builder, 2-Step Teacher Start Wizard & Enrolled-Student-Only Live Popup.",
+    "admin_route": "addons/lms-timetable/cohorts",
+    "frontend_route": "timetable/portal",
+    "init_model": "App\\Models\\Addons\\LmsTimetable\\LmsTimetableModel",
+    "assets": {
+        "css": ["addons/lms-timetable/assets/lms_timetable.css"],
+        "js": ["addons/lms-timetable/assets/lms_timetable.js"]
+    },
+    "default_config": {
+        "min_class_duration_minutes": "30"
+    },
+    "permissions": [
+        { "key": "lms_timetable.view",          "label": "View My Live Class Schedule [Student + Parent + Teacher + Admin]" },
+        { "key": "lms_timetable.create",        "label": "Create Live Classroom Batches & Makeup Classes [Super Admin + Admin]" },
+        { "key": "lms_timetable.edit",          "label": "Reschedule Classes, Approve Substitutes & Edit Rules [Super Admin + Admin]" },
+        { "key": "lms_timetable.teacher_panel", "label": "Instructor Console: 2-Step Start/End Class, Roll Call & Leave Request [Teacher]" },
+        { "key": "lms_timetable.delete",        "label": "Delete Live Batches & Class Sessions [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "tt.portal",      "label": "My Live Classes",             "route": "timetable/portal",                 "icon": "🎥", "permission": "lms_timetable.view" },
+        { "key": "tt.cohorts",     "label": "Live Batches & Auto-Queue",   "route": "addons/lms-timetable/cohorts",     "icon": "🏫", "permission": "lms_timetable.create" },
+        { "key": "tt.builder",     "label": "Master Schedule & Makeup",    "route": "addons/lms-timetable/sessions",    "icon": "📅", "permission": "lms_timetable.create" },
+        { "key": "tt.substitutes", "label": "Substitute Inbox [Admin]",    "route": "addons/lms-timetable/substitutes", "icon": "⇄",  "permission": "lms_timetable.edit" }
+    ]
+}

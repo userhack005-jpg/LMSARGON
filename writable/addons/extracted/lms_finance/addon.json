@@ -1,0 +1,39 @@
+{
+    "slug": "lms_finance",
+    "name": "Fee Billing, Razorpay & Payroll",
+    "category": "core_lms",
+    "version": "8.1.0",
+    "author": "Core Architecture Team",
+    "description": "Auto-Invoicing 5 Days Before Due Date, Razorpay Sandbox/Live Checkout, Offline Screenshot & UTR Verification, Direct Admin Mark-Paid, Parent-Child Auto-Currency Custom Billing, Teacher View-Only Salary Slips & Branded Receipt Designer.",
+    "admin_route": "addons/lms-finance",
+    "frontend_route": "finance/portal",
+    "init_model": "App\\Models\\Addons\\LmsFinance\\LmsFinanceModel",
+    "assets": {
+        "css": ["addons/lms-finance/assets/lms_finance.css"],
+        "js": ["addons/lms-finance/assets/lms_finance.js"]
+    },
+    "default_config": {
+        "grace_period_days": "5",
+        "auto_invoice_days": "5",
+        "auto_lock_overdue": "1",
+        "base_currency": "INR"
+    },
+    "permissions": [
+        { "key": "lms_finance.view",         "label": "Access Family Fee Portal & Receipts [Parent + Student View-Only]" },
+        { "key": "lms_finance.teacher_view", "label": "View My Monthly Salary Slips (View-Only) [Teacher]" },
+        { "key": "lms_finance.collect",      "label": "Manage Invoices, Approve Offline Proofs, Mark Paid & Custom Billing [Super Admin + Admin]" },
+        { "key": "lms_finance.payroll",      "label": "Disburse & Manage Teacher Salaries [Super Admin + Admin]" },
+        { "key": "lms_finance.expenses",     "label": "Manage Expenses, Razorpay Keys & Receipt Template Designer [Super Admin + Admin]" },
+        { "key": "lms_finance.delete",       "label": "Delete Invoices & Expense Entries [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "fin.portal",         "label": "My Fee & Receipts [Parent/Stu]",   "route": "finance/portal",                    "icon": "💳", "permission": "lms_finance.view" },
+        { "key": "fin.teacher_slips",  "label": "My Salary Slips [Teacher]",        "route": "finance/my-payouts",                "icon": "💵", "permission": "lms_finance.teacher_view" },
+        { "key": "fin.overview",       "label": "Finance Overview [Admin]",         "route": "addons/lms-finance",                "icon": "📊", "permission": "lms_finance.collect" },
+        { "key": "fin.invoices",       "label": "Subscriptions & Approvals",        "route": "addons/lms-finance/invoices",       "icon": "✅", "permission": "lms_finance.collect" },
+        { "key": "fin.custom_billing", "label": "Custom Parent-Child Billing",      "route": "addons/lms-finance/custom-billing", "icon": "🧾", "permission": "lms_finance.collect" },
+        { "key": "fin.payroll",        "label": "Teacher Salary Entry",             "route": "addons/lms-finance/payroll",        "icon": "💸", "permission": "lms_finance.payroll" },
+        { "key": "fin.expenses",       "label": "Operational Expenses",             "route": "addons/lms-finance/expenses",       "icon": "📉", "permission": "lms_finance.expenses" },
+        { "key": "fin.gateways",       "label": "Razorpay & Receipt Designer",      "route": "addons/lms-finance/gateways",       "icon": "⚙",  "permission": "lms_finance.expenses" }
+    ]
+}

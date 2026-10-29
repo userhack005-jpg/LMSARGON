@@ -1,0 +1,36 @@
+{
+    "slug": "core_lms_auth",
+    "name": "Family Hub & Account Settings",
+    "category": "core_lms",
+    "version": "7.0.0",
+    "author": "Core Architecture Team",
+    "description": "Child & Parent Friendly Family Hub, Self-Service Add Child Profile, Account & Password Settings, and Modular Admin Role/Country Configurator.",
+    "admin_route": "addons/core-lms-auth/directory",
+    "frontend_route": "portal/family",
+    "init_model": "App\\Models\\Addons\\CoreLmsAuth\\CoreLmsAuthModel",
+    "assets": {
+        "css": ["addons/core-lms-auth/assets/core_lms_auth.css"],
+        "js": ["addons/core-lms-auth/assets/core_lms_auth.js"]
+    },
+    "default_config": {
+        "default_timezone": "UTC",
+        "default_country": "IN",
+        "allow_multi_device": "1",
+        "enable_sibling_switcher": "1"
+    },
+    "permissions": [
+        { "key": "core_lms_auth.view",   "label": "Access Family Hub, Add Child & Profile Settings [Parent + Student]" },
+        { "key": "core_lms_auth.create", "label": "Link Students to Parents & Courses [Super Admin + Admin]" },
+        { "key": "core_lms_auth.edit",   "label": "Manage Family Directory, Role Mapper & Servicing Countries [Super Admin + Admin]" },
+        { "key": "core_lms_auth.delete", "label": "Unlink or Remove Family Links [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "cla.family",      "label": "My Children & Learning Hub", "route": "portal/family",                      "icon": "👨‍👩‍👧‍👦", "permission": "core_lms_auth.view" },
+        { "key": "cla.add_child",   "label": "Add Child Profile",          "route": "portal/family/add-child",            "icon": "➕", "permission": "core_lms_auth.view" },
+        { "key": "cla.profile",     "label": "My Profile & Password",      "route": "portal/family/profile",              "icon": "⚙",  "permission": "core_lms_auth.view" },
+        { "key": "cla.directory",   "label": "Family Directory [Admin]",   "route": "addons/core-lms-auth/directory",     "icon": "📋", "permission": "core_lms_auth.edit" },
+        { "key": "cla.linker",      "label": "Assign Child & Course",      "route": "addons/core-lms-auth/linker",        "icon": "🔗", "permission": "core_lms_auth.create" },
+        { "key": "cla.role_mapper", "label": "Role Behavior Mapper",       "route": "addons/core-lms-auth/role-mapper",   "icon": "🛡", "permission": "core_lms_auth.edit" },
+        { "key": "cla.countries",   "label": "Servicing Countries",        "route": "addons/core-lms-auth/countries",     "icon": "🌍", "permission": "core_lms_auth.edit" }
+    ]
+}
