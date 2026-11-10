@@ -42,6 +42,9 @@ class LmsTimetableModel extends Model
 
     public function ensureSchema(): void
     {
+        if (is_file(WRITEPATH . 'addons/schema_addon_lms_timetable_v90.lock')) {
+            return;
+        }
         try {
             $this->db->query("
                 CREATE TABLE IF NOT EXISTS `lms_classroom_batches` (
@@ -230,7 +233,7 @@ class LmsTimetableModel extends Model
                     'node_id'      => $nid,
                     'cohort_title' => $cid > 0 && isset($cohorts[$cid]) ? $cohorts[$cid]['cohort_title'] : $r['session_title'],
                     'teacher_name' => $users[$tid]['display_name'] ?? 'Instructor',
-                    'meeting_link' => $r['meeting_link'] ?: 'https://meet.google.com/new',
+                    'meeting_link' => base_url('timetable/join-live/' . $sid),
                     'pdf_url'      => $resP,
                     'status'       => $r['status'],
                     'student_ids'  => $cohortStuMap[$cid] ?? [],
@@ -1026,19 +1029,29 @@ class LmsTimetableModel extends Model
         }
 
         $nowUtc      = gmdate('Y-m-d H:i:s');
+        $wizardMode  = trim((string) ($post['wizard_mode'] ?? 'start'));
+        $isAttOnly   = ($wizardMode === 'attendance_only');
         $meetingLink = trim((string) ($post['meeting_link'] ?? $row['meeting_link'])) ?: $row['meeting_link'];
         $pdfUrl      = $this->handleUploadedPdf($uploadedPdf, (string) ($post['material_pdf_url'] ?? ($row['material_pdf_url'] ?? '')));
         $hwNote      = trim((string) ($post['assignment_note'] ?? ($row['assignment_note'] ?? '')));
 
-        $this->update($sessionId, [
-            'actual_start_utc'          => $row['actual_start_utc'] ?: $nowUtc,
-            'teacher_attendance_status' => 'In Progress',
-            'meeting_link'              => $meetingLink,
-            'material_pdf_url'          => $pdfUrl,
-            'assignment_note'           => $hwNote,
-            'status'                    => 'live',
-            'updated_at'                => $nowUtc,
-        ]);
+        if ($isAttOnly) {
+            $this->update($sessionId, [
+                'assignment_note'  => $hwNote,
+                'material_pdf_url' => $pdfUrl,
+                'updated_at'       => $nowUtc,
+            ]);
+        } else {
+            $this->update($sessionId, [
+                'actual_start_utc'          => $row['actual_start_utc'] ?: $nowUtc,
+                'teacher_attendance_status' => 'In Progress',
+                'meeting_link'              => $meetingLink,
+                'material_pdf_url'          => $pdfUrl,
+                'assignment_note'           => $hwNote,
+                'status'                    => 'live',
+                'updated_at'                => $nowUtc,
+            ]);
+        }
 
         $attMap = $post['attendance_status'] ?? [];
         if (is_array($attMap) && ! empty($attMap)) {
@@ -1082,10 +1095,11 @@ class LmsTimetableModel extends Model
         return [
             'ok'           => true,
             'session_id'   => $sessionId,
-            'status'       => 'live',
+            'status'       => $isAttOnly ? (string) ($row['status'] ?? 'completed') : 'live',
+            'attendance_only' => $isAttOnly,
             'started_utc'  => $row['actual_start_utc'] ?: $nowUtc,
             'meeting_link' => $meetingLink,
-            'message'      => 'Attendance saved & Live Class is now IN PROGRESS!',
+            'message'      => $isAttOnly ? '✓ Student Attendance updated without restarting the class!' : 'Attendance saved & Live Class is now IN PROGRESS!',
         ];
     }
 
@@ -1227,7 +1241,7 @@ class LmsTimetableModel extends Model
                 ]);
                 $this->db->table($this->subMsgTable)->insert([
                     'request_id'     => $requestId,
-                    'sender_user_id' => (int) (session()->get('user_id') ?: 1),
+                    'sender_user_id' => (int) (session()->get('user_id') ?: (session()->get('id') ?: 0)),
                     'sender_role'    => 'admin',
                     'message_text'   => '✓ Substitute Approved: Assigned ' . $subName . ' to cover the selected session(s).',
                     'created_at'     => $now,

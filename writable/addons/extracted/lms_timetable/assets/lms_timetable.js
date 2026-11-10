@@ -252,6 +252,9 @@
             if (!startBtn) return;
             e.preventDefault();
             var sess = JSON.parse(startBtn.getAttribute('data-session') || '{}');
+            var wMode = startBtn.getAttribute('data-mode') || 'start';
+            var modeInp = document.getElementById('js-wiz-mode');
+            if (modeInp) modeInp.value = wMode;
 
             document.getElementById('js-wiz-session-id').value   = sess.id || '0';
             document.getElementById('js-wiz-session-title').textContent = sess.cohort_title || 'Live Class';
@@ -279,7 +282,10 @@
                         '</div>';
                 }).join('');
             }
-            showStep(1);
+            wizForm.querySelectorAll('.js-wiz-final-submit').forEach(function (b) {
+                b.textContent = (wMode === 'attendance_only') ? '💾 Save Attendance Only' : '🚀 Submit Attendance & Start Class →';
+            });
+            showStep(wMode === 'attendance_only' ? 2 : 1);
             modal.classList.remove('is-hidden');
         });
 
@@ -305,6 +311,11 @@
             .then(function (res) {
                 if (res.csrf_token) updateCsrfToken(res.csrf_token);
                 if (res && res.ok) {
+                    if (res.attendance_only) {
+                        modal.classList.add('is-hidden');
+                        showLiveToast(res.message || '✓ Attendance updated!');
+                        return;
+                    }
                     var sid        = res.session_id;
                     var card       = document.getElementById('js-sess-card-' + sid);
                     var badgeWrap  = document.getElementById('js-sess-status-badge-' + sid);

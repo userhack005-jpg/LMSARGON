@@ -32,6 +32,9 @@ class AbacusProSuiteModel extends Model
 
     public function ensureSchema(): void
     {
+        if (is_file(WRITEPATH . 'addons/schema_addon_abacus_pro_suite_v85.lock')) {
+            return;
+        }
         try {
             if (! $this->db->tableExists('lms_abacus_attempts')) {
                 $this->db->query("

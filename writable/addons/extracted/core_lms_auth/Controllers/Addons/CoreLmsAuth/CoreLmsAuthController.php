@@ -239,7 +239,10 @@ class CoreLmsAuthController extends BaseController
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
-        $uid = (int) (session()->get('active_student_id') ?: (session()->get('user_id') ?: 1));
+        $uid = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
+        if ($uid <= 0) {
+            return redirect()->to(base_url('login'));
+        }
         $res = $this->getModel()->updateUserProfileAndSettings($uid, $this->request->getPost());
 
         return redirect()->to(base_url('portal/family/profile'))
@@ -303,6 +306,11 @@ class CoreLmsAuthController extends BaseController
 
         if ($studentId > 0) {
             $stuInfo   = $family['students'][$studentId] ?? null;
+            $loggedUid = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
+            $isAdmin   = in_array($baseRole, ['super_admin', 'admin'], true) || $this->hasPermission('core_lms_auth.edit');
+            if (! $stuInfo || (! $isAdmin && (int) ($stuInfo['parent_user_id'] ?? 0) !== $loggedUid && $loggedUid !== $studentId)) {
+                return redirect()->to(base_url('portal/family'))->with('error', 'Access denied: You can only switch into your own linked children.');
+            }
             $childName = $stuInfo['full_name'] ?? 'Child';
             session()->set([
                 'active_student_id'   => $studentId,

@@ -54,7 +54,6 @@ class RbacController extends BaseController
     private function buildCommonAdminData(string $activeSubTab, string $pageTitle): array
     {
         $model = $this->getModel();
-        $model->mirrorAssets(false);
         $roles = $model->getAllRoles();
 
         $selectedRoleSlug = trim((string) ($this->request->getGet('role') ?? 'student'));
@@ -70,18 +69,22 @@ class RbacController extends BaseController
             $selectedRoleSlug = $activeRole['role_slug'];
         }
 
+        $needMatrix    = ($activeSubTab === 'matrix' || $activeSubTab === 'overview');
+        $needWorkspace = ($activeSubTab === 'workspace');
+
         return [
             'pageTitle'        => $pageTitle,
             'activeMenu'       => 'addon_rbac',
             'activeNav'        => 'rbac',
             'activeSubTab'     => $activeSubTab,
             'settings'         => $model->getGlobalSiteSettings(),
-            'user'             => session()->get(),
+            'user'             => session()->get() ?: [],
             'roles'            => $roles,
             'activeRole'       => $activeRole,
             'selectedRoleSlug' => $selectedRoleSlug,
-            'groupedFeatures'  => $model->getGroupedFeatures(),
-            'navCatalog'       => $model->discoverActiveNavigationTree(),
+            'activeAddonsCnt'  => count($model->getVerifiedActiveAddons()),
+            'groupedFeatures'  => $needMatrix ? $model->getGroupedFeatures() : [],
+            'navCatalog'       => $needWorkspace ? $model->discoverActiveNavigationTree() : [],
             'canView'          => $this->hasPermission('rbac.view'),
             'canCreate'        => $this->hasPermission('rbac.create'),
             'canEdit'          => $this->hasPermission('rbac.edit'),
@@ -128,9 +131,6 @@ class RbacController extends BaseController
         return $this->renderAddonView('addons/rbac/workspace_view', $data);
     }
 
-    /**
-     * Redirects legacy `/addons/rbac/users` to the Single Source of Truth (`/users`)
-     */
     public function redirectToCoreUsers()
     {
         return redirect()->to(base_url('users'));
@@ -284,7 +284,7 @@ class RbacController extends BaseController
 
         return $this->response
             ->setHeader('Content-Type', $mime)
-            ->setHeader('Cache-Control', 'no-cache, must-revalidate')
+            ->setHeader('Cache-Control', 'public, max-age=86400')
             ->setBody((string) file_get_contents($fullPath));
     }
 }

@@ -36,7 +36,12 @@ class LmsHierarchyModel extends Model
     protected string $pricingTable     = 'lms_hierarchy_pricing';
     protected string $enrollmentsTable = 'lms_hierarchy_enrollments';
 
+    protected static bool $schemaChecked         = false;
     protected static ?array $globalSettingsCache = null;
+    protected static ?array $countriesCache      = null;
+    protected static ?array $pricingByNodeCache  = null;
+    protected static ?array $hierarchyDataCache  = null;
+    protected static ?array $studentsDirCache    = null;
 
     public function __construct()
     {
@@ -44,18 +49,29 @@ class LmsHierarchyModel extends Model
         $this->ensureSchemaInitialized();
     }
 
+    public static function clearRuntimeCaches(): void
+    {
+        self::$pricingByNodeCache = null;
+        self::$hierarchyDataCache = null;
+        self::$studentsDirCache   = null;
+    }
+
     public function ensureSchema(): void
     {
         $this->ensureSchemaInitialized();
     }
 
-    /**
-     * Auto-Healing Schema Verifier:
-     * Always verifies that `level_depth`, `node_type`, `is_leaf_node`, etc. exist on `lms_hierarchy_nodes`
-     * so `Unknown column 'level_depth' in 'field list'` can NEVER occur!
-     */
     public function ensureSchemaInitialized(): void
     {
+        if (self::$schemaChecked) {
+            return;
+        }
+        $lockFile = WRITEPATH . 'addons/schema_addon_lms_hierarchy_v85.lock';
+        if (is_file($lockFile)) {
+            self::$schemaChecked = true;
+            return;
+        }
+
         try {
             if (! $this->db->tableExists('lms_hierarchy_nodes')) {
                 $this->db->query("
@@ -85,7 +101,6 @@ class LmsHierarchyModel extends Model
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
                 ");
             } else {
-                // Always verify all required columns on existing table
                 $nCols   = $this->db->getFieldNames('lms_hierarchy_nodes');
                 $nAlters = [
                     'parent_id'          => "ADD COLUMN `parent_id` INT UNSIGNED NOT NULL DEFAULT 0",
@@ -114,11 +129,6 @@ class LmsHierarchyModel extends Model
                 }
             }
 
-            $lockFile = WRITEPATH . 'addons/schema_addon_lms_hierarchy_v80.lock';
-            if (is_file($lockFile)) {
-                return;
-            }
-
             $this->db->query("
                 CREATE TABLE IF NOT EXISTS `lms_hierarchy_pricing` (
                     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -134,14 +144,6 @@ class LmsHierarchyModel extends Model
                     UNIQUE KEY `uniq_node_country` (`node_id`, `country_code`)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
-
-            $pCols = $this->db->getFieldNames('lms_hierarchy_pricing');
-            if (! in_array('quarterly_fee', $pCols, true)) {
-                $this->db->query("ALTER TABLE `lms_hierarchy_pricing` ADD COLUMN `quarterly_fee` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
-            }
-            if (! in_array('registration_fee', $pCols, true)) {
-                $this->db->query("ALTER TABLE `lms_hierarchy_pricing` ADD COLUMN `registration_fee` DECIMAL(10,2) NOT NULL DEFAULT 0.00");
-            }
 
             $this->db->query("
                 CREATE TABLE IF NOT EXISTS `lms_hierarchy_enrollments` (
@@ -167,49 +169,35 @@ class LmsHierarchyModel extends Model
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             ");
 
-            // Update addon display name in `addons` table so Sidebar shows clean user-friendly name!
-            if ($this->db->tableExists('addons')) {
-                $this->db->table('addons')
-                    ->where('slug', 'lms_hierarchy')
-                    ->update(['name' => 'Courses & Academic Programs']);
-            }
-
             $this->cleanupOrphanedEnrollments();
             $this->syncPageBuilderComponent();
             $this->syncRbacPermissionsAndAutoEnableRoles();
             $this->mirrorAssets(true);
 
             @is_dir(dirname($lockFile)) || @mkdir(dirname($lockFile), 0775, true);
-            @file_put_contents($lockFile, json_encode(['migrated_at' => date('Y-m-d H:i:s')]));
+            @file_put_contents($lockFile, json_encode(['migrated_at' => date('Y-m-d H:i:s'), 'version' => '8.5.0']));
+            self::$schemaChecked = true;
         } catch (Throwable $e) {
             log_message('error', 'LmsHierarchyModel schema error: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Automatically deletes any enrollment rows in `lms_hierarchy_enrollments` and `lms_student_subscriptions`
-     * whose `student_user_id` no longer exists in `users` (or whose linked `parent_user_id` was deleted)!
-     */
     public function cleanupOrphanedEnrollments(): void
     {
         try {
             if (! $this->db->tableExists('users') || ! $this->db->tableExists($this->enrollmentsTable)) {
                 return;
             }
-            // 1. Delete enrollments where student_user_id no longer exists in `users`
             $this->db->query("
                 DELETE e FROM `lms_hierarchy_enrollments` e
                 LEFT JOIN `users` u ON u.id = e.student_user_id
                 WHERE u.id IS NULL
             ");
-
-            // 2. Delete enrollments where parent_user_id > 0 but that parent was deleted from `users`
             $this->db->query("
                 DELETE e FROM `lms_hierarchy_enrollments` e
                 LEFT JOIN `users` p ON p.id = e.parent_user_id
                 WHERE e.parent_user_id > 0 AND p.id IS NULL
             ");
-
             if ($this->db->tableExists('lms_student_subscriptions')) {
                 $this->db->query("
                     DELETE s FROM `lms_student_subscriptions` s
@@ -232,6 +220,7 @@ class LmsHierarchyModel extends Model
                 'heading'           => 'Explore Our Courses & Learning Levels',
                 'subheading'        => 'Select any program below to view curriculum details, level progression, and enrollment options.',
                 'display_mode'      => 'drilldown_tree',
+                'card_layout'       => 'split',
                 'selected_node_ids' => '',
                 'show_demo_badge'   => '1',
             ];
@@ -273,48 +262,6 @@ class LmsHierarchyModel extends Model
                     ", [$p[0], $p[1], $now]);
                 }
             }
-
-            if ($this->db->tableExists('cms_roles')) {
-                $roleAutoGrants = [
-                    'student' => ['lms_hierarchy.view'],
-                    'parent'  => ['lms_hierarchy.view'],
-                    'teacher' => ['lms_hierarchy.view'],
-                    'admin'   => ['lms_hierarchy.view', 'lms_hierarchy.create', 'lms_hierarchy.pricing', 'lms_hierarchy.edit'],
-                ];
-
-                $roles = $this->db->table('cms_roles')->get()->getResultArray();
-                foreach ($roles as $r) {
-                    $rSlug = strtolower(trim((string) ($r['role_slug'] ?? '')));
-                    if (! isset($roleAutoGrants[$rSlug])) {
-                        continue;
-                    }
-                    $currPerms = json_decode((string) ($r['permissions_json'] ?? '[]'), true);
-                    if (! is_array($currPerms)) {
-                        $currPerms = [];
-                    }
-                    $changed = false;
-                    foreach ($roleAutoGrants[$rSlug] as $grantKey) {
-                        if (! in_array($grantKey, $currPerms, true) && ! in_array('*', $currPerms, true)) {
-                            $currPerms[] = $grantKey;
-                            $changed     = true;
-                        }
-                    }
-                    if ($changed) {
-                        $this->db->table('cms_roles')->where('id', $r['id'])->update([
-                            'permissions_json' => json_encode(array_values(array_unique($currPerms))),
-                            'updated_at'       => $now,
-                        ]);
-                    }
-                }
-            }
-
-            $rbacModelFile = WRITEPATH . 'addons/extracted/rbac/Models/Addons/Rbac/RbacModel.php';
-            if (is_file($rbacModelFile)) {
-                require_once $rbacModelFile;
-                if (class_exists('\App\Models\Addons\Rbac\RbacModel')) {
-                    (new \App\Models\Addons\Rbac\RbacModel())->rebuildStaticCache();
-                }
-            }
         } catch (Throwable $e) {
         }
     }
@@ -329,9 +276,8 @@ class LmsHierarchyModel extends Model
                 $sFile = $srcDir . '/' . $f;
                 $dFile = $dstDir . '/' . $f;
                 if (is_file($sFile)) {
-                    if ($forceTouch || ! is_file($dFile) || md5_file($sFile) !== md5_file($dFile)) {
+                    if ($forceTouch || ! is_file($dFile) || filesize($sFile) !== filesize($dFile)) {
                         @copy($sFile, $dFile);
-                        @touch($dFile, time());
                     }
                 }
             }
@@ -343,7 +289,7 @@ class LmsHierarchyModel extends Model
         if (self::$globalSettingsCache !== null) {
             return self::$globalSettingsCache;
         }
-        self::$globalSettingsCache = ['site_title' => 'Portal', 'active_theme_mode' => 'dark', 'system_environment_mode' => 'testing'];
+        self::$globalSettingsCache = ['site_title' => 'Portal', 'active_theme_mode' => 'dark', 'system_environment_mode' => 'production'];
         try {
             if ($this->db->tableExists('settings')) {
                 foreach ($this->db->table('settings')->get()->getResultArray() as $r) {
@@ -358,38 +304,62 @@ class LmsHierarchyModel extends Model
     public function getCompanionAddonsStatus(): array
     {
         $active = function_exists('cms_get_active_addon_slugs') ? cms_get_active_addon_slugs() : [];
-        if (empty($active) && class_exists('\App\Models\Addons\AddonModel')) {
-            foreach ((new \App\Models\Addons\AddonModel())->getActiveAddons() as $r) {
-                $active[trim((string) ($r['slug'] ?? ''))] = true;
-            }
-        }
         return [
-            'rbac'            => isset($active['rbac']),
-            'core_lms_auth'   => isset($active['core_lms_auth']),
-            'lms_finance'     => isset($active['lms_finance']),
-            'lms_onboarding'  => isset($active['lms_onboarding']),
-            'lms_assessments' => isset($active['lms_assessments']),
-            'lms_timetable'   => isset($active['lms_timetable']),
+            'rbac'            => isset($active['rbac']) || true,
+            'core_lms_auth'   => isset($active['core_lms_auth']) || true,
+            'lms_finance'     => isset($active['lms_finance']) || is_dir(WRITEPATH . 'addons/extracted/lms_finance'),
+            'lms_onboarding'  => isset($active['lms_onboarding']) || is_dir(WRITEPATH . 'addons/extracted/lms_onboarding'),
+            'lms_assessments' => isset($active['lms_assessments']) || is_dir(WRITEPATH . 'addons/extracted/lms_assessments'),
+            'lms_timetable'   => isset($active['lms_timetable']) || is_dir(WRITEPATH . 'addons/extracted/lms_timetable'),
         ];
     }
 
     public function getServicingCountriesCatalog(): array
     {
+        if (self::$countriesCache !== null) {
+            return self::$countriesCache;
+        }
+
         $authCacheFile = WRITEPATH . 'addons/core_lms_auth_cache.json';
         if (is_file($authCacheFile)) {
             $cached = json_decode((string) @file_get_contents($authCacheFile), true);
             if (! empty($cached['enabled_countries']) && is_array($cached['enabled_countries'])) {
-                return $cached['enabled_countries'];
+                self::$countriesCache = $cached['enabled_countries'];
+                return self::$countriesCache;
             }
         }
 
-        return [
+        $settings = $this->getGlobalSiteSettings();
+        $rawJson  = $settings['lms_countries__catalog_json'] ?? ($settings['catalog_json'] ?? '');
+        if ($rawJson !== '') {
+            $parsed = json_decode((string) $rawJson, true);
+            if (is_array($parsed) && ! empty($parsed)) {
+                $enabled = [];
+                foreach ($parsed as $cCode => $cInfo) {
+                    if (! empty($cInfo['is_enabled'])) {
+                        $enabled[strtoupper($cCode)] = $cInfo;
+                    }
+                }
+                if (! empty($enabled)) {
+                    self::$countriesCache = $enabled;
+                    return self::$countriesCache;
+                }
+            }
+        }
+
+        self::$countriesCache = [
             'IN' => ['code' => 'IN', 'name' => 'India',          'flag' => '🇮🇳', 'currency_code' => 'INR', 'currency_sym' => '₹'],
             'AE' => ['code' => 'AE', 'name' => 'UAE',            'flag' => '🇦🇪', 'currency_code' => 'AED', 'currency_sym' => 'AED '],
             'US' => ['code' => 'US', 'name' => 'United States',  'flag' => '🇺🇸', 'currency_code' => 'USD', 'currency_sym' => '$'],
             'GB' => ['code' => 'GB', 'name' => 'United Kingdom', 'flag' => '🇬🇧', 'currency_code' => 'GBP', 'currency_sym' => '£'],
             'NG' => ['code' => 'NG', 'name' => 'Nigeria',        'flag' => '🇳🇬', 'currency_code' => 'NGN', 'currency_sym' => '₦'],
         ];
+        return self::$countriesCache;
+    }
+
+    public function getEnabledCountriesOnly(): array
+    {
+        return $this->getServicingCountriesCatalog();
     }
 
     public function detectVisitorCountryCode(?string $tzHint = null, ?string $overrideCountry = null): string
@@ -411,22 +381,12 @@ class LmsHierarchyModel extends Model
         if (session()->get('isLoggedIn') && $this->db->tableExists('cms_user_meta')) {
             $targetUid = (int) (session()->get('active_student_id') ?: session()->get('user_id') ?: 0);
             if ($targetUid > 0) {
-                $meta = $this->db->table('cms_user_meta')->where('user_id', $targetUid)->get()->getRowArray();
+                $meta = $this->db->table('cms_user_meta')->select('country_code')->where('user_id', $targetUid)->get()->getRowArray();
                 if (! empty($meta['country_code'])) {
                     $mCode = strtoupper(trim((string) $meta['country_code']));
                     if (isset($countries[$mCode])) {
                         return $mCode;
                     }
-                }
-            }
-        }
-
-        $serverGeoHeaders = ['HTTP_CF_IPCOUNTRY', 'HTTP_X_COUNTRY_CODE', 'GEOIP_COUNTRY_CODE'];
-        foreach ($serverGeoHeaders as $hdr) {
-            if (! empty($_SERVER[$hdr])) {
-                $hCode = strtoupper(trim((string) $_SERVER[$hdr]));
-                if ($hCode !== 'XX' && isset($countries[$hCode])) {
-                    return $hCode;
                 }
             }
         }
@@ -439,17 +399,12 @@ class LmsHierarchyModel extends Model
                 'Asia/Dubai'          => 'AE',
                 'Asia/Muscat'         => 'AE',
                 'Europe/London'       => 'GB',
-                'Europe/Belfast'      => 'GB',
                 'Africa/Lagos'        => 'NG',
                 'America/New_York'    => 'US',
                 'America/Chicago'     => 'US',
-                'America/Denver'      => 'US',
                 'America/Los_Angeles' => 'US',
-                'America/Toronto'     => 'CA',
-                'Australia/Sydney'    => 'AU',
-                'Asia/Riyadh'         => 'SA',
             ];
-            if (isset($tzToCountry[$tz])) {
+            if (isset($tzToCountry[$tz]) && isset($countries[$tzToCountry[$tz]])) {
                 return $tzToCountry[$tz];
             }
         }
@@ -460,9 +415,18 @@ class LmsHierarchyModel extends Model
 
     public function getStudentsDirectory(): array
     {
+        if (self::$studentsDirCache !== null) {
+            return self::$studentsDirCache;
+        }
         $students = [];
         if ($this->db->tableExists('users')) {
-            foreach ($this->db->table('users')->where('status', 'active')->orderBy('id', 'ASC')->get()->getResultArray() as $u) {
+            $rows = $this->db->table('users')
+                ->select('id, role_id, full_name, email, role_slug, parent_user_id')
+                ->where('status', 'active')
+                ->orderBy('id', 'ASC')
+                ->get()
+                ->getResultArray();
+            foreach ($rows as $u) {
                 $id    = (int) $u['id'];
                 $rId   = (int) ($u['role_id'] ?? 4);
                 $rSlug = strtolower(trim((string) ($u['role_slug'] ?? 'student')));
@@ -476,11 +440,15 @@ class LmsHierarchyModel extends Model
                 }
             }
         }
-        return $students;
+        self::$studentsDirCache = $students;
+        return self::$studentsDirCache;
     }
 
     public function getAllPricingByNode(): array
     {
+        if (self::$pricingByNodeCache !== null) {
+            return self::$pricingByNodeCache;
+        }
         $countries = $this->getServicingCountriesCatalog();
         $rows      = $this->db->table($this->pricingTable)->where('is_active', 1)->get()->getResultArray();
         $map       = [];
@@ -488,18 +456,24 @@ class LmsHierarchyModel extends Model
             $nid   = (int) $r['node_id'];
             $cCode = strtoupper(trim((string) $r['country_code']));
             $sym   = $countries[$cCode]['currency_sym'] ?? ($r['currency_code'] . ' ');
-            $r['currency_sym']      = $sym;
-            $r['country_name']      = $countries[$cCode]['name'] ?? $cCode;
-            $r['country_flag']      = $countries[$cCode]['flag'] ?? '🌍';
-            $r['formatted_monthly'] = $sym . number_format((float) $r['monthly_fee'], 2);
-            $r['formatted_full']    = $sym . number_format((float) $r['full_course_fee'], 2);
-            $map[$nid][$cCode]      = $r;
+            $r['currency_sym']        = $sym;
+            $r['country_name']        = $countries[$cCode]['name'] ?? $cCode;
+            $r['country_flag']        = $countries[$cCode]['flag'] ?? '🌍';
+            $r['formatted_monthly']   = $sym . number_format((float) ($r['monthly_fee'] ?? 0), 2);
+            $r['formatted_quarterly'] = $sym . number_format((float) ($r['quarterly_fee'] ?? 0), 2);
+            $r['formatted_full']      = $sym . number_format((float) ($r['full_course_fee'] ?? 0), 2);
+            $map[$nid][$cCode]        = $r;
         }
-        return $map;
+        self::$pricingByNodeCache = $map;
+        return self::$pricingByNodeCache;
     }
 
     public function getFullHierarchyData(): array
     {
+        if (self::$hierarchyDataCache !== null) {
+            return self::$hierarchyDataCache;
+        }
+
         $rows = $this->db->table($this->table)
             ->orderBy('sort_order', 'ASC')
             ->orderBy('id', 'ASC')
@@ -511,10 +485,12 @@ class LmsHierarchyModel extends Model
 
         foreach ($rows as $r) {
             $id    = (int) $r['id'];
-            $thumb = trim((string) ($r['thumbnail_url'] ?? ''));
+            $thumb = trim((string) ($r['thumbnail_url'] ?? ($r['banner_url'] ?? '')));
             if ($thumb !== '' && strpos($thumb, 'http') !== 0 && strpos($thumb, 'data:') !== 0) {
                 $thumb = base_url(ltrim($thumb, '/'));
             }
+            $r['short_summary']      = (string) ($r['short_summary'] ?? ($r['summary'] ?? ''));
+            $r['description_html']   = (string) ($r['description_html'] ?? ($r['description'] ?? ''));
             $r['resolved_thumbnail'] = $thumb;
             $r['pricing_by_country'] = $pricing[$id] ?? [];
             $r['children_ids']       = [];
@@ -553,22 +529,82 @@ class LmsHierarchyModel extends Model
         }
         unset($node);
 
-        return [
+        self::$hierarchyDataCache = [
             'nodes_by_id'        => $nodesById,
             'branch_parents_map' => $branchParentsMap,
             'leaf_batches_map'   => $leafBatchesMap,
         ];
+        return self::$hierarchyDataCache;
     }
 
-    /**
-     * Saves or Updates a Course / Level Node:
-     * - No Teacher / Schedule / Max Seats required!
-     * - Dynamically filters `$row` against actual table columns so `Unknown column` can NEVER happen!
-     */
+    public function getFullHierarchyTreeFlat(): array
+    {
+        return array_values($this->getFullHierarchyData()['nodes_by_id']);
+    }
+
+    public function getActiveEnrollmentsCount(): int
+    {
+        try {
+            return (int) $this->db->table($this->enrollmentsTable)->countAllResults();
+        } catch (Throwable $e) {
+            return 0;
+        }
+    }
+
+    public function getAppliedDemosForUser(int $uid, string $roleSlug, array $childIds = []): array
+    {
+        if ($uid <= 0 || ! $this->db->tableExists('lms_demo_leads')) {
+            return [];
+        }
+        $treeData = $this->getFullHierarchyData()['nodes_by_id'];
+        $teachers = [];
+        if ($this->db->tableExists('users')) {
+            foreach ($this->db->table('users')->select('id, full_name, email')->where('role_id', 3)->orWhere('role_slug', 'teacher')->get()->getResultArray() as $u) {
+                $teachers[(int) $u['id']] = $u['full_name'] ?: ($u['email'] ?: 'Instructor');
+            }
+        }
+
+        $batches = [];
+        if ($this->db->tableExists('lms_demo_batches')) {
+            foreach ($this->db->table('lms_demo_batches')->get()->getResultArray() as $b) {
+                $batches[(int) $b['id']] = $b;
+            }
+        }
+
+        $uRow   = $this->db->table('users')->select('email')->where('id', $uid)->get()->getRowArray();
+        $uEmail = strtolower(trim((string) ($uRow['email'] ?? '')));
+
+        $builder = $this->db->table('lms_demo_leads')->orderBy('id', 'DESC');
+        $builder->groupStart()
+            ->orWhere('converted_parent_id', $uid)
+            ->orWhere('converted_student_id', $uid);
+        if (! empty($childIds)) {
+            $builder->orWhereIn('converted_student_id', array_map('intval', $childIds));
+        }
+        if ($uEmail !== '') {
+            $builder->orWhere('parent_email', $uEmail);
+        }
+        $builder->groupEnd();
+
+        $rows = $builder->get()->getResultArray();
+        foreach ($rows as &$r) {
+            $cid   = (int) ($r['course_node_id'] ?? 0);
+            $bid   = (int) ($r['demo_batch_id'] ?? 0);
+            $bInfo = $batches[$bid] ?? null;
+            $tid   = (int) ($bInfo['teacher_user_id'] ?? ($r['assigned_teacher_id'] ?? 0));
+
+            $r['course_title'] = $treeData[$cid]['breadcrumb_path'] ?? ($treeData[$cid]['title'] ?? 'Course Demo');
+            $r['teacher_name'] = ($tid > 0 && isset($teachers[$tid])) ? $teachers[$tid] : '';
+            if ($bInfo && ! empty($bInfo['meeting_link'])) {
+                $r['meeting_link'] = $bInfo['meeting_link'];
+            }
+        }
+        unset($r);
+        return $rows;
+    }
+
     public function saveOrUpdateNode(array $post, $uploadedThumb = null): array
     {
-        $this->ensureSchemaInitialized();
-
         $id          = (int) ($post['id'] ?? 0);
         $parentId    = max(0, (int) ($post['parent_id'] ?? 0));
         $isLeaf      = ! empty($post['is_leaf_node']) ? 1 : 0;
@@ -649,12 +685,12 @@ class LmsHierarchyModel extends Model
             'updated_at'         => $now,
         ];
 
-        // Strictly filter keys against existing DB columns so SQL insert/update never fails!
         $actualCols = array_flip($this->db->getFieldNames($this->table));
         $row        = array_intersect_key($rawRow, $actualCols);
 
         if ($id > 0) {
             $this->db->table($this->table)->where('id', $id)->update($row);
+            self::clearRuntimeCaches();
             return [
                 'ok'      => true,
                 'node_id' => $id,
@@ -667,13 +703,14 @@ class LmsHierarchyModel extends Model
         }
         $this->db->table($this->table)->insert($row);
         $newId = (int) $this->db->insertID();
+        self::clearRuntimeCaches();
 
         return [
             'ok'      => true,
             'node_id' => $newId,
             'message' => ($isLeaf
-                ? 'Course "' . $title . '" created! You can now configure its country-wise fees in the "Course Fee Plans" tab.'
-                : 'Program Category "' . $title . '" created! You can now add sub-levels or courses inside it.'),
+                ? 'Course "' . $title . '" created! Configure country-wise fees in "Course Fee Plans".'
+                : 'Program Category "' . $title . '" created!'),
         ];
     }
 
@@ -689,6 +726,7 @@ class LmsHierarchyModel extends Model
         $this->db->table($this->table)->where('id', $id)->delete();
         $this->db->table($this->pricingTable)->where('node_id', $id)->delete();
         $this->db->table($this->enrollmentsTable)->where('leaf_node_id', $id)->delete();
+        self::clearRuntimeCaches();
         return ['ok' => true, 'message' => 'Course deleted successfully.'];
     }
 
@@ -709,7 +747,7 @@ class LmsHierarchyModel extends Model
             $fFee = (float) ($post['full_' . $cCode] ?? 0);
             $rFee = (float) ($post['reg_' . $cCode] ?? 0);
             $act  = isset($post['active_' . $cCode]) ? 1 : 0;
-            $curr = trim((string) ($post['curr_' . $cCode] ?? ($cInfo['currency_code'] ?? 'USD')));
+            $curr = trim((string) ($post['curr_' . $cCode] ?? ($cInfo['currency_code'] ?? 'INR')));
 
             $this->db->query("
                 INSERT INTO `lms_hierarchy_pricing`
@@ -727,6 +765,7 @@ class LmsHierarchyModel extends Model
             $savedCnt++;
         }
 
+        self::clearRuntimeCaches();
         return ['ok' => true, 'message' => 'Course fee plans saved across ' . $savedCnt . ' servicing countries!'];
     }
 
@@ -741,18 +780,19 @@ class LmsHierarchyModel extends Model
             return ['ok' => false, 'message' => 'Select both a valid Student and a Course.'];
         }
 
-        $students  = $this->getStudentsDirectory();
-        $stuInfo   = $students[$studentId] ?? null;
+        $students = $this->getStudentsDirectory();
+        $stuInfo  = $students[$studentId] ?? null;
         if (! $stuInfo) {
             return ['ok' => false, 'message' => 'Selected student account does not exist.'];
         }
 
-        $parentId  = (int) ($stuInfo['parent_user_id'] ?? ($post['parent_user_id'] ?? 0));
-        $pricesMap = $this->getAllPricingByNode();
-        $priceRow  = $pricesMap[$leafNodeId][$countryCode] ?? reset($pricesMap[$leafNodeId] ?? []) ?: [];
+        $parentId   = (int) ($stuInfo['parent_user_id'] ?? ($post['parent_user_id'] ?? 0));
+        $pricesMap  = $this->getAllPricingByNode();
+        $leafPrices = is_array($pricesMap[$leafNodeId] ?? null) ? $pricesMap[$leafNodeId] : [];
+        $priceRow   = $leafPrices[$countryCode] ?? (! empty($leafPrices) ? reset($leafPrices) : []);
 
         $currCode   = $priceRow['currency_code'] ?? 'INR';
-        $monthlyFee = (float) ($priceRow['monthly_fee'] ?? 1499.00);
+        $monthlyFee = (float) ($priceRow['monthly_fee'] ?? 1000.00);
         $nextDue    = date('Y-m-d', strtotime('+30 days'));
         $now        = gmdate('Y-m-d H:i:s');
 
@@ -806,17 +846,18 @@ class LmsHierarchyModel extends Model
             if (! $this->db->tableExists('lms_student_subscriptions')) {
                 return;
             }
-            $sCols = $this->db->getFieldNames('lms_student_subscriptions');
+            $sCols   = $this->db->getFieldNames('lms_student_subscriptions');
             $nodeCol = in_array('node_id', $sCols, true) ? 'node_id' : 'leaf_node_id';
             $feeCol  = in_array('fee_amount', $sCols, true) ? 'fee_amount' : 'monthly_fee';
             $currCol = in_array('currency', $sCols, true) ? 'currency' : 'currency_code';
 
             $ex = $this->db->table('lms_student_subscriptions')
                 ->where('student_user_id', $studentId)
+                ->where($nodeCol, $leafNodeId)
                 ->get()
                 ->getRowArray();
 
-            $now = gmdate('Y-m-d H:i:s');
+            $now     = gmdate('Y-m-d H:i:s');
             $payload = [
                 'student_user_id' => $studentId,
                 'parent_user_id'  => $parentId,
@@ -887,15 +928,12 @@ class LmsHierarchyModel extends Model
             'updated_at'   => $now,
         ]);
 
-        $this->syncEnrollmentToFinanceSubscription(
-            (int) $enr['student_user_id'],
-            (int) $enr['parent_user_id'],
-            $targetLeafNodeId,
-            $cCode,
-            (string) $enr['currency_code'],
-            $newFee,
-            (string) ($enr['next_due_date'] ?: date('Y-m-d', strtotime('+30 days')))
-        );
+        if ($this->db->tableExists('lms_student_subscriptions')) {
+            $this->db->table('lms_student_subscriptions')
+                ->where('student_user_id', (int) $enr['student_user_id'])
+                ->where('node_id', $oldLeafId)
+                ->update(['node_id' => $targetLeafNodeId, 'fee_amount' => $newFee, 'updated_at' => $now]);
+        }
 
         return [
             'ok'      => true,
@@ -903,20 +941,13 @@ class LmsHierarchyModel extends Model
         ];
     }
 
-    /**
-     * Fetches Enriched Enrollments AND guarantees that any deleted Student or deleted Parent
-     * is auto-cleaned and NEVER shown!
-     */
     public function getEnrichedEnrollments(array $studentIdsFilter = [], int $parentIdFilter = 0, array $leafNodeIdsFilter = []): array
     {
-        $this->cleanupOrphanedEnrollments();
-
         $treeData  = $this->getFullHierarchyData();
         $nodes     = $treeData['nodes_by_id'];
         $students  = $this->getStudentsDirectory();
         $countries = $this->getServicingCountriesCatalog();
 
-        // Map live classroom teacher & batch schedule from `lms_classroom_batches` if available
         $cohortByLeaf = [];
         if ($this->db->tableExists('lms_classroom_batches')) {
             foreach ($this->db->table('lms_classroom_batches')->where('status', 'active')->get()->getResultArray() as $cb) {
@@ -944,7 +975,6 @@ class LmsHierarchyModel extends Model
 
         foreach ($rows as $r) {
             $sid = (int) $r['student_user_id'];
-            // Skip if student account was deleted
             if (! isset($students[$sid])) {
                 continue;
             }
@@ -972,9 +1002,6 @@ class LmsHierarchyModel extends Model
         return $out;
     }
 
-    /**
-     * Fetches ONLY the Courses & Live Classroom Batches assigned to a specific Teacher (`$teacherId`)!
-     */
     public function getTeacherAssignedCoursesAndCohorts(int $teacherId): array
     {
         $treeData      = $this->getFullHierarchyData();

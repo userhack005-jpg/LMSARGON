@@ -1,0 +1,53 @@
+{
+    "updated_at": 1793297304,
+    "storage_timezone": "UTC",
+    "role_map": {
+        "super_admin": [
+            "super_admin"
+        ],
+        "admin": [
+            "admin"
+        ],
+        "teacher": [
+            "teacher"
+        ],
+        "parent": [
+            "parent"
+        ],
+        "student": [
+            "student"
+        ]
+    },
+    "enabled_countries": {
+        "IN": {
+            "code": "IN",
+            "name": "India",
+            "flag": "🇮🇳",
+            "currency_code": "INR",
+            "currency_sym": "₹",
+            "dial_code": "+91",
+            "default_tz": "Asia\/Kolkata",
+            "timezones": [
+                "Asia\/Kolkata"
+            ],
+            "is_enabled": 1,
+            "live_local_time": "29 Oct 2026, 11:38 PM",
+            "utc_offset": "UTC+05:30"
+        },
+        "AE": {
+            "code": "AE",
+            "name": "United Arab Emirates (UAE)",
+            "flag": "🇦🇪",
+            "currency_code": "AED",
+            "currency_sym": "AED ",
+            "dial_code": "+971",
+            "default_tz": "Asia\/Dubai",
+            "timezones": [
+                "Asia\/Dubai"
+            ],
+            "is_enabled": 1,
+            "live_local_time": "29 Oct 2026, 10:08 PM",
+            "utc_offset": "UTC+04:00"
+        }
+    }
+}

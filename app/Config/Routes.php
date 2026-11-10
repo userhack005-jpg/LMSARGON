@@ -442,3 +442,35 @@ if (is_file(WRITEPATH . 'installed.lock')) {
         }
     }
 }
+
+
+// [UNIVERSAL_EXTRACTED_ADDONS_ROUTE_LOADER]
+$extractedRoot = WRITEPATH . 'addons/extracted';
+if (is_dir($extractedRoot)) {
+    $priorityAddons = [
+        'rbac',
+        'core_lms_auth',
+        'lms_hierarchy',
+        'lms_onboarding',
+        'lms_finance',
+        'lms_timetable',
+        'lms_assessments',
+        'lms_communication',
+        'abacus_pro_suite',
+    ];
+    foreach ($priorityAddons as $pSlug) {
+        $pRouteFile = $extractedRoot . '/' . $pSlug . '/Routes.php';
+        if (is_file($pRouteFile)) {
+            require_once $pRouteFile;
+        }
+    }
+    foreach (scandir($extractedRoot) as $addonSlugDir) {
+        if ($addonSlugDir === '.' || $addonSlugDir === '..' || in_array($addonSlugDir, $priorityAddons, true)) {
+            continue;
+        }
+        $addonRoutesFile = $extractedRoot . '/' . $addonSlugDir . '/Routes.php';
+        if (is_file($addonRoutesFile)) {
+            require_once $addonRoutesFile;
+        }
+    }
+}

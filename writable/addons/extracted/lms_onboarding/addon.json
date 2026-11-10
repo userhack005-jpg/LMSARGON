@@ -1,0 +1,31 @@
+{
+    "slug": "lms_onboarding",
+    "name": "Demo Bookings, Lead Pipeline & Admissions",
+    "category": "core_lms",
+    "version": "12.1.0",
+    "author": "Core Architecture Team",
+    "description": "Zero-Load (0ms) Multi-Child Demo Booking, Strict 1-Demo-Per-Child-Per-Course Guard, Full-Width Slot Scheduler, Live Teacher Demo Console, and Auto Finance Subscription Sync on Cohort Conversion.",
+    "admin_route": "addons/lms-onboarding",
+    "frontend_route": "demo/book",
+    "init_model": "App\\Models\\Addons\\LmsOnboarding\\LmsOnboardingModel",
+    "assets": {
+        "css": ["addons/lms-onboarding/assets/lms_onboarding.css"],
+        "js": ["addons/lms-onboarding/assets/lms_onboarding.js"]
+    },
+    "default_config": {
+        "badge": "FREE LIVE DEMO",
+        "heading": "Book a Free Demo Class",
+        "subheading": "Select an existing child or add a new child below to book your free trial session."
+    },
+    "permissions": [
+        { "key": "lms_onboarding.view",          "label": "View Demo Bookings, Assign Slots & Convert Students into Cohorts [Super Admin + Admin]" },
+        { "key": "demos.manage",                 "label": "Create & Manage Demo Class Slots & Teachers [Super Admin + Admin]" },
+        { "key": "lms_onboarding.teacher_demos", "label": "Teacher Live Demo Class Console (Start, Attendance & End Class) [Teacher]" },
+        { "key": "lms_onboarding.delete",        "label": "Delete Demo Leads & Slots [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "onb.pipeline",  "label": "Demo Bookings & Cohort Convert", "route": "addons/lms-onboarding",           "icon": "🎯", "permission": "lms_onboarding.view" },
+        { "key": "onb.scheduler", "label": "Demo Class Slots & Teachers",    "route": "addons/lms-onboarding/scheduler", "icon": "📅", "permission": "demos.manage" },
+        { "key": "onb.my_demos",  "label": "My Assigned Demo Classes",       "route": "addons/lms-onboarding/my-demos",  "icon": "👩‍🏫", "permission": "lms_onboarding.teacher_demos" }
+    ]
+}

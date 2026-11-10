@@ -17,6 +17,7 @@ $routes->group('addons/lms-timetable', ['namespace' => 'App\Controllers\Addons\L
     $routes->get('sessions', 'LmsTimetableController::sessionsManager');
     $routes->get('substitutes', 'LmsTimetableController::substitutesInbox');
     $routes->get('portal', 'LmsTimetableController::portalTimetable');
+    $routes->get('join-live/(:num)', 'LmsTimetableController::joinLiveSession/$1');
 
     $routes->post('save-settings', 'LmsTimetableController::saveSettings');
     $routes->post('save-cohort', 'LmsTimetableController::saveCohortBatch');
@@ -41,6 +42,7 @@ $routes->group('addons/lms-timetable', ['namespace' => 'App\Controllers\Addons\L
 
 $routes->group('timetable', ['namespace' => 'App\Controllers\Addons\LmsTimetable'], static function ($routes) {
     $routes->get('portal', 'LmsTimetableController::portalTimetable');
+    $routes->get('join-live/(:num)', 'LmsTimetableController::joinLiveSession/$1');
     $routes->post('start-class', 'LmsTimetableController::startClassWithWizard');
     $routes->post('end-class', 'LmsTimetableController::endClass');
     $routes->post('share-assignment', 'LmsTimetableController::shareAssignment');

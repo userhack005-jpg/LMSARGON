@@ -1,67 +1,70 @@
 <?php
-    $currSub = $activeSubTab ?? 'overview';
-    $selSlug = $selectedRoleSlug ?? 'student';
-    $totalPerms = 0;
-    foreach (($groupedFeatures ?? []) as $gList) {
-        $totalPerms += count($gList);
-    }
+    $currSub    = $activeSubTab ?? 'overview';
+    $selSlug    = $selectedRoleSlug ?? 'student';
+    $actAddons  = (int) ($activeAddonsCnt ?? 9);
 ?>
+<link rel="stylesheet" href="<?= base_url('assets/addons/rbac/rbac.css?v=7.5') ?>">
+<script src="<?= base_url('assets/addons/rbac/rbac.js?v=7.5') ?>" defer></script>
+
 <?php if (session()->getFlashdata('success')): ?>
-    <div class="alert-banner alert-success" style="margin-bottom:1rem;"><?= esc(session()->getFlashdata('success')) ?></div>
+    <div class="rbac-alert rbac-alert-success"><?= esc(session()->getFlashdata('success')) ?></div>
 <?php endif; ?>
 <?php if (session()->getFlashdata('error')): ?>
-    <div class="alert-banner alert-error" style="margin-bottom:1rem;"><?= esc(session()->getFlashdata('error')) ?></div>
+    <div class="rbac-alert rbac-alert-error"><?= esc(session()->getFlashdata('error')) ?></div>
 <?php endif; ?>
 
-<div class="rbac-compact-bar">
-    <div class="rbac-stat-pills">
-        <span class="role-badge text-emerald">🛡 Roles: <strong><?= count($roles ?? []) ?></strong></span>
-        <span class="role-badge text-cyan">🔑 Active Permissions: <strong><?= $totalPerms ?></strong></span>
-        <span class="role-badge">⚡ 0ms Static Cache Active</span>
-    </div>
-
-    <div class="settings-tabs" style="margin:0;">
+<div class="rbac-top-console-bar">
+    <div class="rbac-nav-tabs">
         <a href="<?= base_url('addons/rbac?role=' . urlencode($selSlug)) ?>"
-           class="settings-tab <?= $currSub === 'overview' ? 'is-active' : '' ?>" style="text-decoration:none;">
-            <span>📊 Roles &amp; Live Sidebar Preview</span>
+           class="rbac-nav-tab <?= $currSub === 'overview' ? 'is-active' : '' ?>">
+            📊 1. Roles &amp; Live Sidebar Preview
         </a>
         <a href="<?= base_url('addons/rbac/matrix?role=' . urlencode($selSlug)) ?>"
-           class="settings-tab <?= $currSub === 'matrix' ? 'is-active' : '' ?>" style="text-decoration:none;">
-            <span>🛡 Permission Switch Matrix</span>
+           class="rbac-nav-tab <?= $currSub === 'matrix' ? 'is-active' : '' ?>">
+            🛡 2. Permission Switch Matrix
         </a>
         <a href="<?= base_url('addons/rbac/workspace?role=' . urlencode($selSlug)) ?>"
-           class="settings-tab <?= $currSub === 'workspace' ? 'is-active' : '' ?>" style="text-decoration:none;">
-            <span>🎨 Menu Renamer &amp; Widgets</span>
+           class="rbac-nav-tab <?= $currSub === 'workspace' ? 'is-active' : '' ?>">
+            🎨 3. Menu Renamer &amp; Widgets
         </a>
     </div>
 
-    <?php if (! empty($canEdit)): ?>
-        <div class="action-btn-group">
-            <form action="<?= base_url('addons/rbac/sync-addons') ?>" method="post" class="rbac-inline-form">
+    <div class="rbac-action-bar">
+        <span class="rbac-badge rbac-badge-info">❖ Active Add-Ons: <strong><?= $actAddons ?></strong></span>
+        <?php if (! empty($canEdit)): ?>
+            <form action="<?= base_url('addons/rbac/sync-addons') ?>" method="post">
                 <?= csrf_field() ?>
-                <button type="submit" class="btn-secondary btn-sm" title="Scan active add-ons and rebuild 0ms cache">↻ Sync Cache</button>
+                <button type="submit" class="rbac-btn rbac-btn-outline rbac-btn-sm" title="Scan active/deactivated add-ons and rebuild 0ms cache">
+                    ↻ Sync Active Add-Ons
+                </button>
             </form>
-            <form action="<?= base_url('addons/rbac/apply-presets') ?>" method="post" class="rbac-inline-form" onsubmit="return confirm('Apply friendly menu names, recommended permissions & dashboard widgets for Student, Parent, Teacher & Admin?');">
+            <form action="<?= base_url('addons/rbac/apply-presets') ?>" method="post" onsubmit="return confirm('Auto-configure role-scoped permissions and friendly menu names for all active add-ons?');">
                 <?= csrf_field() ?>
-                <button type="submit" class="btn-primary btn-sm">⚡ Apply Friendly Role Presets</button>
+                <button type="submit" class="rbac-btn rbac-btn-emerald rbac-btn-sm">
+                    ⚡ Auto-Configure Role Presets
+                </button>
             </form>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+    </div>
 </div>
 
-<!-- Role Switcher Pills -->
-<div class="rbac-role-tabs">
+<!-- Role Switcher Strip -->
+<div class="rbac-role-strip">
+    <span class="mono-label muted-cell" style="margin-right:0.35rem;">SELECT ROLE TO CONFIGURE:</span>
     <?php
         $baseRoute = 'addons/rbac';
-        if ($currSub === 'matrix') $baseRoute = 'addons/rbac/matrix';
-        elseif ($currSub === 'workspace') $baseRoute = 'addons/rbac/workspace';
+        if ($currSub === 'matrix') {
+            $baseRoute = 'addons/rbac/matrix';
+        } elseif ($currSub === 'workspace') {
+            $baseRoute = 'addons/rbac/workspace';
+        }
     ?>
     <?php foreach (($roles ?? []) as $rItem): ?>
         <?php $isAct = ($rItem['role_slug'] === $selSlug); ?>
         <a href="<?= base_url($baseRoute . '?role=' . urlencode($rItem['role_slug'])) ?>"
            class="rbac-role-pill <?= $isAct ? 'is-active' : '' ?>">
-            <strong><?= esc($rItem['role_name']) ?></strong>
-            <span class="role-badge"><?= (int) ($rItem['users_count'] ?? 0) ?> Users</span>
+            <span><?= esc($rItem['role_name']) ?></span>
+            <span class="rbac-pill-count"><?= (int) ($rItem['users_count'] ?? 0) ?></span>
         </a>
     <?php endforeach; ?>
 </div>

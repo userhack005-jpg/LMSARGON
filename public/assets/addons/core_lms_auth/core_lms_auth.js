@@ -48,6 +48,62 @@
         }
     }
 
+    
+    function mountGlobalStudentLiveClassPopupWatcher() {
+        // Skip if already on /timetable/portal (which has its own watcher)
+        if (document.getElementById('js-ltt-portal-root')) return;
+        var seenLiveIds = {};
+        var lastVer = null;
+
+        function pollLiveSignal(isInit) {
+            if (document.visibilityState && document.visibilityState !== 'visible') return;
+            fetch(getBaseUrl() + 'assets/addons/lms_timetable/live_signal.json?t=' + Math.floor(Date.now() / 5000), { cache: 'no-store' })
+                .then(function (r) { return r.ok ? r.json() : null; })
+                .then(function (data) {
+                    if (!data || !data.sessions) return;
+                    var v = parseInt(data.version_ts || 0, 10);
+                    var changed = (lastVer !== null && v > lastVer);
+                    lastVer = v;
+
+                    Object.keys(data.sessions).forEach(function (k) {
+                        var s = data.sessions[k];
+                        if (!s || s.status !== 'live') return;
+                        var sid = s.session_id;
+                        if (isInit) {
+                            seenLiveIds[sid] = true;
+                            return;
+                        }
+                        if (changed && !seenLiveIds[sid]) {
+                            seenLiveIds[sid] = true;
+                            showGlobalLiveClassModal(s);
+                        }
+                    });
+                })
+                .catch(function () {});
+        }
+
+        function showGlobalLiveClassModal(s) {
+            var existing = document.getElementById('js-global-live-class-modal');
+            if (existing) existing.remove();
+            var m = document.createElement('div');
+            m.id = 'js-global-live-class-modal';
+            m.style.cssText = 'position:fixed;inset:0;background:rgba(5,8,17,0.85);backdrop-filter:blur(6px);z-index:100099;display:flex;align-items:center;justify-content:center;padding:1rem;';
+            m.innerHTML = '<div style="width:100%;max-width:460px;padding:1.65rem;border-radius:16px;background:var(--bg-surface,#111726);border:2px solid #10b981;color:var(--text-primary,#f8fafc);text-align:center;box-shadow:0 24px 60px rgba(0,0,0,0.6);">' +
+                '<span style="display:inline-block;padding:0.25rem 0.75rem;border-radius:999px;background:rgba(244,63,94,0.2);color:#fb7185;border:1px solid #f43f5e;font-size:0.74rem;font-weight:800;margin-bottom:0.75rem;">🔴 YOUR LIVE CLASS HAS STARTED!</span>' +
+                '<h2 style="margin:0.25rem 0 0.4rem;font-size:1.3rem;">' + (s.cohort_title || 'Live Classroom') + '</h2>' +
+                '<p style="color:#06b6d4;font-size:0.9rem;margin:0 0 1.25rem;">👩‍🏫 Instructor: ' + (s.teacher_name || 'Teacher') + ' is live now!</p>' +
+                '<div style="display:flex;gap:0.65rem;justify-content:center;flex-wrap:wrap;">' +
+                '  <a href="' + (s.meeting_link || '/timetable/portal') + '" target="_blank" style="padding:0.7rem 1.4rem;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#04130d;font-weight:800;text-decoration:none;">🎥 Join Live Class Now ↗</a>' +
+                '  <button type="button" id="js-close-global-live-modal" style="padding:0.7rem 1.1rem;border-radius:10px;background:transparent;border:1px solid #475569;color:inherit;cursor:pointer;font-weight:700;">Dismiss</button>' +
+                '</div></div>';
+            document.body.appendChild(m);
+            document.getElementById('js-close-global-live-modal').onclick = function () { m.remove(); };
+        }
+
+        pollLiveSignal(true);
+        setInterval(function () { pollLiveSignal(false); }, 6000);
+    }
+
     function mountTopBarSiblingSwitcher() {
         var topBarRight = document.querySelector('.header-right');
         if (!topBarRight || document.getElementById('js-cla-topbar-switcher')) return;
@@ -115,9 +171,9 @@
     }
 
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () { bindAdminHandlers(); mountTopBarSiblingSwitcher(); });
+        document.addEventListener('DOMContentLoaded', function () { bindAdminHandlers(); mountTopBarSiblingSwitcher(); mountGlobalStudentLiveClassPopupWatcher(); });
     } else {
         bindAdminHandlers();
-        mountTopBarSiblingSwitcher();
+        mountTopBarSiblingSwitcher(); mountGlobalStudentLiveClassPopupWatcher();
     }
 })();

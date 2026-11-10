@@ -26,6 +26,22 @@
         });
     }
 
+
+    function showChatNotificationToast(text) {
+        var t = document.getElementById('js-lcm-global-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = 'js-lcm-global-toast';
+            t.style.cssText = 'position:fixed;top:4.8rem;right:1.25rem;z-index:100050;padding:0.85rem 1.2rem;border-radius:12px;background:#111726;color:#f8fafc;border:2px solid #10b981;box-shadow:0 14px 34px rgba(0,0,0,0.45);font-size:0.85rem;font-weight:700;max-width:340px;cursor:pointer;transition:opacity 0.2s;';
+            t.onclick = function () { window.location.href = getBaseUrl() + 'chat/portal'; };
+            document.body.appendChild(t);
+        }
+        t.textContent = text;
+        t.style.display = 'block';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.style.display = 'none'; }, 5000);
+    }
+
     function renderMessagesHtml(messages, viewerRole) {
         if (!Array.isArray(messages) || messages.length === 0) {
             return '<div class="lcm-empty-chat"><p>No messages in this batch conversation yet. Say hello to start!</p></div>';
@@ -136,9 +152,14 @@
                     .then(function (r) { return r.json(); })
                     .then(function (res) {
                         if (res && res.ok && Array.isArray(res.messages) && res.messages.length !== lastCount) {
+                            var isNewIncoming = res.messages.length > lastCount;
                             msgBox.innerHTML = renderMessagesHtml(res.messages, viewerRole);
                             lastCount = res.messages.length;
                             msgBox.scrollTop = msgBox.scrollHeight;
+                            if (isNewIncoming) {
+                                var newest = res.messages[res.messages.length - 1];
+                                showChatNotificationToast('💬 New message from ' + (newest.sender_name || 'Classroom') + ': ' + (newest.message_body || ''));
+                            }
                         }
                     })
                     .catch(function () {});

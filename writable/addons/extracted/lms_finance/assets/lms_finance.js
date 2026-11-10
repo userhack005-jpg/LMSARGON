@@ -1,12 +1,287 @@
 (function () {
     'use strict';
-    if (window.__CMS_LMS_FINANCE_V81__) return;
-    window.__CMS_LMS_FINANCE_V81__ = true;
+    if (window.__CMS_LMS_FINANCE_V121__) return;
+    window.__CMS_LMS_FINANCE_V121__ = true;
+
+    function escapeHtml(str) {
+        return String(str == null ? '' : str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function openRealRazorpayCheckout(opts) {
+        if (typeof window.Razorpay !== 'function') {
+            window.alert('Razorpay Checkout SDK (https://checkout.razorpay.com/v1/checkout.js) failed to load.');
+            return;
+        }
+        if (!opts.key_id || !opts.order_id) {
+            window.alert(opts.errorMessage || 'Razorpay Order ID or Key ID is missing.');
+            return;
+        }
+
+        var rzpOptions = {
+            key: opts.key_id,
+            amount: opts.subunit,
+            currency: opts.currency || 'INR',
+            name: 'Online Abacus Academy',
+            description: opts.title || 'Course Tuition Fee',
+            order_id: opts.order_id,
+            prefill: {
+                name: opts.payer_name || '',
+                email: opts.payer_email || '',
+                contact: opts.payer_phone || ''
+            },
+            theme: { color: '#10b981' },
+            handler: function (response) {
+                if (typeof opts.onSuccess === 'function') {
+                    opts.onSuccess({
+                        razorpay_payment_id: response.razorpay_payment_id || '',
+                        razorpay_order_id: response.razorpay_order_id || opts.order_id,
+                        razorpay_signature: response.razorpay_signature || ''
+                    });
+                }
+            }
+        };
+
+        var rzpInstance = new window.Razorpay(rzpOptions);
+        rzpInstance.on('payment.failed', function (resp) {
+            var reason = (resp && resp.error && resp.error.description) ? resp.error.description : 'Payment failed at gateway.';
+            var failMeta = (resp && resp.error && resp.error.metadata) ? resp.error.metadata : {};
+            var failPayId = failMeta.payment_id || '';
+            var failOrdId = failMeta.order_id || opts.order_id || '';
+
+            var failFd = new FormData();
+            failFd.append('student_user_id', opts.student_id || '0');
+            failFd.append('subscription_id', opts.subscription_id || '0');
+            failFd.append('invoice_id', opts.invoice_id || '0');
+            failFd.append('node_id', opts.node_id || '0');
+            failFd.append('amount', opts.amount || '0');
+            failFd.append('currency', opts.currency || 'INR');
+            failFd.append('title', opts.title || 'Course Fee');
+            failFd.append('razorpay_order_id', failOrdId);
+            failFd.append('razorpay_payment_id', failPayId);
+            failFd.append('error_reason', reason);
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            if (csrfMeta) failFd.append('csrf_test_name', csrfMeta.getAttribute('content'));
+
+            var failUrl = opts.fail_url || '/finance/log-failed-payment';
+            fetch(failUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: failFd
+            }).finally(function () {
+                window.alert('Payment Failed: ' + reason + ' (This attempt has been recorded in your payment history).');
+                if (window.location.pathname.indexOf('/finance/portal') !== -1) {
+                    window.location.reload();
+                }
+            });
+        });
+        rzpInstance.open();
+    }
+
+    function syncEnrollChildRowDropdown(row) {
+        if (!row) return;
+        var sel     = row.querySelector('.js-enroll-existing-kid-select');
+        var newBox  = row.querySelector('.js-enroll-new-kid-fields');
+        var nameInp = row.querySelector('.js-enroll-kid-name');
+        if (!sel || !newBox) return;
+
+        var isNew = (String(sel.value) === '0');
+        newBox.classList.toggle('is-hidden', !isNew);
+        if (nameInp) nameInp.required = isNew;
+    }
+
+    function initDirectEnrollmentCheckout() {
+        var rootEl     = document.getElementById('js-lfn-enroll-root');
+        var enrollForm = document.getElementById('js-direct-enroll-form');
+        if (!rootEl || !enrollForm) return;
+
+        var addChildBtn  = document.getElementById('js-enroll-add-child-btn');
+        var childrenList = document.getElementById('js-enroll-children-list');
+        var summaryBox   = document.getElementById('js-enroll-summary-items');
+        var grandTotalEl = document.getElementById('js-enroll-grand-total');
+        var payMethodSel = document.getElementById('js-enroll-pay-method');
+        var offFieldsBox = document.getElementById('js-enroll-offline-fields');
+        var submitBtn    = document.getElementById('js-enroll-submit-btn');
+        var errBanner    = document.getElementById('js-lfn-rzp-error-banner');
+
+        var orderUrl    = rootEl.getAttribute('data-order-url');
+        var currCode    = rootEl.getAttribute('data-currency') || 'INR';
+        var currSym     = rootEl.getAttribute('data-symbol') || '₹';
+        var unitFee     = parseFloat(rootEl.getAttribute('data-unit-fee') || '1000') || 1000;
+        var fixedCourse = rootEl.getAttribute('data-course-title') || 'Course';
+        var isVerifiedToSubmit = false;
+
+        function recalcEnrollmentSummary() {
+            var rows        = childrenList.querySelectorAll('.js-enroll-child-row');
+            var total       = 0;
+            var summaryHtml = '';
+
+            rows.forEach(function (row, idx) {
+                var lbl = row.querySelector('.js-enroll-kid-label');
+                if (lbl) lbl.textContent = '🎓 Child #' + (idx + 1);
+
+                row.querySelectorAll('input, select').forEach(function (inp) {
+                    var nm = inp.getAttribute('name') || '';
+                    if (nm.indexOf('children[') !== -1) {
+                        inp.setAttribute('name', nm.replace(/children\[\d+\]/, 'children[' + idx + ']'));
+                    }
+                });
+
+                var exSel   = row.querySelector('.js-enroll-existing-kid-select');
+                var nameInp = row.querySelector('.js-enroll-kid-name');
+                var kidName = 'Child #' + (idx + 1);
+
+                if (exSel && String(exSel.value) !== '0') {
+                    var selOpt = exSel.options[exSel.selectedIndex];
+                    kidName = (selOpt && selOpt.getAttribute('data-name')) ? selOpt.getAttribute('data-name') : selOpt.textContent;
+                } else if (nameInp && nameInp.value.trim() !== '') {
+                    kidName = nameInp.value.trim();
+                }
+
+                total += unitFee;
+                summaryHtml += '<div style="display:flex; justify-content:space-between; font-size:0.86rem; padding:0.45rem 0.65rem; border-radius:8px; background:var(--bg-canvas);">' +
+                    '<span>🎓 <strong>' + escapeHtml(kidName) + '</strong>  -  ' + escapeHtml(fixedCourse) + '</span>' +
+                    '<strong class="mono-cell text-emerald">' + escapeHtml(currSym) + unitFee.toFixed(2) + '</strong>' +
+                    '</div>';
+            });
+
+            if (summaryBox) summaryBox.innerHTML = summaryHtml;
+            if (grandTotalEl) grandTotalEl.innerHTML = escapeHtml(currSym) + total.toFixed(2) + ' <small>' + escapeHtml(currCode) + '</small>';
+            return total;
+        }
+
+        childrenList.querySelectorAll('.js-enroll-child-row').forEach(syncEnrollChildRowDropdown);
+
+        if (addChildBtn) {
+            addChildBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                var rows    = childrenList.querySelectorAll('.js-enroll-child-row');
+                var nextIdx = rows.length;
+                var clone   = rows[0].cloneNode(true);
+
+                var topBar = clone.querySelector('.js-enroll-kid-label').parentElement;
+                var oldRm  = topBar.querySelector('.js-rm-enroll-kid');
+                if (oldRm) oldRm.remove();
+
+                var rmBtn = document.createElement('button');
+                rmBtn.type = 'button';
+                rmBtn.className = 'btn-action text-danger js-rm-enroll-kid';
+                rmBtn.textContent = '✕ Remove';
+                rmBtn.style.fontSize = '0.75rem';
+                rmBtn.addEventListener('click', function () {
+                    clone.remove();
+                    recalcEnrollmentSummary();
+                });
+                topBar.appendChild(rmBtn);
+
+                clone.querySelectorAll('input, select').forEach(function (inp) {
+                    var nm = inp.getAttribute('name') || '';
+                    inp.setAttribute('name', nm.replace(/children\[\d+\]/, 'children[' + nextIdx + ']'));
+                    if (inp.tagName === 'INPUT' && inp.type === 'text') inp.value = '';
+                    if (inp.classList.contains('js-enroll-existing-kid-select')) inp.value = '0';
+                });
+
+                childrenList.appendChild(clone);
+                syncEnrollChildRowDropdown(clone);
+                recalcEnrollmentSummary();
+            });
+        }
+
+        childrenList.addEventListener('change', function (e) {
+            var sel = e.target.closest('.js-enroll-existing-kid-select');
+            if (sel) syncEnrollChildRowDropdown(sel.closest('.js-enroll-child-row'));
+            recalcEnrollmentSummary();
+        });
+        childrenList.addEventListener('input', recalcEnrollmentSummary);
+        recalcEnrollmentSummary();
+
+        if (payMethodSel && offFieldsBox) {
+            payMethodSel.addEventListener('change', function () {
+                var isOff = (payMethodSel.value === 'offline_proof');
+                offFieldsBox.classList.toggle('is-hidden', !isOff);
+                document.getElementById('js-enroll-off-utr').required  = isOff;
+                document.getElementById('js-enroll-off-file').required = isOff;
+            });
+        }
+
+        enrollForm.addEventListener('submit', function (e) {
+            if (isVerifiedToSubmit) return;
+            var method = payMethodSel ? payMethodSel.value : 'razorpay';
+            if (method === 'offline_proof') return;
+
+            e.preventDefault();
+            if (errBanner) errBanner.classList.add('is-hidden');
+
+            var totalAmount = recalcEnrollmentSummary();
+            var pNameEl     = document.getElementById('js-enroll-parent-name');
+            var pEmailEl    = document.getElementById('js-enroll-parent-email');
+            var pPhoneEl    = document.getElementById('js-enroll-parent-phone');
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = '⏳ Creating Razorpay Order...';
+            }
+
+            var fd = new FormData();
+            fd.append('amount', totalAmount);
+            fd.append('currency', currCode);
+            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            if (csrfMeta) fd.append('csrf_test_name', csrfMeta.getAttribute('content'));
+
+            fetch(orderUrl, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+                body: fd
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (ord) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '🔒 Pay Now via Razorpay & Enroll →';
+                }
+                if (ord && ord.csrf_token && csrfMeta) csrfMeta.setAttribute('content', ord.csrf_token);
+                if (!ord || !ord.ok || !ord.order_id) {
+                    var msg = (ord && ord.message) ? ord.message : 'Unable to create Razorpay Order.';
+                    if (errBanner) {
+                        errBanner.textContent = msg;
+                        errBanner.classList.remove('is-hidden');
+                    } else {
+                        window.alert(msg);
+                    }
+                    return;
+                }
+
+                openRealRazorpayCheckout({
+                    key_id: ord.key_id,
+                    order_id: ord.order_id,
+                    amount: ord.amount,
+                    subunit: ord.subunit,
+                    currency: ord.currency || currCode,
+                    title: fixedCourse + ' (' + childrenList.querySelectorAll('.js-enroll-child-row').length + ' Child)',
+                    payer_name: pNameEl ? pNameEl.value.trim() : '',
+                    payer_email: pEmailEl ? pEmailEl.value.trim() : '',
+                    payer_phone: pPhoneEl ? pPhoneEl.value.trim() : '',
+                    onSuccess: function (res) {
+                        document.getElementById('js-enroll-rzp-pay-id').value = res.razorpay_payment_id;
+                        document.getElementById('js-enroll-rzp-ord-id').value = res.razorpay_order_id;
+                        document.getElementById('js-enroll-rzp-sig').value    = res.razorpay_signature;
+                        isVerifiedToSubmit = true;
+                        enrollForm.submit();
+                    }
+                });
+            })
+            .catch(function () {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = '🔒 Pay Now via Razorpay & Enroll →';
+                }
+            });
+        });
+    }
 
     function initCustomParentChildBilling() {
         var parentSel = document.getElementById('js-cb-parent-select');
         var stuSel    = document.getElementById('js-cb-student-select');
-        var currInp   = document.getElementById('js-cb-currency');
+        var currSel   = document.getElementById('js-cb-currency');
         var ctryInp   = document.getElementById('js-cb-country');
         var subInp    = document.getElementById('js-cb-subtotal');
         var taxInp    = document.getElementById('js-cb-tax');
@@ -14,10 +289,23 @@
 
         if (!parentSel || !stuSel) return;
 
+        function setCurrencyDropdownValue(currCode) {
+            if (!currSel || !currCode) return;
+            var code = String(currCode).toUpperCase().trim();
+            var exists = Array.from(currSel.options).some(function (opt) { return opt.value === code; });
+            if (!exists) {
+                var newOpt = document.createElement('option');
+                newOpt.value = code;
+                newOpt.textContent = code;
+                currSel.appendChild(newOpt);
+            }
+            currSel.value = code;
+        }
+
         function recalcTotal() {
-            var c = currInp ? currInp.value : 'INR';
-            var s = parseFloat(subInp && subInp.value ? subInp.value : '0') || 0;
-            var t = parseFloat(taxInp && taxInp.value ? taxInp.value : '0') || 0;
+            var c   = currSel ? currSel.value : 'INR';
+            var s   = parseFloat(subInp && subInp.value ? subInp.value : '0') || 0;
+            var t   = parseFloat(taxInp && taxInp.value ? taxInp.value : '0') || 0;
             var tot = s + (s * (t / 100));
             if (totPrev) totPrev.textContent = c + ' ' + tot.toFixed(2);
         }
@@ -26,7 +314,7 @@
             var pid  = parseInt(parentSel.value || '0', 10);
             var pOpt = parentSel.options[parentSel.selectedIndex];
             if (pOpt && pOpt.getAttribute('data-currency')) {
-                if (currInp) currInp.value = pOpt.getAttribute('data-currency');
+                setCurrencyDropdownValue(pOpt.getAttribute('data-currency'));
                 if (ctryInp) ctryInp.value = pOpt.getAttribute('data-country') || 'IN';
             }
 
@@ -34,23 +322,31 @@
             Array.from(stuSel.options).forEach(function (opt) {
                 if (!opt.value) return;
                 var stuParent = parseInt(opt.getAttribute('data-parent') || '0', 10);
-                var show = (pid === 0 || stuParent === pid);
+                var show      = (pid === 0 || stuParent === pid);
                 opt.style.display = show ? '' : 'none';
                 if (show && !firstMatch) firstMatch = opt.value;
             });
             stuSel.value = firstMatch;
+            if (firstMatch) {
+                var sOpt = stuSel.options[stuSel.selectedIndex];
+                if (sOpt && sOpt.getAttribute('data-currency')) {
+                    setCurrencyDropdownValue(sOpt.getAttribute('data-currency'));
+                    if (ctryInp) ctryInp.value = sOpt.getAttribute('data-country') || 'IN';
+                }
+            }
             recalcTotal();
         });
 
         stuSel.addEventListener('change', function () {
             var sOpt = stuSel.options[stuSel.selectedIndex];
             if (sOpt && sOpt.getAttribute('data-currency')) {
-                if (currInp) currInp.value = sOpt.getAttribute('data-currency');
+                setCurrencyDropdownValue(sOpt.getAttribute('data-currency'));
                 if (ctryInp) ctryInp.value = sOpt.getAttribute('data-country') || 'IN';
             }
             recalcTotal();
         });
 
+        if (currSel) currSel.addEventListener('change', recalcTotal);
         if (subInp) subInp.addEventListener('input', recalcTotal);
         if (taxInp) taxInp.addEventListener('input', recalcTotal);
     }
@@ -80,9 +376,7 @@
                 document.getElementById('off_inv_id').value  = btn.getAttribute('data-invoice-id') || '0';
                 document.getElementById('off_node_id').value = btn.getAttribute('data-node-id') || '0';
                 var tEl = document.getElementById('js-off-modal-title');
-                if (tEl) {
-                    tEl.textContent = btn.getAttribute('data-title') + ' (' + btn.getAttribute('data-currency') + ' ' + btn.getAttribute('data-amount') + ')';
-                }
+                if (tEl) tEl.textContent = btn.getAttribute('data-title') + ' (' + btn.getAttribute('data-currency') + ' ' + btn.getAttribute('data-amount') + ')';
                 offModal.classList.remove('is-hidden');
             });
         });
@@ -118,7 +412,10 @@
                 var csrfMeta = document.querySelector('meta[name="csrf-token"]');
                 if (csrfMeta) fd.append('csrf_test_name', csrfMeta.getAttribute('content'));
 
+                var origText = btn.textContent;
                 btn.disabled = true;
+                btn.textContent = '⏳ Creating Order...';
+
                 fetch(orderUrl, {
                     method: 'POST',
                     headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
@@ -127,53 +424,42 @@
                 .then(function (r) { return r.json(); })
                 .then(function (ord) {
                     btn.disabled = false;
-                    if (typeof window.Razorpay === 'function' && ord && ord.key_id) {
-                        var rzpOpts = {
-                            key: ord.key_id,
-                            amount: ord.subunit,
-                            currency: ord.currency,
-                            name: 'Academy Fee Checkout',
-                            description: title,
-                            handler: function (response) {
-                                document.getElementById('rzp_payment_id').value = response.razorpay_payment_id || '';
-                                document.getElementById('rzp_order_id').value   = response.razorpay_order_id || '';
-                                document.getElementById('rzp_signature').value  = response.razorpay_signature || '';
-                                verifyForm.submit();
-                            }
-                        };
-                        if (ord.order_id) rzpOpts.order_id = ord.order_id;
-                        var rzpInst = new window.Razorpay(rzpOpts);
-                        rzpInst.open();
-                    } else {
-                        if (window.confirm('Razorpay Sandbox Checkout:\n\nConfirm payment of ' + currency + ' ' + amount + ' for "' + title + '"?')) {
-                            document.getElementById('rzp_payment_id').value = 'pay_sandbox_' + Date.now();
+                    btn.textContent = origText;
+                    if (ord && ord.csrf_token && csrfMeta) csrfMeta.setAttribute('content', ord.csrf_token);
+                    if (!ord || !ord.ok || !ord.order_id) {
+                        window.alert((ord && ord.message) ? ord.message : 'Unable to create Razorpay Order.');
+                        return;
+                    }
+
+                    openRealRazorpayCheckout({
+                        fail_url: portalRoot.getAttribute('data-fail-url') || '/finance/log-failed-payment',
+                        student_id: stuId,
+                        subscription_id: subId,
+                        invoice_id: invId,
+                        node_id: nodeId,
+                        key_id: ord.key_id,
+                        order_id: ord.order_id,
+                        amount: ord.amount,
+                        subunit: ord.subunit,
+                        currency: ord.currency || currency,
+                        title: title,
+                        onSuccess: function (res) {
+                            document.getElementById('rzp_payment_id').value = res.razorpay_payment_id;
+                            document.getElementById('rzp_order_id').value   = res.razorpay_order_id;
+                            document.getElementById('rzp_signature').value  = res.razorpay_signature;
                             verifyForm.submit();
                         }
-                    }
+                    });
                 })
                 .catch(function () {
                     btn.disabled = false;
+                    btn.textContent = origText;
                 });
             });
         });
-
-        var enrollMethod = document.getElementById('js-enroll-pay-method');
-        var enrollOffBox = document.getElementById('js-enroll-offline-fields');
-        if (enrollMethod && enrollOffBox) {
-            enrollMethod.addEventListener('change', function () {
-                enrollOffBox.classList.toggle('is-hidden', enrollMethod.value !== 'offline_proof');
-            });
-        }
     }
 
-    function initAll() {
-        initCustomParentChildBilling();
-        initParentPortalHandlers();
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initAll);
-    } else {
-        initAll();
-    }
+    initDirectEnrollmentCheckout();
+    initCustomParentChildBilling();
+    initParentPortalHandlers();
 })();

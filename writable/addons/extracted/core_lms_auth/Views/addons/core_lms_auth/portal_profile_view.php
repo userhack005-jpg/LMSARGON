@@ -61,10 +61,20 @@
                 </div>
             </div>
 
+            <?php
+                $isSwitchedStudentMode = ((string) ($portalCtx['portal_view_mode'] ?? '') === 'student' && (int) ($portalCtx['active_student_id'] ?? 0) > 0)
+                    || strtolower((string) ($user['role_slug'] ?? '')) === 'student';
+            ?>
+            <?php if (! $isSwitchedStudentMode): ?>
             <div class="field-group">
                 <label class="field-label"><span>New Password (Leave blank to keep current password)</span></label>
                 <input type="password" name="new_password" class="field-input" placeholder="Enter new password (min 6 characters)" autocomplete="new-password">
             </div>
+            <?php else: ?>
+            <div class="panel-card" style="margin-bottom:0.85rem; padding:0.75rem 1rem !important; background:var(--bg-canvas);">
+                <span class="mono-cell muted-cell">🔒 Password management is controlled by your Parent Account.</span>
+            </div>
+            <?php endif; ?>
 
             <div class="action-btn-group cla-footer-bar">
                 <button type="submit" class="btn-primary">💾 Save Profile Changes</button>

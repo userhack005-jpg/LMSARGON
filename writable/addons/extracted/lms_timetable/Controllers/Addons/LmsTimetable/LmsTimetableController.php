@@ -64,7 +64,6 @@ class LmsTimetableController extends BaseController
     {
         $model = $this->getModel();
         $model->mirrorAssets(false);
-        $model->cleanupOrphanedAndDuplicateSessions();
 
         $effectiveRole = function_exists('cms_get_effective_role')
             ? cms_get_effective_role()
@@ -148,7 +147,7 @@ class LmsTimetableController extends BaseController
         $data            = $this->buildCommonAdminData('portal', 'My Live Class Schedule');
         $model           = $this->getModel();
         $effectiveRole   = $data['effectiveRole'];
-        $uid             = (int) (session()->get('user_id') ?: 1);
+        $uid             = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $activeStuId     = (int) (session()->get('active_student_id') ?: 0);
         $portalViewMode  = (string) (session()->get('portal_view_mode') ?: 'default');
         $userTz          = $data['userTz'];
@@ -222,6 +221,19 @@ class LmsTimetableController extends BaseController
         return $this->renderAddonView('addons/lms_timetable/portal_view', $data);
     }
 
+    public function joinLiveSession($sessionId = 0)
+    {
+        if (! session()->get('isLoggedIn')) {
+            return redirect()->to(base_url('login'));
+        }
+        $sid  = (int) $sessionId;
+        $sess = $this->getModel()->find($sid);
+        if (! $sess || empty($sess['meeting_link'])) {
+            return redirect()->to(base_url('timetable/portal'))->with('error', 'Live session link not found.');
+        }
+        return redirect()->to((string) $sess['meeting_link']);
+    }
+
     public function liveSubThreadsJson()
     {
         if (! session()->get('isLoggedIn')) {
@@ -229,7 +241,7 @@ class LmsTimetableController extends BaseController
             return $this->response->setJSON(['status' => 'guest', 'requests' => []]);
         }
         $effectiveRole = function_exists('cms_get_effective_role') ? cms_get_effective_role() : 'student';
-        $uid           = (int) (session()->get('user_id') ?: 1);
+        $uid           = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $canEdit       = $this->hasPermission('lms_timetable.edit');
         if (session_status() === PHP_SESSION_ACTIVE) @session_write_close();
 
@@ -322,8 +334,11 @@ class LmsTimetableController extends BaseController
         if (! session()->get('isLoggedIn')) {
             return $this->request->isAJAX() ? $this->response->setStatusCode(401)->setJSON(['ok' => false]) : redirect()->to(base_url('login'));
         }
+        if (! $this->hasPermission(['lms_timetable.teacher_panel', 'lms_timetable.create', 'lms_timetable.edit'])) {
+            return $this->request->isAJAX() ? $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Instructor permission required.']) : redirect()->back()->with('error', 'Instructor permission required.');
+        }
         $sessionId = (int) ($this->request->getPost('session_id') ?? 0);
-        $teacherId = (int) (session()->get('user_id') ?: 1);
+        $teacherId = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $res       = $this->getModel()->executeStartClassWizard($sessionId, $teacherId, $this->request->getPost(), $this->request->getFile('material_pdf_file'));
         $res['csrf_token'] = csrf_hash();
 
@@ -335,6 +350,9 @@ class LmsTimetableController extends BaseController
     {
         if (! session()->get('isLoggedIn')) {
             return $this->request->isAJAX() ? $this->response->setStatusCode(401)->setJSON(['ok' => false]) : redirect()->to(base_url('login'));
+        }
+        if (! $this->hasPermission(['lms_timetable.teacher_panel', 'lms_timetable.create', 'lms_timetable.edit'])) {
+            return $this->request->isAJAX() ? $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Instructor permission required.']) : redirect()->back()->with('error', 'Instructor permission required.');
         }
         $sessionId = (int) ($this->request->getPost('session_id') ?? 0);
         $res       = $this->getModel()->logTeacherEndClass($sessionId);
@@ -362,7 +380,7 @@ class LmsTimetableController extends BaseController
         $sessionId = (int) ($this->request->getPost('session_id') ?? 0);
         $studentId = (int) ($this->request->getPost('student_user_id') ?? 0);
         $status    = in_array($this->request->getPost('attendance_status') ?? '', ['Present', 'Absent', 'Late'], true) ? $this->request->getPost('attendance_status') : 'Present';
-        $teacherId = (int) (session()->get('user_id') ?: 1);
+        $teacherId = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
 
         if ($sessionId > 0 && $studentId > 0) {
             $db  = \Config\Database::connect();
@@ -380,7 +398,7 @@ class LmsTimetableController extends BaseController
     public function submitSubstituteRequest()
     {
         if (! session()->get('isLoggedIn')) return redirect()->to(base_url('login'));
-        $teacherId = (int) (session()->get('user_id') ?: 1);
+        $teacherId = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $model     = $this->getModel();
         $res       = $model->createSubstituteRequest($teacherId, $this->request->getPost());
         if ($this->request->isAJAX()) {
@@ -394,7 +412,7 @@ class LmsTimetableController extends BaseController
         if (! session()->get('isLoggedIn')) return redirect()->to(base_url('login'));
         $reqId      = (int) ($this->request->getPost('request_id') ?? 0);
         $msg        = (string) ($this->request->getPost('message_text') ?? '');
-        $senderId   = (int) (session()->get('user_id') ?: 1);
+        $senderId   = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $senderRole = (string) (session()->get('role_slug') ?: 'teacher');
         $canEdit    = $this->hasPermission('lms_timetable.edit');
 

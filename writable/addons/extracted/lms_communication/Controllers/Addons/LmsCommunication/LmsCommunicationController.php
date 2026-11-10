@@ -69,7 +69,7 @@ class LmsCommunicationController extends BaseController
             ? cms_get_effective_role()
             : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
 
-        $uid            = (int) (session()->get('user_id') ?: 1);
+        $uid            = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $activeStuId    = (int) (session()->get('active_student_id') ?: 0);
         $portalViewMode = (string) (session()->get('portal_view_mode') ?: 'default');
 
@@ -215,7 +215,7 @@ class LmsCommunicationController extends BaseController
         $data['feedbackCards'] = $feedbackCards;
         $data['totalFeedback'] = $totalCards;
         $data['positivePct']   = $totalCards > 0 ? round(($positiveCnt / $totalCards) * 100, 1) : 100.0;
-        $data['avgStars']      = $totalCards > 0 ? round($starsSum / $totalCards, 1) : 5.0;
+        $data['avgStars']      = $totalCards > 0 ? round($starsSum / $totalCards, 1) : 0.0;
 
         return $this->renderAddonView('addons/lms_communication/feedback_view', $data);
     }
@@ -226,7 +226,7 @@ class LmsCommunicationController extends BaseController
             return redirect()->to(base_url('login'));
         }
 
-        $uid         = (int) (session()->get('user_id') ?: 1);
+        $uid         = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $activeStuId = (int) (session()->get('active_student_id') ?: 0);
         $studentId   = (int) ($this->request->getPost('student_user_id') ?: ($activeStuId > 0 ? $activeStuId : $uid));
         $parentId    = ($activeStuId > 0 || (string) session()->get('role_slug') === 'parent') ? $uid : 0;
@@ -285,7 +285,7 @@ class LmsCommunicationController extends BaseController
         }
 
         $effectiveRole  = function_exists('cms_get_effective_role') ? cms_get_effective_role() : 'student';
-        $uid            = (int) (session()->get('user_id') ?: 1);
+        $uid            = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $activeStuId    = (int) (session()->get('active_student_id') ?: 0);
         $portalViewMode = (string) (session()->get('portal_view_mode') ?: 'default');
 
@@ -303,7 +303,12 @@ class LmsCommunicationController extends BaseController
             @session_write_close();
         }
 
-        $model = $this->getModel();
+        $model     = $this->getModel();
+        $studentId = (int) ($this->request->getPost('student_user_id') ?? 0);
+        $teacherId = (int) ($this->request->getPost('teacher_user_id') ?? 0);
+        if (! $this->hasPermission('lms_communication.moderate') && $senderUid !== $studentId && $senderUid !== $teacherId) {
+            return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'message' => 'Unauthorized chat pair.']);
+        }
         $res   = $model->sendOneToOneMessage($senderUid, $senderRole, $this->request->getPost());
 
         $studentId = (int) ($this->request->getPost('student_user_id') ?? 0);
@@ -328,7 +333,7 @@ class LmsCommunicationController extends BaseController
             return $this->response->setJSON(['ok' => false, 'messages' => []]);
         }
 
-        $uid         = (int) (session()->get('user_id') ?: 1);
+        $uid         = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $activeStuId = (int) (session()->get('active_student_id') ?: 0);
         $viewerUid   = $activeStuId > 0 ? $activeStuId : $uid;
         $isAdmin     = $this->hasPermission('lms_communication.moderate');
@@ -341,6 +346,13 @@ class LmsCommunicationController extends BaseController
         $teacherId = (int) ($this->request->getGet('teacher_id') ?? 0);
         $nodeId    = (int) ($this->request->getGet('node_id') ?? 0);
 
+        if (! $isAdmin && $viewerUid !== $studentId && $viewerUid !== $teacherId) {
+            $db = \Config\Database::connect();
+            $stuRow = $db->tableExists('users') ? $db->table('users')->select('parent_user_id')->where('id', $studentId)->get()->getRowArray() : null;
+            if (! $stuRow || (int) ($stuRow['parent_user_id'] ?? 0) !== (int) session()->get('user_id')) {
+                return $this->response->setStatusCode(403)->setJSON(['ok' => false, 'messages' => []]);
+            }
+        }
         $messages = $this->getModel()->getConversationMessages($studentId, $teacherId, $nodeId, $viewerUid, $isAdmin);
         return $this->response->setJSON([
             'ok'       => true,
@@ -360,14 +372,14 @@ class LmsCommunicationController extends BaseController
         $effectiveRole = function_exists('cms_get_effective_role')
             ? cms_get_effective_role()
             : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
-        $uid         = (int) (session()->get('user_id') ?: 1);
+        $uid         = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         $activeStuId = (int) (session()->get('active_student_id') ?: 0);
 
         if (session_status() === PHP_SESSION_ACTIVE) {
             @session_write_close();
         }
 
-        if ($effectiveRole !== 'student') {
+        if (! in_array($effectiveRole, ['student', 'teacher', 'parent'], true)) {
             return $this->response->setJSON(['allow_widget' => false]);
         }
 
@@ -474,7 +486,7 @@ class LmsCommunicationController extends BaseController
         if (! $this->hasPermission(['lms_communication.alerts', 'lms_communication.moderate'])) {
             return redirect()->back()->with('error', 'Access denied.');
         }
-        $uid = (int) (session()->get('user_id') ?: 1);
+        $uid = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
         \Config\Database::connect()->table('lms_notification_logs')->insert([
             'event_type'         => 'Class Reminder & Homework Notification',
             'channel'            => 'email_and_whatsapp',

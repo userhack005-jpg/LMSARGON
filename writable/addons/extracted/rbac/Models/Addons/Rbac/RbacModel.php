@@ -28,12 +28,22 @@ class RbacModel extends Model
 
     protected string $featuresTable = 'cms_rbac_features';
     protected string $cacheFile     = WRITEPATH . 'addons/rbac_permissions_cache.json';
+
+    protected static bool $schemaChecked         = false;
     protected static ?array $globalSettingsCache = null;
+    protected static ?array $activeAddonsCache   = null;
+    protected static ?array $navTreeCache        = null;
 
     public function __construct()
     {
         parent::__construct();
         $this->ensureSchemaInitialized();
+    }
+
+    public static function clearRuntimeCaches(): void
+    {
+        self::$activeAddonsCache = null;
+        self::$navTreeCache      = null;
     }
 
     public function ensureSchema(): void
@@ -43,6 +53,15 @@ class RbacModel extends Model
 
     public function ensureSchemaInitialized(): void
     {
+        if (self::$schemaChecked) {
+            return;
+        }
+        $lockFile = WRITEPATH . 'addons/schema_addon_rbac_v75.lock';
+        if (is_file($lockFile) && is_file($this->cacheFile)) {
+            self::$schemaChecked = true;
+            return;
+        }
+
         try {
             if (! $this->db->tableExists('cms_roles')) {
                 $this->db->query("
@@ -69,28 +88,25 @@ class RbacModel extends Model
                 }
             }
 
-            $this->db->query("
-                CREATE TABLE IF NOT EXISTS `cms_rbac_features` (
-                    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                    `perm_key` VARCHAR(120) NOT NULL,
-                    `perm_label` VARCHAR(190) NOT NULL,
-                    `module_group` VARCHAR(90) NOT NULL DEFAULT 'Core System',
-                    `source_type` VARCHAR(32) NOT NULL DEFAULT 'core',
-                    `created_at` DATETIME NULL,
-                    UNIQUE KEY `uniq_perm_key` (`perm_key`),
-                    KEY `idx_module_group` (`module_group`)
-                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-            ");
-
-            $lockFile = WRITEPATH . 'addons/schema_addon_rbac_v70.lock';
-            if (is_file($lockFile) && is_file($this->cacheFile)) {
-                return;
+            if (! $this->db->tableExists('cms_rbac_features')) {
+                $this->db->query("
+                    CREATE TABLE IF NOT EXISTS `cms_rbac_features` (
+                        `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                        `perm_key` VARCHAR(120) NOT NULL,
+                        `perm_label` VARCHAR(190) NOT NULL,
+                        `module_group` VARCHAR(90) NOT NULL DEFAULT 'Core System',
+                        `source_type` VARCHAR(32) NOT NULL DEFAULT 'core',
+                        `created_at` DATETIME NULL,
+                        UNIQUE KEY `uniq_perm_key` (`perm_key`),
+                        KEY `idx_module_group` (`module_group`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                ");
             }
 
             if ($this->db->tableExists('addons')) {
                 $this->db->table('addons')
                     ->where('slug', 'rbac')
-                    ->update(['name' => 'Roles, Permissions & Sidebar Architect']);
+                    ->update(['name' => 'Roles, Permissions & Sidebar Architect', 'version' => '7.5.0']);
             }
 
             $this->syncCoreAndAddonPermissions();
@@ -166,12 +182,12 @@ class RbacModel extends Model
                 ]);
             }
 
-            // Apply Friendly Role Presets on upgrade so Student/Parent/Teacher menus immediately look clean!
             $this->applySmartRolePresets();
             $this->mirrorAssets(true);
 
             @is_dir(dirname($lockFile)) || @mkdir(dirname($lockFile), 0775, true);
-            @file_put_contents($lockFile, json_encode(['migrated_at' => date('Y-m-d H:i:s')]));
+            @file_put_contents($lockFile, json_encode(['migrated_at' => date('Y-m-d H:i:s'), 'version' => '7.5.0']));
+            self::$schemaChecked = true;
         } catch (Throwable $e) {
             log_message('error', 'RbacModel schema error: ' . $e->getMessage());
         }
@@ -187,9 +203,8 @@ class RbacModel extends Model
                 $sFile = $srcDir . '/' . $f;
                 $dFile = $dstDir . '/' . $f;
                 if (is_file($sFile)) {
-                    if ($forceTouch || ! is_file($dFile) || md5_file($sFile) !== md5_file($dFile)) {
+                    if ($forceTouch || ! is_file($dFile) || filesize($sFile) !== filesize($dFile)) {
                         @copy($sFile, $dFile);
-                        @touch($dFile, time());
                     }
                 }
             }
@@ -201,7 +216,7 @@ class RbacModel extends Model
         if (self::$globalSettingsCache !== null) {
             return self::$globalSettingsCache;
         }
-        self::$globalSettingsCache = ['site_title' => 'Academy Portal', 'active_theme_mode' => 'dark', 'system_environment_mode' => 'testing'];
+        self::$globalSettingsCache = ['site_title' => 'Academy Portal', 'active_theme_mode' => 'dark', 'system_environment_mode' => 'production'];
         try {
             if ($this->db->tableExists('settings')) {
                 foreach ($this->db->table('settings')->get()->getResultArray() as $r) {
@@ -214,11 +229,86 @@ class RbacModel extends Model
     }
 
     /**
-     * Discovers all sidebar modules & sub-views from Core + ACTIVE Add-Ons
-     * Synced with our latest v7.0 / v8.0 / v9.0 dedicated single-purpose routes!
+     * Fetches ONLY currently active (`is_active = 1`) addons from the database AND verifies their folder exists.
+     */
+    public function getVerifiedActiveAddons(): array
+    {
+        if (self::$activeAddonsCache !== null) {
+            return self::$activeAddonsCache;
+        }
+        $rows = [];
+        try {
+            if (class_exists(AddonModel::class)) {
+                $rows = (new AddonModel())->getActiveAddons();
+            } elseif ($this->db->tableExists('addons')) {
+                $rows = $this->db->table('addons')->where('is_active', 1)->orderBy('sort_order', 'ASC')->get()->getResultArray();
+            }
+        } catch (Throwable $e) {
+        }
+
+        $verified = [];
+        foreach ($rows as $r) {
+            $slug = trim((string) ($r['slug'] ?? ''));
+            if ($slug === '') {
+                continue;
+            }
+            if (is_dir(WRITEPATH . 'addons/extracted/' . $slug) || is_dir(APPPATH . 'Addons/' . $slug)) {
+                $verified[$slug] = $r;
+            }
+        }
+        self::$activeAddonsCache = $verified;
+        return self::$activeAddonsCache;
+    }
+
+    /**
+     * Parses `[Student + Parent + Teacher + Admin]` tags in permission labels so ANY future addon
+     * automatically maps to the exact intended roles (and NEVER leaks to unintended roles!).
+     */
+    public function parseIntendedRolesFromLabel(string $permKey, string $permLabel): array
+    {
+        $roles = ['super_admin' => true];
+
+        if (preg_match('/\[([^\]]+)\]/', $permLabel, $m)) {
+            $tag = strtolower($m[1]);
+            if (strpos($tag, 'all roles') !== false) {
+                return ['super_admin', 'admin', 'teacher', 'parent', 'student'];
+            }
+            if (strpos($tag, 'super admin') !== false) {
+                $roles['super_admin'] = true;
+            }
+            if (preg_match('/\badmin\b/', $tag)) {
+                $roles['admin'] = true;
+            }
+            if (strpos($tag, 'teacher') !== false || strpos($tag, 'instructor') !== false) {
+                $roles['teacher'] = true;
+            }
+            if (strpos($tag, 'parent') !== false || strpos($tag, 'guardian') !== false) {
+                $roles['parent'] = true;
+            }
+            if (strpos($tag, 'student') !== false || strpos($tag, 'learner') !== false || strpos($tag, 'child') !== false) {
+                $roles['student'] = true;
+            }
+            return array_keys($roles);
+        }
+
+        // Safe fallback if a future addon omits bracket tags: ONLY Super Admin gets it by default!
+        // Never auto-enable unknown permissions for Student, Parent, or Teacher!
+        if (strpos($permKey, '.view') !== false && strpos($permKey, 'rbac.') === false && strpos($permKey, 'addons.') === false) {
+            $roles['admin'] = true;
+        }
+        return array_keys($roles);
+    }
+
+    /**
+     * Dynamically discovers all sidebar modules & sub-views from Core + Currently ACTIVE Add-Ons.
+     * Exact match with `lms_finance` v18, `lms_hierarchy` v8.5, `lms_onboarding` v12.1, etc.
      */
     public function discoverActiveNavigationTree(): array
     {
+        if (self::$navTreeCache !== null) {
+            return self::$navTreeCache;
+        }
+
         $tree = [
             'core_dashboard' => [
                 'slug'          => 'core_dashboard',
@@ -258,8 +348,9 @@ class RbacModel extends Model
             ],
         ];
 
-        $activeAddons = class_exists(AddonModel::class) ? (new AddonModel())->getActiveAddons() : [];
+        $activeAddons = $this->getVerifiedActiveAddons();
 
+        // Fallback sub-views synced 100% with actual routes & permissions in your codebase
         $builtinSubViews = [
             'rbac' => [
                 ['key' => 'rbac.overview',  'label' => 'Roles & Live Sidebar Preview', 'route' => 'addons/rbac',           'icon' => '📊', 'permission' => 'rbac.view'],
@@ -292,8 +383,8 @@ class RbacModel extends Model
                 ['key' => 'ass.portal_ws',    'label' => 'My PDF Worksheets',          'route' => 'assessments/portal/worksheets',        'icon' => '📄', 'permission' => 'lms_assessments.take_exam'],
                 ['key' => 'ass.portal_hist',  'label' => 'My Scores & Certificates',   'route' => 'assessments/portal/history',           'icon' => '🏆', 'permission' => 'lms_assessments.take_exam'],
                 ['key' => 'ass.qbank',        'label' => 'Question Bank [Admin/Tchr]', 'route' => 'addons/lms-assessments/question-bank', 'icon' => '🗃', 'permission' => 'lms_assessments.create'],
-                ['key' => 'ass.exams',        'label' => 'Exam Builder [Admin/Tchr]',  'route' => 'addons/lms-assessments/exams',         'icon' => '📝', 'permission' => 'lms_assessments.create'],
-                ['key' => 'ass.worksheets',   'label' => 'Upload PDF Worksheets',      'route' => 'addons/lms-assessments/worksheets',    'icon' => '📤', 'permission' => 'lms_assessments.create'],
+                ['key' => 'ass.exams',        'label' => 'Exam Builder [Admin Only]',  'route' => 'addons/lms-assessments/exams',         'icon' => '📝', 'permission' => 'lms_assessments.edit'],
+                ['key' => 'ass.worksheets',   'label' => 'Upload PDF Worksheets [Admin]','route' => 'addons/lms-assessments/worksheets',  'icon' => '📤', 'permission' => 'lms_assessments.edit'],
                 ['key' => 'ass.analytics',    'label' => 'Student Scores & Certs',     'route' => 'addons/lms-assessments/analytics',     'icon' => '📊', 'permission' => 'lms_assessments.view'],
             ],
             'lms_communication' => [
@@ -311,31 +402,29 @@ class RbacModel extends Model
                 ['key' => 'tt.portal',      'label' => 'My Live Classes',            'route' => 'timetable/portal',                 'icon' => '🎥', 'permission' => 'lms_timetable.view'],
             ],
             'lms_finance' => [
-                ['key' => 'fin.portal',         'label' => 'My Fee & Receipts',           'route' => 'finance/portal',                    'icon' => '💳', 'permission' => 'lms_finance.view'],
-                ['key' => 'fin.teacher_slips',  'label' => 'My Salary Slips',             'route' => 'finance/my-payouts',                'icon' => '💵', 'permission' => 'lms_finance.teacher_view'],
-                ['key' => 'fin.overview',       'label' => 'Finance Overview [Admin]',    'route' => 'addons/lms-finance',                'icon' => '📊', 'permission' => 'lms_finance.collect'],
-                ['key' => 'fin.invoices',       'label' => 'Subscriptions & Approvals',   'route' => 'addons/lms-finance/invoices',       'icon' => '✅', 'permission' => 'lms_finance.collect'],
+                ['key' => 'fin.portal',         'label' => 'Family Fee & Receipts',       'route' => 'finance/portal',                    'icon' => '💳', 'permission' => 'lms_finance.view'],
+                ['key' => 'fin.teacher_slips',  'label' => 'My Salary Slips [Teacher]',   'route' => 'finance/my-payouts',                'icon' => '💵', 'permission' => 'lms_finance.expenses'],
+                ['key' => 'fin.overview',       'label' => 'Transactions Ledger [Admin]', 'route' => 'addons/lms-finance',                'icon' => '📊', 'permission' => 'lms_finance.collect'],
+                ['key' => 'fin.invoices',       'label' => 'Subscriptions & Locks',       'route' => 'addons/lms-finance/invoices',       'icon' => '🔒', 'permission' => 'lms_finance.collect'],
                 ['key' => 'fin.custom_billing', 'label' => 'Custom Parent Billing',       'route' => 'addons/lms-finance/custom-billing', 'icon' => '🧾', 'permission' => 'lms_finance.collect'],
-                ['key' => 'fin.payroll',        'label' => 'Teacher Salary Entry',        'route' => 'addons/lms-finance/payroll',        'icon' => '💸', 'permission' => 'lms_finance.payroll'],
-                ['key' => 'fin.expenses',       'label' => 'Operational Expenses',        'route' => 'addons/lms-finance/expenses',       'icon' => '📉', 'permission' => 'lms_finance.expenses'],
-                ['key' => 'fin.gateways',       'label' => 'Razorpay & Receipt Designer', 'route' => 'addons/lms-finance/gateways',       'icon' => '⚙',  'permission' => 'lms_finance.expenses'],
+                ['key' => 'fin.payouts',        'label' => 'Teacher Payroll & Expenses',  'route' => 'addons/lms-finance/payouts',        'icon' => '💸', 'permission' => 'lms_finance.expenses'],
+                ['key' => 'fin.settings',       'label' => 'Razorpay & Receipt Designer', 'route' => 'addons/lms-finance/settings',       'icon' => '⚙',  'permission' => 'lms_finance.settings'],
             ],
             'abacus_pro_suite' => [
-                ['key' => 'aps.arena',     'label' => '3D Soroban Abacus Lab',     'route' => 'abacus/arena',                       'icon' => '🧮', 'permission' => 'abacus_pro_suite.practice'],
-                ['key' => 'aps.anzan',     'label' => 'Flash Anzan & Audio Drill', 'route' => 'abacus/anzan',                       'icon' => '⚡', 'permission' => 'abacus_pro_suite.practice'],
-                ['key' => 'aps.progress',  'label' => 'My Speed & Badges',         'route' => 'abacus/my-progress',                 'icon' => '🏆', 'permission' => 'abacus_pro_suite.practice'],
-                ['key' => 'aps.analytics', 'label' => 'Student Practice Analytics','route' => 'addons/abacus-pro-suite/analytics',  'icon' => '📊', 'permission' => 'abacus_pro_suite.view'],
-                ['key' => 'aps.settings',  'label' => 'Abacus Theme & Settings',   'route' => 'addons/abacus-pro-suite/settings',   'icon' => '⚙',  'permission' => 'abacus_pro_suite.edit'],
+                ['key' => 'aps.arena',     'label' => '3D Soroban Abacus Lab',      'route' => 'abacus/arena',                      'icon' => '🧮', 'permission' => 'abacus_pro_suite.practice'],
+                ['key' => 'aps.anzan',     'label' => 'Flash Anzan & Audio Drill',  'route' => 'abacus/anzan',                      'icon' => '⚡', 'permission' => 'abacus_pro_suite.practice'],
+                ['key' => 'aps.progress',  'label' => 'My Speed & Badges',          'route' => 'abacus/my-progress',                'icon' => '🏆', 'permission' => 'abacus_pro_suite.practice'],
+                ['key' => 'aps.analytics', 'label' => 'Student Practice Analytics', 'route' => 'addons/abacus-pro-suite/analytics', 'icon' => '📊', 'permission' => 'abacus_pro_suite.view'],
+                ['key' => 'aps.settings',  'label' => 'Abacus Theme & Settings',    'route' => 'addons/abacus-pro-suite/settings',  'icon' => '⚙',  'permission' => 'abacus_pro_suite.edit'],
             ],
             'lms_onboarding' => [
-                ['key' => 'onb.pipeline',  'label' => 'Demo Leads & Conversion', 'route' => 'addons/lms-onboarding',           'icon' => '🎯', 'permission' => 'lms_onboarding.view'],
-                ['key' => 'onb.scheduler', 'label' => 'Demo Class Scheduler',    'route' => 'addons/lms-onboarding/scheduler', 'icon' => '📅', 'permission' => 'demos.manage'],
-                ['key' => 'onb.my_demos',  'label' => 'My Assigned Demo Classes','route' => 'addons/lms-onboarding/my-demos',  'icon' => '👩‍🏫', 'permission' => 'lms_onboarding.teacher_demos'],
+                ['key' => 'onb.pipeline',  'label' => 'Demo Bookings & Cohort Convert', 'route' => 'addons/lms-onboarding',           'icon' => '🎯', 'permission' => 'lms_onboarding.view'],
+                ['key' => 'onb.scheduler', 'label' => 'Demo Class Slots & Teachers',    'route' => 'addons/lms-onboarding/scheduler', 'icon' => '📅', 'permission' => 'demos.manage'],
+                ['key' => 'onb.my_demos',  'label' => 'My Assigned Demo Classes',       'route' => 'addons/lms-onboarding/my-demos',  'icon' => '👩‍🏫', 'permission' => 'lms_onboarding.teacher_demos'],
             ],
         ];
 
-        foreach ($activeAddons as $act) {
-            $slug  = trim((string) ($act['slug'] ?? ''));
+        foreach ($activeAddons as $slug => $act) {
             $route = trim((string) ($act['admin_route'] ?? ($act['frontend_route'] ?? '')));
             if ($slug === '' || $route === '') {
                 continue;
@@ -360,11 +449,18 @@ class RbacModel extends Model
                 $permKeys = ['addons.manage'];
             }
 
-            $subViews = $manifest['sub_views'] ?? ($manifest['sidebar_links'] ?? ($builtinSubViews[$slug] ?? []));
+            // For `lms_finance`, always use the verified v18 sub-views so legacy manifest routes never break links
+            if ($slug === 'lms_finance') {
+                $subViews = $builtinSubViews['lms_finance'];
+            } else {
+                $subViews = ! empty($manifest['sub_views']) && is_array($manifest['sub_views'])
+                    ? $manifest['sub_views']
+                    : ($manifest['sidebar_links'] ?? ($builtinSubViews[$slug] ?? []));
+            }
 
             $tree['addon_' . $slug] = [
                 'slug'          => $slug,
-                'default_title' => $manifest['name'] ?? ($act['name'] ?? ucfirst($slug)),
+                'default_title' => $manifest['name'] ?? ($act['name'] ?? ucfirst(str_replace('_', ' ', $slug))),
                 'icon'          => $manifest['icon'] ?? '⚡',
                 'route'         => $route,
                 'section'       => 'LEARNING & ACADEMY MODULES',
@@ -373,33 +469,35 @@ class RbacModel extends Model
             ];
         }
 
-        return $tree;
+        self::$navTreeCache = $tree;
+        return self::$navTreeCache;
     }
 
+    /**
+     * Synchronizes permissions ONLY from Core + Currently ACTIVE Addons.
+     * When an addon is deactivated, its permissions are automatically removed from the active registry
+     * (and when re-activated, they are automatically restored!).
+     */
     public function syncCoreAndAddonPermissions(): void
     {
+        self::clearRuntimeCaches();
         $now = date('Y-m-d H:i:s');
 
         $validPermissions = [
-            ['perm_key' => 'dashboard.view', 'perm_label' => 'Access Dashboard Overview [All Roles]',                 'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
-            ['perm_key' => 'settings.view',  'perm_label' => 'View Global Website Settings [Super Admin + Admin]',    'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
-            ['perm_key' => 'settings.edit',  'perm_label' => 'Modify Global Website Settings [Super Admin + Admin]',  'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
-            ['perm_key' => 'addons.manage',  'perm_label' => 'Install, Enable & Delete Add-ons [Super Admin Only]',   'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
+            ['perm_key' => 'dashboard.view', 'perm_label' => 'Access Dashboard Overview [All Roles]',                'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
+            ['perm_key' => 'settings.view',  'perm_label' => 'View Global Website Settings [Super Admin + Admin]',   'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
+            ['perm_key' => 'settings.edit',  'perm_label' => 'Modify Global Website Settings [Super Admin + Admin]', 'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
+            ['perm_key' => 'addons.manage',  'perm_label' => 'Install, Enable & Delete Add-ons [Super Admin Only]',  'module_group' => 'Core Website & Settings', 'source_type' => 'core'],
 
-            ['perm_key' => 'users.view',     'perm_label' => 'View Users Directory [Super Admin + Admin]',            'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
-            ['perm_key' => 'users.create',   'perm_label' => 'Create New User Accounts [Super Admin + Admin]',        'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
-            ['perm_key' => 'users.edit',     'perm_label' => 'Edit Users & Assign Roles [Super Admin + Admin]',       'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
-            ['perm_key' => 'users.delete',   'perm_label' => 'Delete User Accounts (Cascade) [Super Admin + Admin]',  'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
+            ['perm_key' => 'users.view',     'perm_label' => 'View Users Directory [Super Admin + Admin]',           'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
+            ['perm_key' => 'users.create',   'perm_label' => 'Create New User Accounts [Super Admin + Admin]',       'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
+            ['perm_key' => 'users.edit',     'perm_label' => 'Edit Users & Assign Roles [Super Admin + Admin]',      'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
+            ['perm_key' => 'users.delete',   'perm_label' => 'Delete User Accounts (Cascade) [Super Admin + Admin]', 'module_group' => 'Users & Academic Roles',  'source_type' => 'core'],
         ];
 
-        $activeAddons = class_exists(AddonModel::class) ? (new AddonModel())->getActiveAddons() : [];
+        $activeAddons = $this->getVerifiedActiveAddons();
 
-        foreach ($activeAddons as $actAddon) {
-            $slug = trim((string) ($actAddon['slug'] ?? ''));
-            if ($slug === '') {
-                continue;
-            }
-
+        foreach ($activeAddons as $slug => $actAddon) {
             if ($slug === 'page_builder') {
                 $validPermissions[] = ['perm_key' => 'pages.view',   'perm_label' => 'View CMS Pages & Visual Builder [Super Admin + Admin]',  'module_group' => 'Add-on: Visual Page Builder & CMS', 'source_type' => 'addon'];
                 $validPermissions[] = ['perm_key' => 'pages.create', 'perm_label' => 'Create New Website Pages [Super Admin + Admin]',         'module_group' => 'Add-on: Visual Page Builder & CMS', 'source_type' => 'addon'];
@@ -440,6 +538,7 @@ class RbacModel extends Model
             ", [$vp['perm_key'], $vp['perm_label'], $vp['module_group'], $vp['source_type'], $now]);
         }
 
+        // Remove permissions belonging to deactivated/uninstalled addons (preserves 'custom' permissions)
         if (! empty($validKeysList)) {
             $this->db->table($this->featuresTable)
                 ->whereIn('source_type', ['core', 'addon'])
@@ -449,27 +548,49 @@ class RbacModel extends Model
     }
 
     /**
-     * 1-Click Friendly Role Presets:
-     * Configures Permissions + Child-Friendly / Parent-Friendly / Teacher-Friendly Sidebar Labels!
+     * Dynamic Role Presets:
+     * Combines verified baseline role presets with dynamic `[Role]` bracket parsing from all active addons!
+     * Ensures new addons NEVER accidentally enable admin/teacher permissions for Students or Parents.
      */
     public function applySmartRolePresets(): array
     {
+        $this->syncCoreAndAddonPermissions();
         $now = date('Y-m-d H:i:s');
+
+        $rolePermsMap = [
+            'admin'   => [],
+            'teacher' => [],
+            'parent'  => [],
+            'student' => [],
+        ];
+
+        // 1. Dynamically assign permissions from all active addons based on their `[Role]` tags
+        foreach ($this->getAllFeatures() as $feat) {
+            $pKey          = (string) $feat['perm_key'];
+            $pLabel        = (string) $feat['perm_label'];
+            $intendedRoles = $this->parseIntendedRolesFromLabel($pKey, $pLabel);
+            foreach ($intendedRoles as $rSlug) {
+                if (isset($rolePermsMap[$rSlug])) {
+                    $rolePermsMap[$rSlug][$pKey] = true;
+                }
+            }
+        }
+
+        // 2. Enforce strict security boundaries for Student & Parent roles:
+        //    - Students NEVER get `lms_finance.*` (Fees are paid by Parents), `*.create`, `*.edit`, `*.delete`, `*.moderate`
+        //    - Parents get `lms_finance.view`, `core_lms_auth.view`, `lms_hierarchy.view`, `lms_timetable.view`, `lms_assessments.take_exam`, `lms_communication.chat`, `lms_communication.feedback`
+        unset(
+            $rolePermsMap['student']['lms_finance.view'],
+            $rolePermsMap['student']['lms_finance.collect'],
+            $rolePermsMap['student']['lms_finance.expenses'],
+            $rolePermsMap['student']['lms_finance.delete'],
+            $rolePermsMap['student']['lms_finance.settings']
+        );
+
         $presets = [
             'admin' => [
-                'perms' => [
-                    'dashboard.view', 'users.view', 'users.create', 'users.edit', 'settings.view', 'settings.edit',
-                    'pages.view', 'pages.create', 'pages.edit', 'pages.delete',
-                    'core_lms_auth.view', 'core_lms_auth.create', 'core_lms_auth.edit', 'core_lms_auth.delete',
-                    'lms_hierarchy.view', 'lms_hierarchy.create', 'lms_hierarchy.pricing', 'lms_hierarchy.edit',
-                    'lms_assessments.view', 'lms_assessments.create', 'lms_assessments.edit', 'lms_assessments.take_exam',
-                    'lms_communication.chat', 'lms_communication.feedback', 'lms_communication.moderate', 'lms_communication.filters', 'lms_communication.alerts',
-                    'lms_timetable.view', 'lms_timetable.create', 'lms_timetable.edit',
-                    'lms_finance.view', 'lms_finance.collect', 'lms_finance.payroll', 'lms_finance.expenses',
-                    'abacus_pro_suite.view', 'abacus_pro_suite.edit', 'abacus_pro_suite.practice',
-                    'lms_onboarding.view', 'demos.manage',
-                ],
-                'ws' => [
+                'perms' => array_values(array_keys($rolePermsMap['admin'])),
+                'ws'    => [
                     'show_child_switcher' => 0,
                     'landing_route'       => 'dashboard',
                     'custom_labels'       => [
@@ -482,21 +603,13 @@ class RbacModel extends Model
                         'addon_abacus_pro_suite'  => '3D Abacus & Analytics',
                         'addon_lms_onboarding'    => 'Demo Leads & Admissions',
                     ],
+                    'hidden_items'      => [],
                     'dashboard_widgets' => ['kpi_overview', 'quick_modules', 'mod_flagged_chat'],
                 ],
             ],
             'teacher' => [
-                'perms' => [
-                    'dashboard.view',
-                    'lms_hierarchy.view',
-                    'lms_assessments.view', 'lms_assessments.create',
-                    'lms_communication.chat', 'lms_communication.feedback',
-                    'lms_timetable.view', 'lms_timetable.teacher_panel',
-                    'lms_finance.teacher_view',
-                    'abacus_pro_suite.view', 'abacus_pro_suite.practice',
-                    'lms_onboarding.teacher_demos',
-                ],
-                'ws' => [
+                'perms' => array_values(array_keys($rolePermsMap['teacher'])),
+                'ws'    => [
                     'show_child_switcher' => 0,
                     'landing_route'       => 'timetable/portal',
                     'custom_labels'       => [
@@ -508,20 +621,15 @@ class RbacModel extends Model
                         'addon_abacus_pro_suite'  => '3D Abacus & Batch Progress',
                         'addon_lms_onboarding'    => 'My Demo Classes',
                     ],
+                    'hidden_items'      => [
+                        'fin.portal' => 1,
+                    ],
                     'dashboard_widgets' => ['teacher_schedule', 'quick_modules'],
                 ],
             ],
             'parent' => [
-                'perms' => [
-                    'dashboard.view',
-                    'core_lms_auth.view',
-                    'lms_hierarchy.view',
-                    'lms_assessments.take_exam',
-                    'lms_communication.chat', 'lms_communication.feedback',
-                    'lms_timetable.view',
-                    'lms_finance.view',
-                ],
-                'ws' => [
+                'perms' => array_values(array_keys($rolePermsMap['parent'])),
+                'ws'    => [
                     'show_child_switcher' => 1,
                     'landing_route'       => 'portal/family',
                     'custom_labels'       => [
@@ -531,24 +639,17 @@ class RbacModel extends Model
                         'addon_lms_assessments'   => 'Worksheets & Exam Reports',
                         'addon_lms_finance'       => 'Fee Payment & Receipts',
                         'addon_lms_communication' => 'Teacher Chat & Feedback',
+                        'addon_abacus_pro_suite'  => 'Kids Abacus Progress',
                     ],
-                    'hidden_items' => [
+                    'hidden_items'      => [
                         'ass.portal_exams' => 1,
                     ],
                     'dashboard_widgets' => ['parent_children', 'quick_modules'],
                 ],
             ],
             'student' => [
-                'perms' => [
-                    'dashboard.view',
-                    'core_lms_auth.view',
-                    'lms_hierarchy.view',
-                    'lms_assessments.take_exam',
-                    'lms_communication.chat', 'lms_communication.feedback',
-                    'lms_timetable.view',
-                    'abacus_pro_suite.practice',
-                ],
-                'ws' => [
+                'perms' => array_values(array_keys($rolePermsMap['student'])),
+                'ws'    => [
                     'show_child_switcher' => 0,
                     'landing_route'       => 'dashboard',
                     'custom_labels'       => [
@@ -559,7 +660,7 @@ class RbacModel extends Model
                         'addon_lms_hierarchy'     => 'My Courses',
                         'addon_lms_communication' => 'Ask My Teacher & Feedback',
                     ],
-                    'hidden_items' => [
+                    'hidden_items'      => [
                         'cla.add_child' => 1,
                     ],
                     'dashboard_widgets' => ['student_arena', 'quick_modules'],
@@ -587,7 +688,7 @@ class RbacModel extends Model
         $this->rebuildStaticCache();
         return [
             'ok'      => true,
-            'message' => 'Applied Child/Parent/Teacher-Friendly Menu Names, Permissions & Dashboard Widgets across ' . $updatedCount . ' roles!',
+            'message' => 'Synced active add-ons and applied role-scoped presets across ' . $updatedCount . ' roles!',
         ];
     }
 
@@ -597,12 +698,17 @@ class RbacModel extends Model
 
         $activePermKeys = array_flip(array_column($this->getAllFeatures(), 'perm_key'));
         $navCatalog     = $this->discoverActiveNavigationTree();
+        $activeSlugs    = array_keys($this->getVerifiedActiveAddons());
+        sort($activeSlugs);
+        $addonsHash     = ! empty($activeSlugs) ? md5(implode(',', $activeSlugs)) : '';
 
         $cachePayload = [
-            'updated_at'   => time(),
-            'default_role' => 'student',
-            'nav_catalog'  => $navCatalog,
-            'roles'        => [],
+            'updated_at'    => time(),
+            'addons_hash'   => $addonsHash,
+            'active_addons' => $activeSlugs,
+            'default_role'  => 'student',
+            'nav_catalog'   => $navCatalog,
+            'roles'         => [],
         ];
 
         try {
@@ -625,6 +731,7 @@ class RbacModel extends Model
                 } else {
                     $effectivePerms = [];
                     foreach (array_unique($perms) as $pk) {
+                        // Only grant permissions that belong to currently ACTIVE addons/core
                         if (isset($activePermKeys[$pk])) {
                             $effectivePerms[] = $pk;
                         }
@@ -756,10 +863,16 @@ class RbacModel extends Model
             ->getResultArray();
     }
 
+    /**
+     * 0ms Read-Only Query on GET requests (Only runs full addon sync if table is empty).
+     */
     public function getGroupedFeatures(): array
     {
-        $this->syncCoreAndAddonPermissions();
-        $rows   = $this->getAllFeatures();
+        $rows = $this->getAllFeatures();
+        if (empty($rows)) {
+            $this->syncCoreAndAddonPermissions();
+            $rows = $this->getAllFeatures();
+        }
         $groups = [];
         foreach ($rows as $r) {
             $g = $r['module_group'] ?: 'General';

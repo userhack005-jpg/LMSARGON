@@ -1,5 +1,17 @@
 {
-    "updated_at": 1793227822,
+    "updated_at": 1794351956,
+    "addons_hash": "36a1702cf073c296a2ca59f74c0dd710",
+    "active_addons": [
+        "abacus_pro_suite",
+        "core_lms_auth",
+        "lms_communication",
+        "lms_finance",
+        "lms_hierarchy",
+        "lms_onboarding",
+        "lms_timetable",
+        "page_builder",
+        "rbac"
+    ],
     "default_role": "student",
     "nav_catalog": {
         "core_dashboard": {
@@ -86,105 +98,53 @@
                 }
             ]
         },
-        "addon_lms_communication": {
-            "slug": "lms_communication",
-            "default_title": "Classroom Chat, Teacher Feedback & Safety",
+        "addon_abacus_pro_suite": {
+            "slug": "abacus_pro_suite",
+            "default_title": "3D Abacus & Flash Anzan Lab",
             "icon": "⚡",
-            "route": "addons\/lms-communication\/moderation",
+            "route": "addons\/abacus-pro-suite\/analytics",
             "section": "LEARNING & ACADEMY MODULES",
             "permissions": [
-                "lms_communication.chat",
-                "lms_communication.feedback",
-                "lms_communication.moderate",
-                "lms_communication.filters",
-                "lms_communication.alerts"
+                "abacus_pro_suite.practice",
+                "abacus_pro_suite.view",
+                "abacus_pro_suite.edit",
+                "abacus_pro_suite.delete"
             ],
             "sub_views": [
                 {
-                    "key": "comm.chat",
-                    "label": "1-to-1 Classroom Chat",
-                    "route": "chat\/portal",
-                    "icon": "💬",
-                    "permission": "lms_communication.chat"
+                    "key": "aps.arena",
+                    "label": "3D Soroban Abacus Lab",
+                    "route": "abacus\/arena",
+                    "icon": "🧮",
+                    "permission": "abacus_pro_suite.practice"
                 },
                 {
-                    "key": "comm.feedback",
-                    "label": "Teacher Feedback Cards",
-                    "route": "chat\/feedback",
-                    "icon": "⭐",
-                    "permission": "lms_communication.feedback"
+                    "key": "aps.anzan",
+                    "label": "Flash Anzan & Voice Drill",
+                    "route": "abacus\/anzan",
+                    "icon": "⚡",
+                    "permission": "abacus_pro_suite.practice"
                 },
                 {
-                    "key": "comm.moderate",
-                    "label": "Chat Moderation [Admin]",
-                    "route": "addons\/lms-communication\/moderation",
-                    "icon": "🛡",
-                    "permission": "lms_communication.moderate"
+                    "key": "aps.progress",
+                    "label": "My Speed & Badges",
+                    "route": "abacus\/my-progress",
+                    "icon": "🏆",
+                    "permission": "abacus_pro_suite.practice"
                 },
                 {
-                    "key": "comm.filters",
-                    "label": "Safety Filter Rules [Admin]",
-                    "route": "addons\/lms-communication\/dlp-filters",
-                    "icon": "🔒",
-                    "permission": "lms_communication.filters"
+                    "key": "aps.analytics",
+                    "label": "Batch Practice Analytics",
+                    "route": "addons\/abacus-pro-suite\/analytics",
+                    "icon": "📊",
+                    "permission": "abacus_pro_suite.view"
                 },
                 {
-                    "key": "comm.alerts",
-                    "label": "Email & WhatsApp Logs",
-                    "route": "addons\/lms-communication\/alerts",
-                    "icon": "🔔",
-                    "permission": "lms_communication.alerts"
-                }
-            ]
-        },
-        "addon_lms_hierarchy": {
-            "slug": "lms_hierarchy",
-            "default_title": "Courses & Academic Programs",
-            "icon": "⚡",
-            "route": "addons\/lms-hierarchy",
-            "section": "LEARNING & ACADEMY MODULES",
-            "permissions": [
-                "lms_hierarchy.view",
-                "lms_hierarchy.create",
-                "lms_hierarchy.pricing",
-                "lms_hierarchy.edit",
-                "lms_hierarchy.delete"
-            ],
-            "sub_views": [
-                {
-                    "key": "lhr.tree",
-                    "label": "All Courses & Levels",
-                    "route": "addons\/lms-hierarchy",
-                    "icon": "📚",
-                    "permission": "lms_hierarchy.create"
-                },
-                {
-                    "key": "lhr.builder",
-                    "label": "Add \/ Edit Course",
-                    "route": "addons\/lms-hierarchy\/builder",
-                    "icon": "➕",
-                    "permission": "lms_hierarchy.create"
-                },
-                {
-                    "key": "lhr.pricing",
-                    "label": "Course Fee Plans",
-                    "route": "addons\/lms-hierarchy\/pricing",
-                    "icon": "💳",
-                    "permission": "lms_hierarchy.pricing"
-                },
-                {
-                    "key": "lhr.enrollments",
-                    "label": "Student Enrollments",
-                    "route": "addons\/lms-hierarchy\/enrollments",
-                    "icon": "🎓",
-                    "permission": "lms_hierarchy.edit"
-                },
-                {
-                    "key": "lhr.catalog",
-                    "label": "My Courses",
-                    "route": "courses\/catalog",
-                    "icon": "📖",
-                    "permission": "lms_hierarchy.view"
+                    "key": "aps.settings",
+                    "label": "Abacus Theme & Settings",
+                    "route": "addons\/abacus-pro-suite\/settings",
+                    "icon": "⚙",
+                    "permission": "abacus_pro_suite.edit"
                 }
             ]
         },
@@ -252,89 +212,74 @@
                 }
             ]
         },
-        "addon_lms_assessments": {
-            "slug": "lms_assessments",
-            "default_title": "Exams, Worksheets & Certificates",
+        "addon_lms_communication": {
+            "slug": "lms_communication",
+            "default_title": "Classroom Chat, Teacher Feedback & Safety",
             "icon": "⚡",
-            "route": "addons\/lms-assessments\/question-bank",
+            "route": "addons\/lms-communication\/moderation",
             "section": "LEARNING & ACADEMY MODULES",
             "permissions": [
-                "lms_assessments.take_exam",
-                "lms_assessments.view",
-                "lms_assessments.create",
-                "lms_assessments.edit",
-                "lms_assessments.delete"
+                "lms_communication.chat",
+                "lms_communication.feedback",
+                "lms_communication.moderate",
+                "lms_communication.filters",
+                "lms_communication.alerts"
             ],
             "sub_views": [
                 {
-                    "key": "ass.portal_exams",
-                    "label": "Practice & Timed Exams",
-                    "route": "assessments\/portal",
-                    "icon": "🎯",
-                    "permission": "lms_assessments.take_exam"
+                    "key": "comm.chat",
+                    "label": "1-to-1 Classroom Chat",
+                    "route": "chat\/portal",
+                    "icon": "💬",
+                    "permission": "lms_communication.chat"
                 },
                 {
-                    "key": "ass.portal_ws",
-                    "label": "My PDF Worksheets",
-                    "route": "assessments\/portal\/worksheets",
-                    "icon": "📄",
-                    "permission": "lms_assessments.take_exam"
+                    "key": "comm.feedback",
+                    "label": "Teacher Feedback Cards",
+                    "route": "chat\/feedback",
+                    "icon": "⭐",
+                    "permission": "lms_communication.feedback"
                 },
                 {
-                    "key": "ass.portal_hist",
-                    "label": "My Scores & Certificates",
-                    "route": "assessments\/portal\/history",
-                    "icon": "🏆",
-                    "permission": "lms_assessments.take_exam"
+                    "key": "comm.moderate",
+                    "label": "Chat Moderation [Admin]",
+                    "route": "addons\/lms-communication\/moderation",
+                    "icon": "🛡",
+                    "permission": "lms_communication.moderate"
                 },
                 {
-                    "key": "ass.qbank",
-                    "label": "Question Bank [Admin\/Tchr]",
-                    "route": "addons\/lms-assessments\/question-bank",
-                    "icon": "🗃",
-                    "permission": "lms_assessments.create"
+                    "key": "comm.filters",
+                    "label": "Safety Filter Rules [Admin]",
+                    "route": "addons\/lms-communication\/dlp-filters",
+                    "icon": "🔒",
+                    "permission": "lms_communication.filters"
                 },
                 {
-                    "key": "ass.exams",
-                    "label": "Exam Builder [Admin\/Tchr]",
-                    "route": "addons\/lms-assessments\/exams",
-                    "icon": "📝",
-                    "permission": "lms_assessments.create"
-                },
-                {
-                    "key": "ass.worksheets",
-                    "label": "Upload PDF Worksheets",
-                    "route": "addons\/lms-assessments\/worksheets",
-                    "icon": "📤",
-                    "permission": "lms_assessments.create"
-                },
-                {
-                    "key": "ass.analytics",
-                    "label": "Student Scores & Certs",
-                    "route": "addons\/lms-assessments\/analytics",
-                    "icon": "📊",
-                    "permission": "lms_assessments.view"
+                    "key": "comm.alerts",
+                    "label": "Email & WhatsApp Logs",
+                    "route": "addons\/lms-communication\/alerts",
+                    "icon": "🔔",
+                    "permission": "lms_communication.alerts"
                 }
             ]
         },
         "addon_lms_finance": {
             "slug": "lms_finance",
-            "default_title": "Fee Billing, Razorpay & Payroll",
+            "default_title": "Fee Subscriptions, Razorpay & Receipts",
             "icon": "⚡",
             "route": "addons\/lms-finance",
             "section": "LEARNING & ACADEMY MODULES",
             "permissions": [
                 "lms_finance.view",
-                "lms_finance.teacher_view",
                 "lms_finance.collect",
-                "lms_finance.payroll",
                 "lms_finance.expenses",
+                "lms_finance.settings",
                 "lms_finance.delete"
             ],
             "sub_views": [
                 {
                     "key": "fin.portal",
-                    "label": "My Fee & Receipts [Parent\/Stu]",
+                    "label": "Family Fee & Receipts",
                     "route": "finance\/portal",
                     "icon": "💳",
                     "permission": "lms_finance.view"
@@ -344,85 +289,129 @@
                     "label": "My Salary Slips [Teacher]",
                     "route": "finance\/my-payouts",
                     "icon": "💵",
-                    "permission": "lms_finance.teacher_view"
+                    "permission": "lms_finance.expenses"
                 },
                 {
                     "key": "fin.overview",
-                    "label": "Finance Overview [Admin]",
+                    "label": "Transactions Ledger [Admin]",
                     "route": "addons\/lms-finance",
                     "icon": "📊",
                     "permission": "lms_finance.collect"
                 },
                 {
                     "key": "fin.invoices",
-                    "label": "Subscriptions & Approvals",
+                    "label": "Subscriptions & Locks",
                     "route": "addons\/lms-finance\/invoices",
-                    "icon": "✅",
+                    "icon": "🔒",
                     "permission": "lms_finance.collect"
                 },
                 {
                     "key": "fin.custom_billing",
-                    "label": "Custom Parent-Child Billing",
+                    "label": "Custom Parent Billing",
                     "route": "addons\/lms-finance\/custom-billing",
                     "icon": "🧾",
                     "permission": "lms_finance.collect"
                 },
                 {
-                    "key": "fin.payroll",
-                    "label": "Teacher Salary Entry",
-                    "route": "addons\/lms-finance\/payroll",
+                    "key": "fin.payouts",
+                    "label": "Teacher Payroll & Expenses",
+                    "route": "addons\/lms-finance\/payouts",
                     "icon": "💸",
-                    "permission": "lms_finance.payroll"
-                },
-                {
-                    "key": "fin.expenses",
-                    "label": "Operational Expenses",
-                    "route": "addons\/lms-finance\/expenses",
-                    "icon": "📉",
                     "permission": "lms_finance.expenses"
                 },
                 {
-                    "key": "fin.gateways",
+                    "key": "fin.settings",
                     "label": "Razorpay & Receipt Designer",
-                    "route": "addons\/lms-finance\/gateways",
+                    "route": "addons\/lms-finance\/settings",
                     "icon": "⚙",
-                    "permission": "lms_finance.expenses"
+                    "permission": "lms_finance.settings"
                 }
             ]
         },
-        "addon_rbac": {
-            "slug": "rbac",
-            "default_title": "Roles, Permissions & Sidebar Architect",
+        "addon_lms_hierarchy": {
+            "slug": "lms_hierarchy",
+            "default_title": "Courses & Academic Programs",
             "icon": "⚡",
-            "route": "addons\/rbac",
+            "route": "addons\/lms-hierarchy",
             "section": "LEARNING & ACADEMY MODULES",
             "permissions": [
-                "rbac.view",
-                "rbac.create",
-                "rbac.edit",
-                "rbac.delete"
+                "lms_hierarchy.view",
+                "lms_hierarchy.create",
+                "lms_hierarchy.pricing",
+                "lms_hierarchy.edit",
+                "lms_hierarchy.delete"
             ],
             "sub_views": [
                 {
-                    "key": "rbac.overview",
-                    "label": "Roles & Live Sidebar Preview",
-                    "route": "addons\/rbac",
-                    "icon": "📊",
-                    "permission": "rbac.view"
+                    "key": "lhr.tree",
+                    "label": "All Courses & Levels",
+                    "route": "addons\/lms-hierarchy",
+                    "icon": "📚",
+                    "permission": "lms_hierarchy.create"
                 },
                 {
-                    "key": "rbac.matrix",
-                    "label": "Permission Switch Matrix",
-                    "route": "addons\/rbac\/matrix",
-                    "icon": "🛡",
-                    "permission": "rbac.view"
+                    "key": "lhr.builder",
+                    "label": "Add \/ Edit Course",
+                    "route": "addons\/lms-hierarchy\/builder",
+                    "icon": "➕",
+                    "permission": "lms_hierarchy.create"
                 },
                 {
-                    "key": "rbac.workspace",
-                    "label": "Menu Renamer & Widgets",
-                    "route": "addons\/rbac\/workspace",
-                    "icon": "🎨",
-                    "permission": "rbac.edit"
+                    "key": "lhr.pricing",
+                    "label": "Course Fee Plans",
+                    "route": "addons\/lms-hierarchy\/pricing",
+                    "icon": "💳",
+                    "permission": "lms_hierarchy.pricing"
+                },
+                {
+                    "key": "lhr.enrollments",
+                    "label": "Student Enrollments",
+                    "route": "addons\/lms-hierarchy\/enrollments",
+                    "icon": "🎓",
+                    "permission": "lms_hierarchy.edit"
+                },
+                {
+                    "key": "lhr.catalog",
+                    "label": "My Courses",
+                    "route": "courses\/catalog",
+                    "icon": "📖",
+                    "permission": "lms_hierarchy.view"
+                }
+            ]
+        },
+        "addon_lms_onboarding": {
+            "slug": "lms_onboarding",
+            "default_title": "Demo Bookings, Lead Pipeline & Admissions",
+            "icon": "⚡",
+            "route": "addons\/lms-onboarding",
+            "section": "LEARNING & ACADEMY MODULES",
+            "permissions": [
+                "lms_onboarding.view",
+                "demos.manage",
+                "lms_onboarding.teacher_demos",
+                "lms_onboarding.delete"
+            ],
+            "sub_views": [
+                {
+                    "key": "onb.pipeline",
+                    "label": "Demo Bookings & Cohort Convert",
+                    "route": "addons\/lms-onboarding",
+                    "icon": "🎯",
+                    "permission": "lms_onboarding.view"
+                },
+                {
+                    "key": "onb.scheduler",
+                    "label": "Demo Class Slots & Teachers",
+                    "route": "addons\/lms-onboarding\/scheduler",
+                    "icon": "📅",
+                    "permission": "demos.manage"
+                },
+                {
+                    "key": "onb.my_demos",
+                    "label": "My Assigned Demo Classes",
+                    "route": "addons\/lms-onboarding\/my-demos",
+                    "icon": "👩‍🏫",
+                    "permission": "lms_onboarding.teacher_demos"
                 }
             ]
         },
@@ -470,53 +459,39 @@
                 }
             ]
         },
-        "addon_abacus_pro_suite": {
-            "slug": "abacus_pro_suite",
-            "default_title": "3D Abacus & Flash Anzan Lab",
+        "addon_rbac": {
+            "slug": "rbac",
+            "default_title": "Roles, Permissions & Sidebar Architect",
             "icon": "⚡",
-            "route": "addons\/abacus-pro-suite\/analytics",
+            "route": "addons\/rbac",
             "section": "LEARNING & ACADEMY MODULES",
             "permissions": [
-                "abacus_pro_suite.practice",
-                "abacus_pro_suite.view",
-                "abacus_pro_suite.edit",
-                "abacus_pro_suite.delete"
+                "rbac.view",
+                "rbac.create",
+                "rbac.edit",
+                "rbac.delete"
             ],
             "sub_views": [
                 {
-                    "key": "aps.arena",
-                    "label": "3D Soroban Abacus Lab",
-                    "route": "abacus\/arena",
-                    "icon": "🧮",
-                    "permission": "abacus_pro_suite.practice"
-                },
-                {
-                    "key": "aps.anzan",
-                    "label": "Flash Anzan & Voice Drill",
-                    "route": "abacus\/anzan",
-                    "icon": "⚡",
-                    "permission": "abacus_pro_suite.practice"
-                },
-                {
-                    "key": "aps.progress",
-                    "label": "My Speed & Badges",
-                    "route": "abacus\/my-progress",
-                    "icon": "🏆",
-                    "permission": "abacus_pro_suite.practice"
-                },
-                {
-                    "key": "aps.analytics",
-                    "label": "Batch Practice Analytics",
-                    "route": "addons\/abacus-pro-suite\/analytics",
+                    "key": "rbac.overview",
+                    "label": "Roles & Live Sidebar Preview",
+                    "route": "addons\/rbac",
                     "icon": "📊",
-                    "permission": "abacus_pro_suite.view"
+                    "permission": "rbac.view"
                 },
                 {
-                    "key": "aps.settings",
-                    "label": "Abacus Theme & Settings",
-                    "route": "addons\/abacus-pro-suite\/settings",
-                    "icon": "⚙",
-                    "permission": "abacus_pro_suite.edit"
+                    "key": "rbac.matrix",
+                    "label": "Permission Switch Matrix",
+                    "route": "addons\/rbac\/matrix",
+                    "icon": "🛡",
+                    "permission": "rbac.view"
+                },
+                {
+                    "key": "rbac.workspace",
+                    "label": "Menu Renamer & Widgets",
+                    "route": "addons\/rbac\/workspace",
+                    "icon": "🎨",
+                    "permission": "rbac.edit"
                 }
             ]
         }
@@ -613,103 +588,53 @@
                         }
                     ]
                 },
-                "addon_lms_communication": {
-                    "key": "addon_lms_communication",
-                    "slug": "lms_communication",
-                    "display_label": "Classroom Chat, Teacher Feedback & Safety",
+                "addon_abacus_pro_suite": {
+                    "key": "addon_abacus_pro_suite",
+                    "slug": "abacus_pro_suite",
+                    "display_label": "3D Abacus & Flash Anzan Lab",
                     "icon": "⚡",
-                    "route": "addons\/lms-communication\/moderation",
+                    "route": "addons\/abacus-pro-suite\/analytics",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
                         {
-                            "key": "comm.chat",
-                            "label": "1-to-1 Classroom Chat",
-                            "route": "chat\/portal",
-                            "icon": "💬",
-                            "permission": "lms_communication.chat",
-                            "display_label": "1-to-1 Classroom Chat"
+                            "key": "aps.arena",
+                            "label": "3D Soroban Abacus Lab",
+                            "route": "abacus\/arena",
+                            "icon": "🧮",
+                            "permission": "abacus_pro_suite.practice",
+                            "display_label": "3D Soroban Abacus Lab"
                         },
                         {
-                            "key": "comm.feedback",
-                            "label": "Teacher Feedback Cards",
-                            "route": "chat\/feedback",
-                            "icon": "⭐",
-                            "permission": "lms_communication.feedback",
-                            "display_label": "Teacher Feedback Cards"
+                            "key": "aps.anzan",
+                            "label": "Flash Anzan & Voice Drill",
+                            "route": "abacus\/anzan",
+                            "icon": "⚡",
+                            "permission": "abacus_pro_suite.practice",
+                            "display_label": "Flash Anzan & Voice Drill"
                         },
                         {
-                            "key": "comm.moderate",
-                            "label": "Chat Moderation [Admin]",
-                            "route": "addons\/lms-communication\/moderation",
-                            "icon": "🛡",
-                            "permission": "lms_communication.moderate",
-                            "display_label": "Chat Moderation [Admin]"
+                            "key": "aps.progress",
+                            "label": "My Speed & Badges",
+                            "route": "abacus\/my-progress",
+                            "icon": "🏆",
+                            "permission": "abacus_pro_suite.practice",
+                            "display_label": "My Speed & Badges"
                         },
                         {
-                            "key": "comm.filters",
-                            "label": "Safety Filter Rules [Admin]",
-                            "route": "addons\/lms-communication\/dlp-filters",
-                            "icon": "🔒",
-                            "permission": "lms_communication.filters",
-                            "display_label": "Safety Filter Rules [Admin]"
+                            "key": "aps.analytics",
+                            "label": "Batch Practice Analytics",
+                            "route": "addons\/abacus-pro-suite\/analytics",
+                            "icon": "📊",
+                            "permission": "abacus_pro_suite.view",
+                            "display_label": "Batch Practice Analytics"
                         },
                         {
-                            "key": "comm.alerts",
-                            "label": "Email & WhatsApp Logs",
-                            "route": "addons\/lms-communication\/alerts",
-                            "icon": "🔔",
-                            "permission": "lms_communication.alerts",
-                            "display_label": "Email & WhatsApp Logs"
-                        }
-                    ]
-                },
-                "addon_lms_hierarchy": {
-                    "key": "addon_lms_hierarchy",
-                    "slug": "lms_hierarchy",
-                    "display_label": "Courses & Academic Programs",
-                    "icon": "⚡",
-                    "route": "addons\/lms-hierarchy",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "lhr.tree",
-                            "label": "All Courses & Levels",
-                            "route": "addons\/lms-hierarchy",
-                            "icon": "📚",
-                            "permission": "lms_hierarchy.create",
-                            "display_label": "All Courses & Levels"
-                        },
-                        {
-                            "key": "lhr.builder",
-                            "label": "Add \/ Edit Course",
-                            "route": "addons\/lms-hierarchy\/builder",
-                            "icon": "➕",
-                            "permission": "lms_hierarchy.create",
-                            "display_label": "Add \/ Edit Course"
-                        },
-                        {
-                            "key": "lhr.pricing",
-                            "label": "Course Fee Plans",
-                            "route": "addons\/lms-hierarchy\/pricing",
-                            "icon": "💳",
-                            "permission": "lms_hierarchy.pricing",
-                            "display_label": "Course Fee Plans"
-                        },
-                        {
-                            "key": "lhr.enrollments",
-                            "label": "Student Enrollments",
-                            "route": "addons\/lms-hierarchy\/enrollments",
-                            "icon": "🎓",
-                            "permission": "lms_hierarchy.edit",
-                            "display_label": "Student Enrollments"
-                        },
-                        {
-                            "key": "lhr.catalog",
-                            "label": "My Courses",
-                            "route": "courses\/catalog",
-                            "icon": "📖",
-                            "permission": "lms_hierarchy.view",
-                            "display_label": "My Courses"
+                            "key": "aps.settings",
+                            "label": "Abacus Theme & Settings",
+                            "route": "addons\/abacus-pro-suite\/settings",
+                            "icon": "⚙",
+                            "permission": "abacus_pro_suite.edit",
+                            "display_label": "Abacus Theme & Settings"
                         }
                     ]
                 },
@@ -779,177 +704,203 @@
                         }
                     ]
                 },
-                "addon_lms_assessments": {
-                    "key": "addon_lms_assessments",
-                    "slug": "lms_assessments",
-                    "display_label": "Exams, Worksheets & Certificates",
+                "addon_lms_communication": {
+                    "key": "addon_lms_communication",
+                    "slug": "lms_communication",
+                    "display_label": "Classroom Chat, Teacher Feedback & Safety",
                     "icon": "⚡",
-                    "route": "addons\/lms-assessments\/question-bank",
+                    "route": "addons\/lms-communication\/moderation",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
                         {
-                            "key": "ass.portal_exams",
-                            "label": "Practice & Timed Exams",
-                            "route": "assessments\/portal",
-                            "icon": "🎯",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "Practice & Timed Exams"
+                            "key": "comm.chat",
+                            "label": "1-to-1 Classroom Chat",
+                            "route": "chat\/portal",
+                            "icon": "💬",
+                            "permission": "lms_communication.chat",
+                            "display_label": "1-to-1 Classroom Chat"
                         },
                         {
-                            "key": "ass.portal_ws",
-                            "label": "My PDF Worksheets",
-                            "route": "assessments\/portal\/worksheets",
-                            "icon": "📄",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My PDF Worksheets"
+                            "key": "comm.feedback",
+                            "label": "Teacher Feedback Cards",
+                            "route": "chat\/feedback",
+                            "icon": "⭐",
+                            "permission": "lms_communication.feedback",
+                            "display_label": "Teacher Feedback Cards"
                         },
                         {
-                            "key": "ass.portal_hist",
-                            "label": "My Scores & Certificates",
-                            "route": "assessments\/portal\/history",
-                            "icon": "🏆",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My Scores & Certificates"
+                            "key": "comm.moderate",
+                            "label": "Chat Moderation [Admin]",
+                            "route": "addons\/lms-communication\/moderation",
+                            "icon": "🛡",
+                            "permission": "lms_communication.moderate",
+                            "display_label": "Chat Moderation [Admin]"
                         },
                         {
-                            "key": "ass.qbank",
-                            "label": "Question Bank [Admin\/Tchr]",
-                            "route": "addons\/lms-assessments\/question-bank",
-                            "icon": "🗃",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Question Bank [Admin\/Tchr]"
+                            "key": "comm.filters",
+                            "label": "Safety Filter Rules [Admin]",
+                            "route": "addons\/lms-communication\/dlp-filters",
+                            "icon": "🔒",
+                            "permission": "lms_communication.filters",
+                            "display_label": "Safety Filter Rules [Admin]"
                         },
                         {
-                            "key": "ass.exams",
-                            "label": "Exam Builder [Admin\/Tchr]",
-                            "route": "addons\/lms-assessments\/exams",
-                            "icon": "📝",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Exam Builder [Admin\/Tchr]"
-                        },
-                        {
-                            "key": "ass.worksheets",
-                            "label": "Upload PDF Worksheets",
-                            "route": "addons\/lms-assessments\/worksheets",
-                            "icon": "📤",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Upload PDF Worksheets"
-                        },
-                        {
-                            "key": "ass.analytics",
-                            "label": "Student Scores & Certs",
-                            "route": "addons\/lms-assessments\/analytics",
-                            "icon": "📊",
-                            "permission": "lms_assessments.view",
-                            "display_label": "Student Scores & Certs"
+                            "key": "comm.alerts",
+                            "label": "Email & WhatsApp Logs",
+                            "route": "addons\/lms-communication\/alerts",
+                            "icon": "🔔",
+                            "permission": "lms_communication.alerts",
+                            "display_label": "Email & WhatsApp Logs"
                         }
                     ]
                 },
                 "addon_lms_finance": {
                     "key": "addon_lms_finance",
                     "slug": "lms_finance",
-                    "display_label": "Fee Billing, Razorpay & Payroll",
+                    "display_label": "Fee Subscriptions, Razorpay & Receipts",
                     "icon": "⚡",
                     "route": "addons\/lms-finance",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
                         {
                             "key": "fin.portal",
-                            "label": "My Fee & Receipts [Parent\/Stu]",
+                            "label": "Family Fee & Receipts",
                             "route": "finance\/portal",
                             "icon": "💳",
                             "permission": "lms_finance.view",
-                            "display_label": "My Fee & Receipts [Parent\/Stu]"
+                            "display_label": "Family Fee & Receipts"
                         },
                         {
                             "key": "fin.teacher_slips",
                             "label": "My Salary Slips [Teacher]",
                             "route": "finance\/my-payouts",
                             "icon": "💵",
-                            "permission": "lms_finance.teacher_view",
+                            "permission": "lms_finance.expenses",
                             "display_label": "My Salary Slips [Teacher]"
                         },
                         {
                             "key": "fin.overview",
-                            "label": "Finance Overview [Admin]",
+                            "label": "Transactions Ledger [Admin]",
                             "route": "addons\/lms-finance",
                             "icon": "📊",
                             "permission": "lms_finance.collect",
-                            "display_label": "Finance Overview [Admin]"
+                            "display_label": "Transactions Ledger [Admin]"
                         },
                         {
                             "key": "fin.invoices",
-                            "label": "Subscriptions & Approvals",
+                            "label": "Subscriptions & Locks",
                             "route": "addons\/lms-finance\/invoices",
-                            "icon": "✅",
+                            "icon": "🔒",
                             "permission": "lms_finance.collect",
-                            "display_label": "Subscriptions & Approvals"
+                            "display_label": "Subscriptions & Locks"
                         },
                         {
                             "key": "fin.custom_billing",
-                            "label": "Custom Parent-Child Billing",
+                            "label": "Custom Parent Billing",
                             "route": "addons\/lms-finance\/custom-billing",
                             "icon": "🧾",
                             "permission": "lms_finance.collect",
-                            "display_label": "Custom Parent-Child Billing"
+                            "display_label": "Custom Parent Billing"
                         },
                         {
-                            "key": "fin.payroll",
-                            "label": "Teacher Salary Entry",
-                            "route": "addons\/lms-finance\/payroll",
+                            "key": "fin.payouts",
+                            "label": "Teacher Payroll & Expenses",
+                            "route": "addons\/lms-finance\/payouts",
                             "icon": "💸",
-                            "permission": "lms_finance.payroll",
-                            "display_label": "Teacher Salary Entry"
-                        },
-                        {
-                            "key": "fin.expenses",
-                            "label": "Operational Expenses",
-                            "route": "addons\/lms-finance\/expenses",
-                            "icon": "📉",
                             "permission": "lms_finance.expenses",
-                            "display_label": "Operational Expenses"
+                            "display_label": "Teacher Payroll & Expenses"
                         },
                         {
-                            "key": "fin.gateways",
+                            "key": "fin.settings",
                             "label": "Razorpay & Receipt Designer",
-                            "route": "addons\/lms-finance\/gateways",
+                            "route": "addons\/lms-finance\/settings",
                             "icon": "⚙",
-                            "permission": "lms_finance.expenses",
+                            "permission": "lms_finance.settings",
                             "display_label": "Razorpay & Receipt Designer"
                         }
                     ]
                 },
-                "addon_rbac": {
-                    "key": "addon_rbac",
-                    "slug": "rbac",
-                    "display_label": "Roles, Permissions & Sidebar Architect",
+                "addon_lms_hierarchy": {
+                    "key": "addon_lms_hierarchy",
+                    "slug": "lms_hierarchy",
+                    "display_label": "Courses & Academic Programs",
                     "icon": "⚡",
-                    "route": "addons\/rbac",
+                    "route": "addons\/lms-hierarchy",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
                         {
-                            "key": "rbac.overview",
-                            "label": "Roles & Live Sidebar Preview",
-                            "route": "addons\/rbac",
-                            "icon": "📊",
-                            "permission": "rbac.view",
-                            "display_label": "Roles & Live Sidebar Preview"
+                            "key": "lhr.tree",
+                            "label": "All Courses & Levels",
+                            "route": "addons\/lms-hierarchy",
+                            "icon": "📚",
+                            "permission": "lms_hierarchy.create",
+                            "display_label": "All Courses & Levels"
                         },
                         {
-                            "key": "rbac.matrix",
-                            "label": "Permission Switch Matrix",
-                            "route": "addons\/rbac\/matrix",
-                            "icon": "🛡",
-                            "permission": "rbac.view",
-                            "display_label": "Permission Switch Matrix"
+                            "key": "lhr.builder",
+                            "label": "Add \/ Edit Course",
+                            "route": "addons\/lms-hierarchy\/builder",
+                            "icon": "➕",
+                            "permission": "lms_hierarchy.create",
+                            "display_label": "Add \/ Edit Course"
                         },
                         {
-                            "key": "rbac.workspace",
-                            "label": "Menu Renamer & Widgets",
-                            "route": "addons\/rbac\/workspace",
-                            "icon": "🎨",
-                            "permission": "rbac.edit",
-                            "display_label": "Menu Renamer & Widgets"
+                            "key": "lhr.pricing",
+                            "label": "Course Fee Plans",
+                            "route": "addons\/lms-hierarchy\/pricing",
+                            "icon": "💳",
+                            "permission": "lms_hierarchy.pricing",
+                            "display_label": "Course Fee Plans"
+                        },
+                        {
+                            "key": "lhr.enrollments",
+                            "label": "Student Enrollments",
+                            "route": "addons\/lms-hierarchy\/enrollments",
+                            "icon": "🎓",
+                            "permission": "lms_hierarchy.edit",
+                            "display_label": "Student Enrollments"
+                        },
+                        {
+                            "key": "lhr.catalog",
+                            "label": "My Courses",
+                            "route": "courses\/catalog",
+                            "icon": "📖",
+                            "permission": "lms_hierarchy.view",
+                            "display_label": "My Courses"
+                        }
+                    ]
+                },
+                "addon_lms_onboarding": {
+                    "key": "addon_lms_onboarding",
+                    "slug": "lms_onboarding",
+                    "display_label": "Demo Bookings, Lead Pipeline & Admissions",
+                    "icon": "⚡",
+                    "route": "addons\/lms-onboarding",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "onb.pipeline",
+                            "label": "Demo Bookings & Cohort Convert",
+                            "route": "addons\/lms-onboarding",
+                            "icon": "🎯",
+                            "permission": "lms_onboarding.view",
+                            "display_label": "Demo Bookings & Cohort Convert"
+                        },
+                        {
+                            "key": "onb.scheduler",
+                            "label": "Demo Class Slots & Teachers",
+                            "route": "addons\/lms-onboarding\/scheduler",
+                            "icon": "📅",
+                            "permission": "demos.manage",
+                            "display_label": "Demo Class Slots & Teachers"
+                        },
+                        {
+                            "key": "onb.my_demos",
+                            "label": "My Assigned Demo Classes",
+                            "route": "addons\/lms-onboarding\/my-demos",
+                            "icon": "👩‍🏫",
+                            "permission": "lms_onboarding.teacher_demos",
+                            "display_label": "My Assigned Demo Classes"
                         }
                     ]
                 },
@@ -995,53 +946,37 @@
                         }
                     ]
                 },
-                "addon_abacus_pro_suite": {
-                    "key": "addon_abacus_pro_suite",
-                    "slug": "abacus_pro_suite",
-                    "display_label": "3D Abacus & Flash Anzan Lab",
+                "addon_rbac": {
+                    "key": "addon_rbac",
+                    "slug": "rbac",
+                    "display_label": "Roles, Permissions & Sidebar Architect",
                     "icon": "⚡",
-                    "route": "addons\/abacus-pro-suite\/analytics",
+                    "route": "addons\/rbac",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
                         {
-                            "key": "aps.arena",
-                            "label": "3D Soroban Abacus Lab",
-                            "route": "abacus\/arena",
-                            "icon": "🧮",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "3D Soroban Abacus Lab"
-                        },
-                        {
-                            "key": "aps.anzan",
-                            "label": "Flash Anzan & Voice Drill",
-                            "route": "abacus\/anzan",
-                            "icon": "⚡",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "Flash Anzan & Voice Drill"
-                        },
-                        {
-                            "key": "aps.progress",
-                            "label": "My Speed & Badges",
-                            "route": "abacus\/my-progress",
-                            "icon": "🏆",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "My Speed & Badges"
-                        },
-                        {
-                            "key": "aps.analytics",
-                            "label": "Batch Practice Analytics",
-                            "route": "addons\/abacus-pro-suite\/analytics",
+                            "key": "rbac.overview",
+                            "label": "Roles & Live Sidebar Preview",
+                            "route": "addons\/rbac",
                             "icon": "📊",
-                            "permission": "abacus_pro_suite.view",
-                            "display_label": "Batch Practice Analytics"
+                            "permission": "rbac.view",
+                            "display_label": "Roles & Live Sidebar Preview"
                         },
                         {
-                            "key": "aps.settings",
-                            "label": "Abacus Theme & Settings",
-                            "route": "addons\/abacus-pro-suite\/settings",
-                            "icon": "⚙",
-                            "permission": "abacus_pro_suite.edit",
-                            "display_label": "Abacus Theme & Settings"
+                            "key": "rbac.matrix",
+                            "label": "Permission Switch Matrix",
+                            "route": "addons\/rbac\/matrix",
+                            "icon": "🛡",
+                            "permission": "rbac.view",
+                            "display_label": "Permission Switch Matrix"
+                        },
+                        {
+                            "key": "rbac.workspace",
+                            "label": "Menu Renamer & Widgets",
+                            "route": "addons\/rbac\/workspace",
+                            "icon": "🎨",
+                            "permission": "rbac.edit",
+                            "display_label": "Menu Renamer & Widgets"
                         }
                     ]
                 }
@@ -1055,44 +990,45 @@
             "is_default_front": 0,
             "status": "active",
             "permissions": [
-                "dashboard.view",
-                "users.view",
-                "users.create",
-                "users.edit",
-                "settings.view",
-                "settings.edit",
-                "pages.view",
-                "pages.create",
-                "pages.edit",
-                "pages.delete",
-                "core_lms_auth.view",
-                "core_lms_auth.create",
-                "core_lms_auth.edit",
-                "core_lms_auth.delete",
-                "lms_hierarchy.view",
-                "lms_hierarchy.create",
-                "lms_hierarchy.pricing",
-                "lms_hierarchy.edit",
-                "lms_assessments.view",
-                "lms_assessments.create",
-                "lms_assessments.edit",
-                "lms_assessments.take_exam",
-                "lms_communication.chat",
-                "lms_communication.feedback",
-                "lms_communication.moderate",
-                "lms_communication.filters",
-                "lms_communication.alerts",
-                "lms_timetable.view",
-                "lms_timetable.create",
-                "lms_timetable.edit",
-                "lms_finance.view",
-                "lms_finance.collect",
-                "lms_finance.payroll",
-                "lms_finance.expenses",
-                "abacus_pro_suite.view",
+                "abacus_pro_suite.delete",
                 "abacus_pro_suite.edit",
-                "abacus_pro_suite.practice",
-                "abacus_pro_suite.delete"
+                "abacus_pro_suite.view",
+                "lms_communication.alerts",
+                "lms_communication.feedback",
+                "lms_communication.filters",
+                "lms_communication.moderate",
+                "lms_hierarchy.create",
+                "lms_hierarchy.delete",
+                "lms_hierarchy.edit",
+                "lms_hierarchy.pricing",
+                "lms_hierarchy.view",
+                "demos.manage",
+                "lms_onboarding.delete",
+                "lms_onboarding.view",
+                "core_lms_auth.create",
+                "core_lms_auth.delete",
+                "core_lms_auth.edit",
+                "lms_finance.collect",
+                "lms_finance.delete",
+                "lms_finance.expenses",
+                "lms_finance.settings",
+                "lms_finance.view",
+                "lms_timetable.create",
+                "lms_timetable.delete",
+                "lms_timetable.edit",
+                "lms_timetable.view",
+                "pages.create",
+                "pages.delete",
+                "pages.edit",
+                "pages.view",
+                "addons.manage",
+                "dashboard.view",
+                "settings.edit",
+                "settings.view",
+                "users.create",
+                "users.delete",
+                "users.edit",
+                "users.view"
             ],
             "workspace": {
                 "show_child_switcher": 0,
@@ -1142,6 +1078,15 @@
                     "section": "SYSTEM CONFIGURATION",
                     "sub_views": []
                 },
+                "core_addons": {
+                    "key": "core_addons",
+                    "slug": "core_addons",
+                    "display_label": "Add-On Manager",
+                    "icon": "❖",
+                    "route": "addons",
+                    "section": "SYSTEM CONFIGURATION",
+                    "sub_views": []
+                },
                 "addon_page_builder": {
                     "key": "addon_page_builder",
                     "slug": "page_builder",
@@ -1176,22 +1121,82 @@
                         }
                     ]
                 },
+                "addon_abacus_pro_suite": {
+                    "key": "addon_abacus_pro_suite",
+                    "slug": "abacus_pro_suite",
+                    "display_label": "3D Abacus & Analytics",
+                    "icon": "⚡",
+                    "route": "addons\/abacus-pro-suite\/analytics",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "aps.analytics",
+                            "label": "Batch Practice Analytics",
+                            "route": "addons\/abacus-pro-suite\/analytics",
+                            "icon": "📊",
+                            "permission": "abacus_pro_suite.view",
+                            "display_label": "Batch Practice Analytics"
+                        },
+                        {
+                            "key": "aps.settings",
+                            "label": "Abacus Theme & Settings",
+                            "route": "addons\/abacus-pro-suite\/settings",
+                            "icon": "⚙",
+                            "permission": "abacus_pro_suite.edit",
+                            "display_label": "Abacus Theme & Settings"
+                        }
+                    ]
+                },
+                "addon_core_lms_auth": {
+                    "key": "addon_core_lms_auth",
+                    "slug": "core_lms_auth",
+                    "display_label": "Family & Role Setup",
+                    "icon": "⚡",
+                    "route": "addons\/core-lms-auth\/directory",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "cla.directory",
+                            "label": "Family Directory [Admin]",
+                            "route": "addons\/core-lms-auth\/directory",
+                            "icon": "📋",
+                            "permission": "core_lms_auth.edit",
+                            "display_label": "Family Directory [Admin]"
+                        },
+                        {
+                            "key": "cla.linker",
+                            "label": "Assign Child & Course",
+                            "route": "addons\/core-lms-auth\/linker",
+                            "icon": "🔗",
+                            "permission": "core_lms_auth.create",
+                            "display_label": "Assign Child & Course"
+                        },
+                        {
+                            "key": "cla.role_mapper",
+                            "label": "Role Behavior Mapper",
+                            "route": "addons\/core-lms-auth\/role-mapper",
+                            "icon": "🛡",
+                            "permission": "core_lms_auth.edit",
+                            "display_label": "Role Behavior Mapper"
+                        },
+                        {
+                            "key": "cla.countries",
+                            "label": "Servicing Countries",
+                            "route": "addons\/core-lms-auth\/countries",
+                            "icon": "🌍",
+                            "permission": "core_lms_auth.edit",
+                            "display_label": "Servicing Countries"
+                        }
+                    ]
+                },
                 "addon_lms_communication": {
                     "key": "addon_lms_communication",
                     "slug": "lms_communication",
                     "display_label": "Chat Moderation & Feedback",
                     "icon": "⚡",
-                    "route": "chat\/portal",
+                    "route": "chat\/feedback",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
-                        {
-                            "key": "comm.chat",
-                            "label": "1-to-1 Classroom Chat",
-                            "route": "chat\/portal",
-                            "icon": "💬",
-                            "permission": "lms_communication.chat",
-                            "display_label": "1-to-1 Classroom Chat"
-                        },
                         {
                             "key": "comm.feedback",
                             "label": "Teacher Feedback Cards",
@@ -1223,6 +1228,72 @@
                             "icon": "🔔",
                             "permission": "lms_communication.alerts",
                             "display_label": "Email & WhatsApp Logs"
+                        }
+                    ]
+                },
+                "addon_lms_finance": {
+                    "key": "addon_lms_finance",
+                    "slug": "lms_finance",
+                    "display_label": "Finance, Invoices & Payroll",
+                    "icon": "⚡",
+                    "route": "finance\/portal",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "fin.portal",
+                            "label": "Family Fee & Receipts",
+                            "route": "finance\/portal",
+                            "icon": "💳",
+                            "permission": "lms_finance.view",
+                            "display_label": "Family Fee & Receipts"
+                        },
+                        {
+                            "key": "fin.teacher_slips",
+                            "label": "My Salary Slips [Teacher]",
+                            "route": "finance\/my-payouts",
+                            "icon": "💵",
+                            "permission": "lms_finance.expenses",
+                            "display_label": "My Salary Slips [Teacher]"
+                        },
+                        {
+                            "key": "fin.overview",
+                            "label": "Transactions Ledger [Admin]",
+                            "route": "addons\/lms-finance",
+                            "icon": "📊",
+                            "permission": "lms_finance.collect",
+                            "display_label": "Transactions Ledger [Admin]"
+                        },
+                        {
+                            "key": "fin.invoices",
+                            "label": "Subscriptions & Locks",
+                            "route": "addons\/lms-finance\/invoices",
+                            "icon": "🔒",
+                            "permission": "lms_finance.collect",
+                            "display_label": "Subscriptions & Locks"
+                        },
+                        {
+                            "key": "fin.custom_billing",
+                            "label": "Custom Parent Billing",
+                            "route": "addons\/lms-finance\/custom-billing",
+                            "icon": "🧾",
+                            "permission": "lms_finance.collect",
+                            "display_label": "Custom Parent Billing"
+                        },
+                        {
+                            "key": "fin.payouts",
+                            "label": "Teacher Payroll & Expenses",
+                            "route": "addons\/lms-finance\/payouts",
+                            "icon": "💸",
+                            "permission": "lms_finance.expenses",
+                            "display_label": "Teacher Payroll & Expenses"
+                        },
+                        {
+                            "key": "fin.settings",
+                            "label": "Razorpay & Receipt Designer",
+                            "route": "addons\/lms-finance\/settings",
+                            "icon": "⚙",
+                            "permission": "lms_finance.settings",
+                            "display_label": "Razorpay & Receipt Designer"
                         }
                     ]
                 },
@@ -1276,201 +1347,29 @@
                         }
                     ]
                 },
-                "addon_core_lms_auth": {
-                    "key": "addon_core_lms_auth",
-                    "slug": "core_lms_auth",
-                    "display_label": "Family & Role Setup",
+                "addon_lms_onboarding": {
+                    "key": "addon_lms_onboarding",
+                    "slug": "lms_onboarding",
+                    "display_label": "Demo Leads & Admissions",
                     "icon": "⚡",
-                    "route": "portal\/family",
+                    "route": "addons\/lms-onboarding",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
                         {
-                            "key": "cla.family",
-                            "label": "My Children & Learning Hub",
-                            "route": "portal\/family",
-                            "icon": "👨‍👩‍👧‍👦",
-                            "permission": "core_lms_auth.view",
-                            "display_label": "My Children & Learning Hub"
-                        },
-                        {
-                            "key": "cla.add_child",
-                            "label": "Add Child Profile",
-                            "route": "portal\/family\/add-child",
-                            "icon": "➕",
-                            "permission": "core_lms_auth.view",
-                            "display_label": "Add Child Profile"
-                        },
-                        {
-                            "key": "cla.profile",
-                            "label": "My Profile & Password",
-                            "route": "portal\/family\/profile",
-                            "icon": "⚙",
-                            "permission": "core_lms_auth.view",
-                            "display_label": "My Profile & Password"
-                        },
-                        {
-                            "key": "cla.directory",
-                            "label": "Family Directory [Admin]",
-                            "route": "addons\/core-lms-auth\/directory",
-                            "icon": "📋",
-                            "permission": "core_lms_auth.edit",
-                            "display_label": "Family Directory [Admin]"
-                        },
-                        {
-                            "key": "cla.linker",
-                            "label": "Assign Child & Course",
-                            "route": "addons\/core-lms-auth\/linker",
-                            "icon": "🔗",
-                            "permission": "core_lms_auth.create",
-                            "display_label": "Assign Child & Course"
-                        },
-                        {
-                            "key": "cla.role_mapper",
-                            "label": "Role Behavior Mapper",
-                            "route": "addons\/core-lms-auth\/role-mapper",
-                            "icon": "🛡",
-                            "permission": "core_lms_auth.edit",
-                            "display_label": "Role Behavior Mapper"
-                        },
-                        {
-                            "key": "cla.countries",
-                            "label": "Servicing Countries",
-                            "route": "addons\/core-lms-auth\/countries",
-                            "icon": "🌍",
-                            "permission": "core_lms_auth.edit",
-                            "display_label": "Servicing Countries"
-                        }
-                    ]
-                },
-                "addon_lms_assessments": {
-                    "key": "addon_lms_assessments",
-                    "slug": "lms_assessments",
-                    "display_label": "Exams & Question Bank",
-                    "icon": "⚡",
-                    "route": "assessments\/portal",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "ass.portal_exams",
-                            "label": "Practice & Timed Exams",
-                            "route": "assessments\/portal",
+                            "key": "onb.pipeline",
+                            "label": "Demo Bookings & Cohort Convert",
+                            "route": "addons\/lms-onboarding",
                             "icon": "🎯",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "Practice & Timed Exams"
+                            "permission": "lms_onboarding.view",
+                            "display_label": "Demo Bookings & Cohort Convert"
                         },
                         {
-                            "key": "ass.portal_ws",
-                            "label": "My PDF Worksheets",
-                            "route": "assessments\/portal\/worksheets",
-                            "icon": "📄",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My PDF Worksheets"
-                        },
-                        {
-                            "key": "ass.portal_hist",
-                            "label": "My Scores & Certificates",
-                            "route": "assessments\/portal\/history",
-                            "icon": "🏆",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My Scores & Certificates"
-                        },
-                        {
-                            "key": "ass.qbank",
-                            "label": "Question Bank [Admin\/Tchr]",
-                            "route": "addons\/lms-assessments\/question-bank",
-                            "icon": "🗃",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Question Bank [Admin\/Tchr]"
-                        },
-                        {
-                            "key": "ass.exams",
-                            "label": "Exam Builder [Admin\/Tchr]",
-                            "route": "addons\/lms-assessments\/exams",
-                            "icon": "📝",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Exam Builder [Admin\/Tchr]"
-                        },
-                        {
-                            "key": "ass.worksheets",
-                            "label": "Upload PDF Worksheets",
-                            "route": "addons\/lms-assessments\/worksheets",
-                            "icon": "📤",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Upload PDF Worksheets"
-                        },
-                        {
-                            "key": "ass.analytics",
-                            "label": "Student Scores & Certs",
-                            "route": "addons\/lms-assessments\/analytics",
-                            "icon": "📊",
-                            "permission": "lms_assessments.view",
-                            "display_label": "Student Scores & Certs"
-                        }
-                    ]
-                },
-                "addon_lms_finance": {
-                    "key": "addon_lms_finance",
-                    "slug": "lms_finance",
-                    "display_label": "Finance, Invoices & Payroll",
-                    "icon": "⚡",
-                    "route": "finance\/portal",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "fin.portal",
-                            "label": "My Fee & Receipts [Parent\/Stu]",
-                            "route": "finance\/portal",
-                            "icon": "💳",
-                            "permission": "lms_finance.view",
-                            "display_label": "My Fee & Receipts [Parent\/Stu]"
-                        },
-                        {
-                            "key": "fin.overview",
-                            "label": "Finance Overview [Admin]",
-                            "route": "addons\/lms-finance",
-                            "icon": "📊",
-                            "permission": "lms_finance.collect",
-                            "display_label": "Finance Overview [Admin]"
-                        },
-                        {
-                            "key": "fin.invoices",
-                            "label": "Subscriptions & Approvals",
-                            "route": "addons\/lms-finance\/invoices",
-                            "icon": "✅",
-                            "permission": "lms_finance.collect",
-                            "display_label": "Subscriptions & Approvals"
-                        },
-                        {
-                            "key": "fin.custom_billing",
-                            "label": "Custom Parent-Child Billing",
-                            "route": "addons\/lms-finance\/custom-billing",
-                            "icon": "🧾",
-                            "permission": "lms_finance.collect",
-                            "display_label": "Custom Parent-Child Billing"
-                        },
-                        {
-                            "key": "fin.payroll",
-                            "label": "Teacher Salary Entry",
-                            "route": "addons\/lms-finance\/payroll",
-                            "icon": "💸",
-                            "permission": "lms_finance.payroll",
-                            "display_label": "Teacher Salary Entry"
-                        },
-                        {
-                            "key": "fin.expenses",
-                            "label": "Operational Expenses",
-                            "route": "addons\/lms-finance\/expenses",
-                            "icon": "📉",
-                            "permission": "lms_finance.expenses",
-                            "display_label": "Operational Expenses"
-                        },
-                        {
-                            "key": "fin.gateways",
-                            "label": "Razorpay & Receipt Designer",
-                            "route": "addons\/lms-finance\/gateways",
-                            "icon": "⚙",
-                            "permission": "lms_finance.expenses",
-                            "display_label": "Razorpay & Receipt Designer"
+                            "key": "onb.scheduler",
+                            "label": "Demo Class Slots & Teachers",
+                            "route": "addons\/lms-onboarding\/scheduler",
+                            "icon": "📅",
+                            "permission": "demos.manage",
+                            "display_label": "Demo Class Slots & Teachers"
                         }
                     ]
                 },
@@ -1515,56 +1414,6 @@
                             "display_label": "Substitute Inbox [Admin]"
                         }
                     ]
-                },
-                "addon_abacus_pro_suite": {
-                    "key": "addon_abacus_pro_suite",
-                    "slug": "abacus_pro_suite",
-                    "display_label": "3D Abacus & Analytics",
-                    "icon": "⚡",
-                    "route": "abacus\/arena",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "aps.arena",
-                            "label": "3D Soroban Abacus Lab",
-                            "route": "abacus\/arena",
-                            "icon": "🧮",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "3D Soroban Abacus Lab"
-                        },
-                        {
-                            "key": "aps.anzan",
-                            "label": "Flash Anzan & Voice Drill",
-                            "route": "abacus\/anzan",
-                            "icon": "⚡",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "Flash Anzan & Voice Drill"
-                        },
-                        {
-                            "key": "aps.progress",
-                            "label": "My Speed & Badges",
-                            "route": "abacus\/my-progress",
-                            "icon": "🏆",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "My Speed & Badges"
-                        },
-                        {
-                            "key": "aps.analytics",
-                            "label": "Batch Practice Analytics",
-                            "route": "addons\/abacus-pro-suite\/analytics",
-                            "icon": "📊",
-                            "permission": "abacus_pro_suite.view",
-                            "display_label": "Batch Practice Analytics"
-                        },
-                        {
-                            "key": "aps.settings",
-                            "label": "Abacus Theme & Settings",
-                            "route": "addons\/abacus-pro-suite\/settings",
-                            "icon": "⚙",
-                            "permission": "abacus_pro_suite.edit",
-                            "display_label": "Abacus Theme & Settings"
-                        }
-                    ]
                 }
             }
         },
@@ -1576,17 +1425,16 @@
             "is_default_front": 0,
             "status": "active",
             "permissions": [
-                "dashboard.view",
-                "lms_hierarchy.view",
-                "lms_assessments.view",
-                "lms_assessments.create",
+                "abacus_pro_suite.practice",
+                "abacus_pro_suite.view",
                 "lms_communication.chat",
                 "lms_communication.feedback",
-                "lms_timetable.view",
+                "lms_hierarchy.view",
+                "lms_onboarding.teacher_demos",
+                "lms_finance.expenses",
                 "lms_timetable.teacher_panel",
-                "lms_finance.teacher_view",
-                "abacus_pro_suite.view",
-                "abacus_pro_suite.practice"
+                "lms_timetable.view",
+                "dashboard.view"
             ],
             "workspace": {
                 "show_child_switcher": 0,
@@ -1600,7 +1448,9 @@
                     "addon_abacus_pro_suite": "3D Abacus & Batch Progress",
                     "addon_lms_onboarding": "My Demo Classes"
                 },
-                "hidden_items": [],
+                "hidden_items": {
+                    "fin.portal": 1
+                },
                 "dashboard_widgets": [
                     "teacher_schedule",
                     "quick_modules"
@@ -1615,128 +1465,6 @@
                     "route": "dashboard",
                     "section": "MAIN WORKSPACE",
                     "sub_views": []
-                },
-                "addon_lms_communication": {
-                    "key": "addon_lms_communication",
-                    "slug": "lms_communication",
-                    "display_label": "Student Chat & Feedback",
-                    "icon": "⚡",
-                    "route": "chat\/portal",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "comm.chat",
-                            "label": "1-to-1 Classroom Chat",
-                            "route": "chat\/portal",
-                            "icon": "💬",
-                            "permission": "lms_communication.chat",
-                            "display_label": "1-to-1 Classroom Chat"
-                        },
-                        {
-                            "key": "comm.feedback",
-                            "label": "Teacher Feedback Cards",
-                            "route": "chat\/feedback",
-                            "icon": "⭐",
-                            "permission": "lms_communication.feedback",
-                            "display_label": "Teacher Feedback Cards"
-                        }
-                    ]
-                },
-                "addon_lms_hierarchy": {
-                    "key": "addon_lms_hierarchy",
-                    "slug": "lms_hierarchy",
-                    "display_label": "My Assigned Courses",
-                    "icon": "⚡",
-                    "route": "courses\/catalog",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "lhr.catalog",
-                            "label": "My Courses",
-                            "route": "courses\/catalog",
-                            "icon": "📖",
-                            "permission": "lms_hierarchy.view",
-                            "display_label": "My Courses"
-                        }
-                    ]
-                },
-                "addon_lms_assessments": {
-                    "key": "addon_lms_assessments",
-                    "slug": "lms_assessments",
-                    "display_label": "Question Bank & Scores",
-                    "icon": "⚡",
-                    "route": "addons\/lms-assessments\/question-bank",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "ass.qbank",
-                            "label": "Question Bank [Admin\/Tchr]",
-                            "route": "addons\/lms-assessments\/question-bank",
-                            "icon": "🗃",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Question Bank [Admin\/Tchr]"
-                        },
-                        {
-                            "key": "ass.exams",
-                            "label": "Exam Builder [Admin\/Tchr]",
-                            "route": "addons\/lms-assessments\/exams",
-                            "icon": "📝",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Exam Builder [Admin\/Tchr]"
-                        },
-                        {
-                            "key": "ass.worksheets",
-                            "label": "Upload PDF Worksheets",
-                            "route": "addons\/lms-assessments\/worksheets",
-                            "icon": "📤",
-                            "permission": "lms_assessments.create",
-                            "display_label": "Upload PDF Worksheets"
-                        },
-                        {
-                            "key": "ass.analytics",
-                            "label": "Student Scores & Certs",
-                            "route": "addons\/lms-assessments\/analytics",
-                            "icon": "📊",
-                            "permission": "lms_assessments.view",
-                            "display_label": "Student Scores & Certs"
-                        }
-                    ]
-                },
-                "addon_lms_finance": {
-                    "key": "addon_lms_finance",
-                    "slug": "lms_finance",
-                    "display_label": "My Salary Slips",
-                    "icon": "⚡",
-                    "route": "finance\/my-payouts",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "fin.teacher_slips",
-                            "label": "My Salary Slips [Teacher]",
-                            "route": "finance\/my-payouts",
-                            "icon": "💵",
-                            "permission": "lms_finance.teacher_view",
-                            "display_label": "My Salary Slips [Teacher]"
-                        }
-                    ]
-                },
-                "addon_lms_timetable": {
-                    "key": "addon_lms_timetable",
-                    "slug": "lms_timetable",
-                    "display_label": "My Live Classes & Batches",
-                    "icon": "⚡",
-                    "route": "timetable\/portal",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "tt.portal",
-                            "label": "My Live Classes",
-                            "route": "timetable\/portal",
-                            "icon": "🎥",
-                            "permission": "lms_timetable.view",
-                            "display_label": "My Live Classes"
-                        }
-                    ]
                 },
                 "addon_abacus_pro_suite": {
                     "key": "addon_abacus_pro_suite",
@@ -1779,6 +1507,112 @@
                             "display_label": "Batch Practice Analytics"
                         }
                     ]
+                },
+                "addon_lms_communication": {
+                    "key": "addon_lms_communication",
+                    "slug": "lms_communication",
+                    "display_label": "Student Chat & Feedback",
+                    "icon": "⚡",
+                    "route": "chat\/portal",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "comm.chat",
+                            "label": "1-to-1 Classroom Chat",
+                            "route": "chat\/portal",
+                            "icon": "💬",
+                            "permission": "lms_communication.chat",
+                            "display_label": "1-to-1 Classroom Chat"
+                        },
+                        {
+                            "key": "comm.feedback",
+                            "label": "Teacher Feedback Cards",
+                            "route": "chat\/feedback",
+                            "icon": "⭐",
+                            "permission": "lms_communication.feedback",
+                            "display_label": "Teacher Feedback Cards"
+                        }
+                    ]
+                },
+                "addon_lms_finance": {
+                    "key": "addon_lms_finance",
+                    "slug": "lms_finance",
+                    "display_label": "My Salary Slips",
+                    "icon": "⚡",
+                    "route": "finance\/my-payouts",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "fin.teacher_slips",
+                            "label": "My Salary Slips [Teacher]",
+                            "route": "finance\/my-payouts",
+                            "icon": "💵",
+                            "permission": "lms_finance.expenses",
+                            "display_label": "My Salary Slips [Teacher]"
+                        },
+                        {
+                            "key": "fin.payouts",
+                            "label": "Teacher Payroll & Expenses",
+                            "route": "addons\/lms-finance\/payouts",
+                            "icon": "💸",
+                            "permission": "lms_finance.expenses",
+                            "display_label": "Teacher Payroll & Expenses"
+                        }
+                    ]
+                },
+                "addon_lms_hierarchy": {
+                    "key": "addon_lms_hierarchy",
+                    "slug": "lms_hierarchy",
+                    "display_label": "My Assigned Courses",
+                    "icon": "⚡",
+                    "route": "courses\/catalog",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "lhr.catalog",
+                            "label": "My Courses",
+                            "route": "courses\/catalog",
+                            "icon": "📖",
+                            "permission": "lms_hierarchy.view",
+                            "display_label": "My Courses"
+                        }
+                    ]
+                },
+                "addon_lms_onboarding": {
+                    "key": "addon_lms_onboarding",
+                    "slug": "lms_onboarding",
+                    "display_label": "My Demo Classes",
+                    "icon": "⚡",
+                    "route": "addons\/lms-onboarding\/my-demos",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "onb.my_demos",
+                            "label": "My Assigned Demo Classes",
+                            "route": "addons\/lms-onboarding\/my-demos",
+                            "icon": "👩‍🏫",
+                            "permission": "lms_onboarding.teacher_demos",
+                            "display_label": "My Assigned Demo Classes"
+                        }
+                    ]
+                },
+                "addon_lms_timetable": {
+                    "key": "addon_lms_timetable",
+                    "slug": "lms_timetable",
+                    "display_label": "My Live Classes & Batches",
+                    "icon": "⚡",
+                    "route": "timetable\/portal",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "tt.portal",
+                            "label": "My Live Classes",
+                            "route": "timetable\/portal",
+                            "icon": "🎥",
+                            "permission": "lms_timetable.view",
+                            "display_label": "My Live Classes"
+                        }
+                    ]
                 }
             }
         },
@@ -1790,14 +1624,13 @@
             "is_default_front": 1,
             "status": "active",
             "permissions": [
-                "dashboard.view",
-                "core_lms_auth.view",
-                "lms_hierarchy.view",
-                "lms_assessments.take_exam",
+                "abacus_pro_suite.practice",
                 "lms_communication.chat",
                 "lms_communication.feedback",
+                "lms_hierarchy.view",
+                "core_lms_auth.view",
                 "lms_timetable.view",
-                "abacus_pro_suite.practice"
+                "dashboard.view"
             ],
             "workspace": {
                 "show_child_switcher": 0,
@@ -1827,6 +1660,66 @@
                     "route": "dashboard",
                     "section": "MAIN WORKSPACE",
                     "sub_views": []
+                },
+                "addon_abacus_pro_suite": {
+                    "key": "addon_abacus_pro_suite",
+                    "slug": "abacus_pro_suite",
+                    "display_label": "3D Abacus & Speed Drills",
+                    "icon": "⚡",
+                    "route": "abacus\/arena",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "aps.arena",
+                            "label": "3D Soroban Abacus Lab",
+                            "route": "abacus\/arena",
+                            "icon": "🧮",
+                            "permission": "abacus_pro_suite.practice",
+                            "display_label": "3D Soroban Abacus Lab"
+                        },
+                        {
+                            "key": "aps.anzan",
+                            "label": "Flash Anzan & Voice Drill",
+                            "route": "abacus\/anzan",
+                            "icon": "⚡",
+                            "permission": "abacus_pro_suite.practice",
+                            "display_label": "Flash Anzan & Voice Drill"
+                        },
+                        {
+                            "key": "aps.progress",
+                            "label": "My Speed & Badges",
+                            "route": "abacus\/my-progress",
+                            "icon": "🏆",
+                            "permission": "abacus_pro_suite.practice",
+                            "display_label": "My Speed & Badges"
+                        }
+                    ]
+                },
+                "addon_core_lms_auth": {
+                    "key": "addon_core_lms_auth",
+                    "slug": "core_lms_auth",
+                    "display_label": "My Learning Hub",
+                    "icon": "⚡",
+                    "route": "portal\/family",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "cla.family",
+                            "label": "My Children & Learning Hub",
+                            "route": "portal\/family",
+                            "icon": "👨‍👩‍👧‍👦",
+                            "permission": "core_lms_auth.view",
+                            "display_label": "My Children & Learning Hub"
+                        },
+                        {
+                            "key": "cla.profile",
+                            "label": "My Profile & Password",
+                            "route": "portal\/family\/profile",
+                            "icon": "⚙",
+                            "permission": "core_lms_auth.view",
+                            "display_label": "My Profile & Password"
+                        }
+                    ]
                 },
                 "addon_lms_communication": {
                     "key": "addon_lms_communication",
@@ -1872,66 +1765,6 @@
                         }
                     ]
                 },
-                "addon_core_lms_auth": {
-                    "key": "addon_core_lms_auth",
-                    "slug": "core_lms_auth",
-                    "display_label": "My Learning Hub",
-                    "icon": "⚡",
-                    "route": "portal\/family",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "cla.family",
-                            "label": "My Children & Learning Hub",
-                            "route": "portal\/family",
-                            "icon": "👨‍👩‍👧‍👦",
-                            "permission": "core_lms_auth.view",
-                            "display_label": "My Children & Learning Hub"
-                        },
-                        {
-                            "key": "cla.profile",
-                            "label": "My Profile & Password",
-                            "route": "portal\/family\/profile",
-                            "icon": "⚙",
-                            "permission": "core_lms_auth.view",
-                            "display_label": "My Profile & Password"
-                        }
-                    ]
-                },
-                "addon_lms_assessments": {
-                    "key": "addon_lms_assessments",
-                    "slug": "lms_assessments",
-                    "display_label": "Practice Exams & Worksheets",
-                    "icon": "⚡",
-                    "route": "assessments\/portal",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "ass.portal_exams",
-                            "label": "Practice & Timed Exams",
-                            "route": "assessments\/portal",
-                            "icon": "🎯",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "Practice & Timed Exams"
-                        },
-                        {
-                            "key": "ass.portal_ws",
-                            "label": "My PDF Worksheets",
-                            "route": "assessments\/portal\/worksheets",
-                            "icon": "📄",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My PDF Worksheets"
-                        },
-                        {
-                            "key": "ass.portal_hist",
-                            "label": "My Scores & Certificates",
-                            "route": "assessments\/portal\/history",
-                            "icon": "🏆",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My Scores & Certificates"
-                        }
-                    ]
-                },
                 "addon_lms_timetable": {
                     "key": "addon_lms_timetable",
                     "slug": "lms_timetable",
@@ -1949,11 +1782,60 @@
                             "display_label": "My Live Classes"
                         }
                     ]
+                }
+            }
+        },
+        "parent": {
+            "id": 5,
+            "role_slug": "parent",
+            "role_name": "Parent \/ Guardian",
+            "portal_type": "frontend",
+            "is_default_front": 0,
+            "status": "active",
+            "permissions": [
+                "abacus_pro_suite.practice",
+                "lms_communication.chat",
+                "lms_communication.feedback",
+                "lms_hierarchy.view",
+                "core_lms_auth.view",
+                "lms_finance.view",
+                "lms_timetable.view",
+                "dashboard.view"
+            ],
+            "workspace": {
+                "show_child_switcher": 1,
+                "landing_route": "portal\/family",
+                "custom_labels": {
+                    "addon_core_lms_auth": "My Children & Profile",
+                    "addon_lms_hierarchy": "Enrolled Courses",
+                    "addon_lms_timetable": "Kids Class Schedule",
+                    "addon_lms_assessments": "Worksheets & Exam Reports",
+                    "addon_lms_finance": "Fee Payment & Receipts",
+                    "addon_lms_communication": "Teacher Chat & Feedback",
+                    "addon_abacus_pro_suite": "Kids Abacus Progress"
+                },
+                "hidden_items": {
+                    "ass.portal_exams": 1
+                },
+                "dashboard_widgets": [
+                    "parent_children",
+                    "quick_modules"
+                ]
+            },
+            "compiled_sidebar": {
+                "core_dashboard": {
+                    "key": "core_dashboard",
+                    "slug": "core_dashboard",
+                    "display_label": "Dashboard Overview",
+                    "icon": "⊞",
+                    "route": "dashboard",
+                    "section": "MAIN WORKSPACE",
+                    "sub_views": []
                 },
                 "addon_abacus_pro_suite": {
                     "key": "addon_abacus_pro_suite",
                     "slug": "abacus_pro_suite",
-                    "display_label": "3D Abacus & Speed Drills",
+                    "display_label": "Kids Abacus Progress",
                     "icon": "⚡",
                     "route": "abacus\/arena",
                     "section": "LEARNING & ACADEMY MODULES",
@@ -1981,99 +1863,6 @@
                             "icon": "🏆",
                             "permission": "abacus_pro_suite.practice",
                             "display_label": "My Speed & Badges"
-                        }
-                    ]
-                }
-            }
-        },
-        "parent": {
-            "id": 5,
-            "role_slug": "parent",
-            "role_name": "Parent \/ Guardian",
-            "portal_type": "frontend",
-            "is_default_front": 0,
-            "status": "active",
-            "permissions": [
-                "dashboard.view",
-                "core_lms_auth.view",
-                "lms_hierarchy.view",
-                "lms_assessments.take_exam",
-                "lms_communication.chat",
-                "lms_communication.feedback",
-                "lms_timetable.view",
-                "lms_finance.view",
-                "abacus_pro_suite.practice"
-            ],
-            "workspace": {
-                "show_child_switcher": 1,
-                "landing_route": "portal\/family",
-                "custom_labels": {
-                    "addon_core_lms_auth": "My Children & Profile",
-                    "addon_lms_hierarchy": "Enrolled Courses",
-                    "addon_lms_timetable": "Kids Class Schedule",
-                    "addon_lms_assessments": "Worksheets & Exam Reports",
-                    "addon_lms_finance": "Fee Payment & Receipts",
-                    "addon_lms_communication": "Teacher Chat & Feedback"
-                },
-                "hidden_items": {
-                    "ass.portal_exams": 1
-                },
-                "dashboard_widgets": [
-                    "parent_children",
-                    "quick_modules"
-                ]
-            },
-            "compiled_sidebar": {
-                "core_dashboard": {
-                    "key": "core_dashboard",
-                    "slug": "core_dashboard",
-                    "display_label": "Dashboard Overview",
-                    "icon": "⊞",
-                    "route": "dashboard",
-                    "section": "MAIN WORKSPACE",
-                    "sub_views": []
-                },
-                "addon_lms_communication": {
-                    "key": "addon_lms_communication",
-                    "slug": "lms_communication",
-                    "display_label": "Teacher Chat & Feedback",
-                    "icon": "⚡",
-                    "route": "chat\/portal",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "comm.chat",
-                            "label": "1-to-1 Classroom Chat",
-                            "route": "chat\/portal",
-                            "icon": "💬",
-                            "permission": "lms_communication.chat",
-                            "display_label": "1-to-1 Classroom Chat"
-                        },
-                        {
-                            "key": "comm.feedback",
-                            "label": "Teacher Feedback Cards",
-                            "route": "chat\/feedback",
-                            "icon": "⭐",
-                            "permission": "lms_communication.feedback",
-                            "display_label": "Teacher Feedback Cards"
-                        }
-                    ]
-                },
-                "addon_lms_hierarchy": {
-                    "key": "addon_lms_hierarchy",
-                    "slug": "lms_hierarchy",
-                    "display_label": "Enrolled Courses",
-                    "icon": "⚡",
-                    "route": "courses\/catalog",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "lhr.catalog",
-                            "label": "My Courses",
-                            "route": "courses\/catalog",
-                            "icon": "📖",
-                            "permission": "lms_hierarchy.view",
-                            "display_label": "My Courses"
                         }
                     ]
                 },
@@ -2111,29 +1900,29 @@
                         }
                     ]
                 },
-                "addon_lms_assessments": {
-                    "key": "addon_lms_assessments",
-                    "slug": "lms_assessments",
-                    "display_label": "Worksheets & Exam Reports",
+                "addon_lms_communication": {
+                    "key": "addon_lms_communication",
+                    "slug": "lms_communication",
+                    "display_label": "Teacher Chat & Feedback",
                     "icon": "⚡",
-                    "route": "assessments\/portal\/worksheets",
+                    "route": "chat\/portal",
                     "section": "LEARNING & ACADEMY MODULES",
                     "sub_views": [
                         {
-                            "key": "ass.portal_ws",
-                            "label": "My PDF Worksheets",
-                            "route": "assessments\/portal\/worksheets",
-                            "icon": "📄",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My PDF Worksheets"
+                            "key": "comm.chat",
+                            "label": "1-to-1 Classroom Chat",
+                            "route": "chat\/portal",
+                            "icon": "💬",
+                            "permission": "lms_communication.chat",
+                            "display_label": "1-to-1 Classroom Chat"
                         },
                         {
-                            "key": "ass.portal_hist",
-                            "label": "My Scores & Certificates",
-                            "route": "assessments\/portal\/history",
-                            "icon": "🏆",
-                            "permission": "lms_assessments.take_exam",
-                            "display_label": "My Scores & Certificates"
+                            "key": "comm.feedback",
+                            "label": "Teacher Feedback Cards",
+                            "route": "chat\/feedback",
+                            "icon": "⭐",
+                            "permission": "lms_communication.feedback",
+                            "display_label": "Teacher Feedback Cards"
                         }
                     ]
                 },
@@ -2147,11 +1936,29 @@
                     "sub_views": [
                         {
                             "key": "fin.portal",
-                            "label": "My Fee & Receipts [Parent\/Stu]",
+                            "label": "Family Fee & Receipts",
                             "route": "finance\/portal",
                             "icon": "💳",
                             "permission": "lms_finance.view",
-                            "display_label": "My Fee & Receipts [Parent\/Stu]"
+                            "display_label": "Family Fee & Receipts"
+                        }
+                    ]
+                },
+                "addon_lms_hierarchy": {
+                    "key": "addon_lms_hierarchy",
+                    "slug": "lms_hierarchy",
+                    "display_label": "Enrolled Courses",
+                    "icon": "⚡",
+                    "route": "courses\/catalog",
+                    "section": "LEARNING & ACADEMY MODULES",
+                    "sub_views": [
+                        {
+                            "key": "lhr.catalog",
+                            "label": "My Courses",
+                            "route": "courses\/catalog",
+                            "icon": "📖",
+                            "permission": "lms_hierarchy.view",
+                            "display_label": "My Courses"
                         }
                     ]
                 },
@@ -2172,40 +1979,6 @@
                             "display_label": "My Live Classes"
                         }
                     ]
-                },
-                "addon_abacus_pro_suite": {
-                    "key": "addon_abacus_pro_suite",
-                    "slug": "abacus_pro_suite",
-                    "display_label": "3D Abacus & Flash Anzan Lab",
-                    "icon": "⚡",
-                    "route": "abacus\/arena",
-                    "section": "LEARNING & ACADEMY MODULES",
-                    "sub_views": [
-                        {
-                            "key": "aps.arena",
-                            "label": "3D Soroban Abacus Lab",
-                            "route": "abacus\/arena",
-                            "icon": "🧮",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "3D Soroban Abacus Lab"
-                        },
-                        {
-                            "key": "aps.anzan",
-                            "label": "Flash Anzan & Voice Drill",
-                            "route": "abacus\/anzan",
-                            "icon": "⚡",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "Flash Anzan & Voice Drill"
-                        },
-                        {
-                            "key": "aps.progress",
-                            "label": "My Speed & Badges",
-                            "route": "abacus\/my-progress",
-                            "icon": "🏆",
-                            "permission": "abacus_pro_suite.practice",
-                            "display_label": "My Speed & Badges"
-                        }
-                    ]
                 }
             }
         },
@@ -2216,7 +1989,9 @@
             "portal_type": "frontend",
             "is_default_front": 0,
             "status": "active",
-            "permissions": [],
+            "permissions": [
+                "dashboard.view"
+            ],
             "workspace": {
                 "show_child_switcher": 0,
                 "landing_route": "dashboard",
@@ -2227,7 +2002,17 @@
                     "quick_modules"
                 ]
             },
-            "compiled_sidebar": []
+            "compiled_sidebar": {
+                "core_dashboard": {
+                    "key": "core_dashboard",
+                    "slug": "core_dashboard",
+                    "display_label": "Dashboard Overview",
+                    "icon": "⊞",
+                    "route": "dashboard",
+                    "section": "MAIN WORKSPACE",
+                    "sub_views": []
+                }
+            }
         }
     }
 }

@@ -1,94 +1,139 @@
 (function () {
     'use strict';
-    if (window.__CMS_RBAC_V70_BOOTED__) return;
-    window.__CMS_RBAC_V70_BOOTED__ = true;
+    if (window.__CMS_RBAC_V75_BOOTED__) return;
+    window.__CMS_RBAC_V75_BOOTED__ = true;
 
     function bootRbacAdmin() {
-        document.querySelectorAll('.js-edit-rbac-role').forEach(function (btn) {
-            if (btn.dataset.bound === '1') return;
-            btn.dataset.bound = '1';
-            btn.addEventListener('click', function () {
-                var idEl = document.getElementById('role_id');
-                if (!idEl) return;
-                idEl.value = btn.getAttribute('data-id') || '0';
-                document.getElementById('role_name').value = btn.getAttribute('data-name') || '';
-                document.getElementById('role_slug').value = btn.getAttribute('data-slug') || '';
-                document.getElementById('role_portal').value = btn.getAttribute('data-portal') || 'frontend';
-                document.getElementById('role_desc').value = btn.getAttribute('data-desc') || '';
-                var defCb = document.getElementById('role_def_front');
-                if (defCb) defCb.checked = btn.getAttribute('data-def') === '1';
-                var title = document.getElementById('rbac-role-form-title');
-                if (title) title.textContent = 'Edit Role: ' + (btn.getAttribute('data-name') || '');
-                idEl.form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // 1. Toggle Collapsible Role Builder Drawer
+        var toggleBuilderBtn = document.getElementById('js-rbac-toggle-builder');
+        var builderDrawer    = document.getElementById('js-rbac-builder-drawer');
+        if (toggleBuilderBtn && builderDrawer) {
+            toggleBuilderBtn.addEventListener('click', function () {
+                builderDrawer.classList.toggle('is-hidden');
             });
-        });
+        }
 
-        var resetBtn = document.getElementById('js-rbac-role-reset');
-        if (resetBtn && !resetBtn.dataset.bound) {
-            resetBtn.dataset.bound = '1';
-            resetBtn.addEventListener('click', function () {
-                document.getElementById('role_id').value = '0';
-                document.getElementById('role_name').value = '';
-                document.getElementById('role_slug').value = '';
-                document.getElementById('role_portal').value = 'frontend';
-                document.getElementById('role_desc').value = '';
-                var defCb = document.getElementById('role_def_front');
-                if (defCb) defCb.checked = false;
-                var title = document.getElementById('rbac-role-form-title');
-                if (title) title.textContent = 'Custom Role Builder';
+        // 2. Permission Matrix: 0ms Search + State Filter (`all`, `enabled`, `disabled`)
+        var permSearchInp = document.getElementById('js-rbac-perm-search');
+        var permFilterBar = document.getElementById('js-rbac-perm-filter-tabs');
+        var permCards     = Array.prototype.slice.call(document.querySelectorAll('.js-rbac-perm-card'));
+        var permGroups    = Array.prototype.slice.call(document.querySelectorAll('.js-rbac-module-group'));
+        var activePermSt  = 'all';
+
+        function filterPermissionsZeroMs() {
+            var q = permSearchInp ? permSearchInp.value.toLowerCase().trim() : '';
+            permCards.forEach(function (card) {
+                var txt = card.getAttribute('data-search') || '';
+                var cb  = card.querySelector('.js-rbac-perm-cb');
+                var chk = cb ? cb.checked : false;
+                var ok  = true;
+
+                if (q !== '' && txt.indexOf(q) === -1) ok = false;
+                if (ok && activePermSt === 'enabled' && !chk) ok = false;
+                if (ok && activePermSt === 'disabled' && chk) ok = false;
+
+                card.style.display = ok ? '' : 'none';
+            });
+
+            // Hide empty module boxes automatically when filtering
+            permGroups.forEach(function (grp) {
+                var visibleInGrp = grp.querySelectorAll('.js-rbac-perm-card:not([style*="display: none"])').length;
+                grp.style.display = visibleInGrp > 0 ? '' : 'none';
+            });
+        }
+
+        if (permSearchInp) {
+            permSearchInp.addEventListener('input', filterPermissionsZeroMs);
+        }
+        if (permFilterBar) {
+            permFilterBar.addEventListener('click', function (e) {
+                var tab = e.target.closest('.rbac-filter-tab');
+                if (!tab) return;
+                permFilterBar.querySelectorAll('.rbac-filter-tab').forEach(function (t) { t.classList.remove('is-active'); });
+                tab.classList.add('is-active');
+                activePermSt = tab.getAttribute('data-state') || 'all';
+                filterPermissionsZeroMs();
             });
         }
 
         var checkAllBtn = document.getElementById('js-rbac-check-all');
-        if (checkAllBtn && !checkAllBtn.dataset.bound) {
-            checkAllBtn.dataset.bound = '1';
+        if (checkAllBtn) {
             checkAllBtn.addEventListener('click', function () {
-                document.querySelectorAll('.js-rbac-perm-cb:not(:disabled)').forEach(function (cb) { cb.checked = true; });
+                permCards.forEach(function (card) {
+                    if (card.style.display === 'none') return;
+                    var cb = card.querySelector('.js-rbac-perm-cb:not(:disabled)');
+                    if (cb) cb.checked = true;
+                });
+                filterPermissionsZeroMs();
             });
         }
 
         var uncheckAllBtn = document.getElementById('js-rbac-uncheck-all');
-        if (uncheckAllBtn && !uncheckAllBtn.dataset.bound) {
-            uncheckAllBtn.dataset.bound = '1';
+        if (uncheckAllBtn) {
             uncheckAllBtn.addEventListener('click', function () {
-                document.querySelectorAll('.js-rbac-perm-cb:not(:disabled)').forEach(function (cb) { cb.checked = false; });
+                permCards.forEach(function (card) {
+                    if (card.style.display === 'none') return;
+                    var cb = card.querySelector('.js-rbac-perm-cb:not(:disabled)');
+                    if (cb) cb.checked = false;
+                });
+                filterPermissionsZeroMs();
             });
         }
 
         document.querySelectorAll('.js-toggle-group').forEach(function (btn) {
-            if (btn.dataset.bound === '1') return;
-            btn.dataset.bound = '1';
             btn.addEventListener('click', function () {
-                var card = btn.closest('.rbac-group-card');
-                if (!card) return;
-                var boxes = card.querySelectorAll('.js-rbac-perm-cb:not(:disabled)');
+                var grp = btn.closest('.js-rbac-module-group');
+                if (!grp) return;
+                var boxes = grp.querySelectorAll('.js-rbac-perm-cb:not(:disabled)');
                 var allChecked = true;
                 boxes.forEach(function (cb) { if (!cb.checked) allChecked = false; });
                 boxes.forEach(function (cb) { cb.checked = !allChecked; });
+                filterPermissionsZeroMs();
             });
         });
 
-        var permSearch = document.getElementById('js-rbac-perm-search');
-        if (permSearch && !permSearch.dataset.bound) {
-            permSearch.dataset.bound = '1';
-            permSearch.addEventListener('input', function () {
-                var q = permSearch.value.toLowerCase().trim();
-                document.querySelectorAll('.js-rbac-perm-card').forEach(function (card) {
-                    var txt = card.getAttribute('data-search') || '';
-                    card.style.display = (q === '' || txt.indexOf(q) !== -1) ? '' : 'none';
-                });
+        // 3. Menu Renamer Table: 0ms Instant Search & Filter (`all`, `main`, `sub`, `hidden`)
+        var menuSearchInp = document.getElementById('js-rbac-menu-search');
+        var menuTabsBar   = document.getElementById('js-rbac-menu-tabs');
+        var menuRows      = Array.prototype.slice.call(document.querySelectorAll('.js-rbac-menu-row'));
+        var activeMenuFlt = 'all';
+
+        menuRows.forEach(function (r) {
+            r._searchText = (r.textContent || '').toLowerCase();
+        });
+
+        function filterMenuRowsZeroMs() {
+            var q = menuSearchInp ? menuSearchInp.value.toLowerCase().trim() : '';
+            menuRows.forEach(function (r) {
+                var kind   = r.getAttribute('data-kind') || 'sub';
+                var hideCb = r.querySelector('.js-rbac-hide-cb');
+                var isHid  = hideCb ? hideCb.checked : (r.getAttribute('data-hidden') === '1');
+                var inpEl  = r.querySelector('input[type="text"]');
+                var custom = inpEl ? inpEl.value.toLowerCase() : '';
+                var ok     = true;
+
+                if (activeMenuFlt === 'main' && kind !== 'main') ok = false;
+                if (activeMenuFlt === 'sub' && kind !== 'sub') ok = false;
+                if (activeMenuFlt === 'hidden' && !isHid) ok = false;
+                if (ok && q !== '' && r._searchText.indexOf(q) === -1 && custom.indexOf(q) === -1) ok = false;
+
+                r.style.display = ok ? '' : 'none';
             });
         }
 
-        document.querySelectorAll('.js-rbac-confirm-del').forEach(function (frm) {
-            if (frm.dataset.bound === '1') return;
-            frm.dataset.bound = '1';
-            frm.addEventListener('submit', function (e) {
-                if (!window.confirm('Are you sure you want to delete this custom role?')) {
-                    e.preventDefault();
-                }
+        if (menuSearchInp) {
+            menuSearchInp.addEventListener('input', filterMenuRowsZeroMs);
+        }
+        if (menuTabsBar) {
+            menuTabsBar.addEventListener('click', function (e) {
+                var tab = e.target.closest('.rbac-filter-tab');
+                if (!tab) return;
+                menuTabsBar.querySelectorAll('.rbac-filter-tab').forEach(function (t) { t.classList.remove('is-active'); });
+                tab.classList.add('is-active');
+                activeMenuFlt = tab.getAttribute('data-filter') || 'all';
+                filterMenuRowsZeroMs();
             });
-        });
+        }
     }
 
     if (document.readyState === 'loading') {

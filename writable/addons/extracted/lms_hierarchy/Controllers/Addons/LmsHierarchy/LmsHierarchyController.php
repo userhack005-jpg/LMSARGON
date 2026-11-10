@@ -41,6 +41,19 @@ class LmsHierarchyController extends BaseController
 
     private function renderAddonView(string $viewRelPath, array $data = []): string
     {
+        if (! isset($data['settings']) || ! is_array($data['settings'])) {
+            $data['settings'] = $this->getModel()->getGlobalSiteSettings();
+        }
+        if (empty($data['activeMenu'])) {
+            $data['activeMenu'] = 'addon_lms_hierarchy';
+        }
+        if (empty($data['activeNav'])) {
+            $data['activeNav'] = 'lms_hierarchy';
+        }
+        if (! isset($data['user']) || ! is_array($data['user'])) {
+            $data['user'] = session()->get() ?: [];
+        }
+
         $cleanView = ltrim($viewRelPath, '/');
         if (is_file(APPPATH . 'Views/' . $cleanView . '.php')) {
             return view($cleanView, $data);
@@ -53,15 +66,15 @@ class LmsHierarchyController extends BaseController
 
     private function buildCommonAdminData(string $activeSubTab, string $pageTitle): array
     {
-        $model = $this->getModel();
-        $model->syncPageBuilderComponent();
-        $model->mirrorAssets(false);
+        $model      = $this->getModel();
+        $treeData   = $model->getFullHierarchyData();
+        $countries  = $model->getServicingCountriesCatalog();
+        $companions = $model->getCompanionAddonsStatus();
 
-        $treeData    = $model->getFullHierarchyData();
-        $students    = $model->getStudentsDirectory();
-        $countries   = $model->getServicingCountriesCatalog();
-        $companions  = $model->getCompanionAddonsStatus();
-        $enrollments = $model->getEnrichedEnrollments();
+        $needEnrollments = ($activeSubTab === 'enrollments');
+        $students        = $needEnrollments ? $model->getStudentsDirectory() : [];
+        $enrollments     = $needEnrollments ? $model->getEnrichedEnrollments() : [];
+        $totalEnrCount   = $needEnrollments ? count($enrollments) : $model->getActiveEnrollmentsCount();
 
         return [
             'pageTitle'        => $pageTitle,
@@ -69,7 +82,7 @@ class LmsHierarchyController extends BaseController
             'activeNav'        => 'lms_hierarchy',
             'activeSubTab'     => $activeSubTab,
             'settings'         => $model->getGlobalSiteSettings(),
-            'user'             => session()->get(),
+            'user'             => session()->get() ?: [],
             'companions'       => $companions,
             'nodesById'        => $treeData['nodes_by_id'],
             'branchParentsMap' => $treeData['branch_parents_map'],
@@ -78,6 +91,7 @@ class LmsHierarchyController extends BaseController
             'countries'        => $countries,
             'pricingByNode'    => $model->getAllPricingByNode(),
             'enrollments'      => $enrollments,
+            'totalEnrCount'    => $totalEnrCount,
             'canView'          => $this->hasPermission('lms_hierarchy.view'),
             'canCreate'        => $this->hasPermission('lms_hierarchy.create'),
             'canPricing'       => $this->hasPermission(['lms_hierarchy.pricing', 'lms_hierarchy.create']),
@@ -154,12 +168,6 @@ class LmsHierarchyController extends BaseController
         return $this->renderAddonView('addons/lms_hierarchy/enrollments_view', $data);
     }
 
-    /**
-     * Role-Adaptive My Courses Portal (`/courses/catalog`):
-     * - Teacher: Sees strictly ONLY their assigned courses & classroom batches (Zero global catalog clutter!).
-     * - Parent: Sees strictly their linked children's active enrolled courses (Zero IDs or marketing clutter!).
-     * - Student: Sees their active enrolled courses + optional "Explore More Programs" tab.
-     */
     public function catalogExplorer()
     {
         if (! session()->get('isLoggedIn')) {
@@ -173,17 +181,17 @@ class LmsHierarchyController extends BaseController
             ? cms_get_effective_role()
             : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
 
-        $uid            = (int) (session()->get('user_id') ?: 1);
+        $uid            = (int) (session()->get('user_id') ?: (session()->get('id') ?: 1));
         $activeStuId    = (int) (session()->get('active_student_id') ?: 0);
         $portalViewMode = (string) (session()->get('portal_view_mode') ?: 'default');
 
         $myEnrollments  = [];
         $teacherCourses = [];
         $teacherCohorts = [];
+        $childIds       = [];
 
         if ($effectiveRole === 'parent' && ($portalViewMode !== 'student' || $activeStuId <= 0)) {
-            $childIds = [];
-            $db       = \Config\Database::connect();
+            $db = \Config\Database::connect();
             if ($db->tableExists('users')) {
                 foreach ($db->table('users')->select('id')->where('parent_user_id', $uid)->get()->getResultArray() as $k) {
                     $childIds[] = (int) $k['id'];
@@ -198,11 +206,13 @@ class LmsHierarchyController extends BaseController
             $myEnrollments  = ! empty($leafIds) ? $model->getEnrichedEnrollments([], 0, $leafIds) : [];
         } else {
             $targetStudentId = $activeStuId > 0 ? $activeStuId : $uid;
+            $childIds        = [$targetStudentId];
             $myEnrollments   = $model->getEnrichedEnrollments([$targetStudentId], 0, []);
         }
 
         $data['effectiveRole']  = $effectiveRole;
         $data['myEnrollments']  = $myEnrollments;
+        $data['myAppliedDemos'] = $model->getAppliedDemosForUser($uid, $effectiveRole, $childIds);
         $data['teacherCourses'] = $teacherCourses;
         $data['teacherCohorts'] = $teacherCohorts;
         $data['canManageTree']  = $this->hasPermission(['lms_hierarchy.create', 'lms_hierarchy.edit']);
@@ -210,13 +220,6 @@ class LmsHierarchyController extends BaseController
         return $this->renderAddonView('addons/lms_hierarchy/catalog_view', $data);
     }
 
-    /**
-     * Dedicated Course / Level Detail Page (`/courses/view/(:num)`)
-     * When a visitor or student clicks a Course Card, it opens its own clean page!
-     * - If the node has sub-levels inside it, displays its sub-level cards cleanly.
-     * - If the node is a final course (`is_leaf_node = 1`), displays the full rich-text curriculum,
-     *   auto-detected local fee, and "Book Free Demo" / "Enroll Now" buttons!
-     */
     public function courseDetailPage($nodeId = 0)
     {
         $nid      = (int) $nodeId;
@@ -228,15 +231,14 @@ class LmsHierarchyController extends BaseController
             return redirect()->to(base_url('/'))->with('error', 'Course not found.');
         }
 
-        $courseNode   = $nodes[$nid];
-        $childNodes   = [];
+        $courseNode = $nodes[$nid];
+        $childNodes = [];
         foreach (($courseNode['children_ids'] ?? []) as $cid) {
             if (isset($nodes[$cid]) && ($nodes[$cid]['status'] ?? 'active') === 'active') {
                 $childNodes[] = $nodes[$cid];
             }
         }
 
-        // Build ancestor breadcrumb links for step-by-step navigation
         $ancestors = [];
         $currPid   = (int) ($courseNode['parent_id'] ?? 0);
         $guard     = 0;
@@ -247,19 +249,44 @@ class LmsHierarchyController extends BaseController
         }
 
         $visitorCountry = $model->detectVisitorCountryCode();
-        $priceInfo      = $courseNode['pricing_by_country'][$visitorCountry] ?? reset($courseNode['pricing_by_country'] ?? []) ?: null;
-        $companions     = $model->getCompanionAddonsStatus();
+        $nodePricingMap = is_array($courseNode['pricing_by_country'] ?? null) ? $courseNode['pricing_by_country'] : [];
+        $priceInfo      = $nodePricingMap[$visitorCountry] ?? ($nodePricingMap['IN'] ?? (! empty($nodePricingMap) ? reset($nodePricingMap) : null));
+
+        $isLoggedIn    = (bool) session()->get('isLoggedIn');
+        $uid           = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
+        $activeStuId   = (int) (session()->get('active_student_id') ?: 0);
+        $effectiveRole = function_exists('cms_get_effective_role')
+            ? cms_get_effective_role()
+            : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
+
+        $myCourseSubs = [];
+        if ($isLoggedIn && $uid > 0) {
+            $db = \Config\Database::connect();
+            if ($db->tableExists('lms_student_subscriptions')) {
+                $subQb = $db->table('lms_student_subscriptions')->where('node_id', $nid);
+                if ($effectiveRole === 'parent' && $activeStuId <= 0) {
+                    $subQb->where('parent_user_id', $uid);
+                } elseif ($effectiveRole === 'student' || $activeStuId > 0) {
+                    $subQb->where('student_user_id', $activeStuId > 0 ? $activeStuId : $uid);
+                }
+                $myCourseSubs = $subQb->orderBy('id', 'DESC')->get()->getResultArray();
+            }
+        }
 
         return $this->renderAddonView('addons/lms_hierarchy/course_detail_view', [
-            'pageTitle'      => $courseNode['title'],
-            'settings'       => $model->getGlobalSiteSettings(),
-            'user'           => session()->get(),
-            'courseNode'     => $courseNode,
-            'childNodes'     => $childNodes,
-            'ancestors'      => $ancestors,
-            'priceInfo'      => $priceInfo,
-            'companions'     => $companions,
-            'isLoggedIn'     => (bool) session()->get('isLoggedIn'),
+            'pageTitle'     => $courseNode['title'] ?? 'Course Details',
+            'activeMenu'    => 'addon_lms_hierarchy',
+            'activeNav'     => 'lms_hierarchy',
+            'settings'      => $model->getGlobalSiteSettings(),
+            'user'          => session()->get() ?: [],
+            'courseNode'    => $courseNode,
+            'childNodes'    => $childNodes,
+            'ancestors'     => $ancestors,
+            'priceInfo'     => $priceInfo,
+            'myCourseSubs'  => $myCourseSubs,
+            'effectiveRole' => $effectiveRole,
+            'companions'    => $model->getCompanionAddonsStatus(),
+            'isLoggedIn'    => $isLoggedIn,
         ]);
     }
 
@@ -285,8 +312,7 @@ class LmsHierarchyController extends BaseController
             return redirect()->back()->with('error', $res['message']);
         }
 
-        return redirect()->to(base_url('addons/lms-hierarchy'))
-            ->with('success', $res['message']);
+        return redirect()->to(base_url('addons/lms-hierarchy'))->with('success', $res['message']);
     }
 
     public function deleteNode()
@@ -412,7 +438,7 @@ class LmsHierarchyController extends BaseController
 
         return $this->response
             ->setHeader('Content-Type', $mime)
-            ->setHeader('Cache-Control', 'no-cache, must-revalidate')
+            ->setHeader('Cache-Control', 'public, max-age=86400')
             ->setBody((string) file_get_contents($fullPath));
     }
 }

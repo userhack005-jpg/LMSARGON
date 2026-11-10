@@ -1,0 +1,31 @@
+{
+    "slug": "lms_finance",
+    "name": "Fee Subscriptions, Razorpay & Receipts",
+    "category": "core_lms",
+    "version": "12.1.0",
+    "author": "Core Architecture Team",
+    "description": "100% Real Razorpay Integration, Batch Start/End Date Sync, 1st-of-Month Advance Payment Due-Date Progression, Global Unpaid Access Lock, Auto+Editable Custom Billing Currency, and Timestamped Admin Revenue Ledger.",
+    "admin_route": "addons/lms-finance",
+    "frontend_route": "finance/portal",
+    "init_model": "App\\Models\\Addons\\LmsFinance\\LmsFinanceModel",
+    "assets": {
+        "css": ["addons/lms-finance/assets/lms_finance.css"],
+        "js": ["addons/lms-finance/assets/lms_finance.js"]
+    },
+    "default_config": { "grace_period_days": "0" },
+    "permissions": [
+        { "key": "lms_finance.view",     "label": "View Family Fee Subscriptions & Official Receipts [Parent + Student + Admin]" },
+        { "key": "lms_finance.collect",  "label": "Verify Offline Proofs, Manage Subscriptions & Custom Billing [Super Admin + Admin]" },
+        { "key": "lms_finance.expenses", "label": "Manage Teacher Payroll, Salary Slips & Academy Expenses [Super Admin + Admin + Teacher]" },
+        { "key": "lms_finance.settings", "label": "Configure Razorpay Test/Live Keys & Receipt Designer [Super Admin + Admin]" },
+        { "key": "lms_finance.delete",   "label": "Delete Invoices, Transactions & Expense Entries [Super Admin + Admin]" }
+    ],
+    "sub_views": [
+        { "key": "lfn.ledger",         "label": "Transactions & Approvals",  "route": "addons/lms-finance",                "icon": "ðŸ’³", "permission": "lms_finance.collect" },
+        { "key": "lfn.invoices",       "label": "Batch Subscriptions & Lock","route": "addons/lms-finance/invoices",       "icon": "ðŸ§¾", "permission": "lms_finance.collect" },
+        { "key": "lfn.custom_billing", "label": "Custom Parent Billing",     "route": "addons/lms-finance/custom-billing", "icon": "âž•", "permission": "lms_finance.collect" },
+        { "key": "lfn.payouts",        "label": "Teacher Payroll & Expenses","route": "addons/lms-finance/payouts",        "icon": "ðŸ’µ", "permission": "lms_finance.expenses" },
+        { "key": "lfn.settings",       "label": "Razorpay & Receipt Design", "route": "addons/lms-finance/settings",       "icon": "âš™",  "permission": "lms_finance.settings" },
+        { "key": "lfn.portal",         "label": "Family Fee Portal",         "route": "finance/portal",                    "icon": "ðŸ‘¨â€ðŸ‘©â€ðŸ‘§â€ðŸ‘¦", "permission": "lms_finance.view" }
+    ]
+}

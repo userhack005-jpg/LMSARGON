@@ -3,7 +3,7 @@
 <?= $this->section('content') ?>
 <?php
     $ap       = $activePair ?? null;
-    $readOnly = ! empty($isParentReadOnly);
+    $readOnly = ! empty($isParentReadOnly) && ! in_array($effectiveRole ?? '', ['teacher', 'student', 'admin', 'super_admin'], true);
     $batches  = $batchesFilterMap ?? [];
     $kidsMap  = $parentKidsMap ?? [];
 ?>

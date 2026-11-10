@@ -136,9 +136,12 @@
                                         </form>
                                     </div>
                                 <?php elseif ($isDone): ?>
-                                    <div class="ltt-done-strip">
+                                    <div class="ltt-done-strip" style="flex-wrap:wrap; gap:0.4rem;">
                                         <span>✓ Completed (<?= (int) $sess['duration_minutes'] ?>m)</span>
-                                        <button type="button" class="btn-action js-open-start-wizard" data-session="<?= esc(json_encode($sess), 'attr') ?>">✎ Edit Attendance</button>
+                                        <div style="display:flex; gap:0.4rem;">
+                                            <button type="button" class="btn-action text-emerald js-open-start-wizard" data-mode="attendance_only" data-session="<?= esc(json_encode($sess), 'attr') ?>">✎ Edit Attendance Only</button>
+                                            <button type="button" class="btn-action js-open-start-wizard" data-mode="start" data-session="<?= esc(json_encode($sess), 'attr') ?>">↻ Restart Class</button>
+                                        </div>
                                     </div>
                                 <?php else: ?>
                                     <button type="button" class="ltt-btn-start-green js-open-start-wizard" data-session="<?= esc(json_encode($sess), 'attr') ?>">
@@ -250,6 +253,7 @@
                 <form action="<?= base_url('timetable/start-class') ?>" method="post" enctype="multipart/form-data" id="js-wiz-start-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="session_id" id="js-wiz-session-id" value="0">
+                    <input type="hidden" name="wizard_mode" id="js-wiz-mode" value="start">
 
                     <div id="js-wiz-step-1" class="ltt-wiz-body">
                         <div class="field-group">

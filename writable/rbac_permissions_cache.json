@@ -1,0 +1,205 @@
+{
+    "updated_at": 1793751776,
+    "permissions_by_slug": {
+        "super_admin": [
+            "*"
+        ],
+        "admin": [
+            "abacus_pro_suite.delete",
+            "abacus_pro_suite.edit",
+            "abacus_pro_suite.view",
+            "lms_communication.alerts",
+            "lms_communication.chat",
+            "lms_communication.feedback",
+            "lms_communication.filters",
+            "lms_communication.moderate",
+            "demos.manage",
+            "lms_onboarding.delete",
+            "lms_onboarding.view",
+            "asset_mirror.sync",
+            "asset_mirror.view",
+            "announcements.view",
+            "lms_assessments.create",
+            "lms_assessments.delete",
+            "lms_assessments.edit",
+            "lms_assessments.view",
+            "core_lms_auth.create",
+            "core_lms_auth.delete",
+            "core_lms_auth.edit",
+            "lms_finance.collect",
+            "lms_finance.delete",
+            "lms_finance.expenses",
+            "lms_finance.settings",
+            "lms_finance.view",
+            "lms_timetable.create",
+            "lms_timetable.delete",
+            "lms_timetable.edit",
+            "lms_timetable.view",
+            "page_cache.purge",
+            "page_cache.view",
+            "pages.create",
+            "pages.delete",
+            "pages.edit",
+            "pages.view",
+            "addons.manage",
+            "dashboard.view",
+            "settings.edit",
+            "settings.view",
+            "users.create",
+            "users.delete",
+            "users.edit",
+            "users.view",
+            "lms_assessments.take_exam"
+        ],
+        "teacher": [
+            "abacus_pro_suite.practice",
+            "abacus_pro_suite.view",
+            "lms_communication.chat",
+            "lms_communication.feedback",
+            "demos.manage",
+            "lms_onboarding.teacher_demos",
+            "lms_onboarding.view",
+            "asset_mirror.view",
+            "announcements.view",
+            "lms_assessments.create",
+            "lms_assessments.view",
+            "core_lms_auth.view",
+            "lms_finance.expenses",
+            "lms_finance.view",
+            "lms_timetable.teacher_panel",
+            "lms_timetable.view",
+            "lms_hierarchy.view",
+            "page_cache.view",
+            "pages.view",
+            "dashboard.view",
+            "settings.view",
+            "users.view"
+        ],
+        "student": [
+            "abacus_pro_suite.practice",
+            "lms_communication.chat",
+            "lms_communication.feedback",
+            "lms_assessments.take_exam",
+            "core_lms_auth.view",
+            "lms_timetable.view",
+            "dashboard.view"
+        ],
+        "parent": [
+            "abacus_pro_suite.practice",
+            "lms_communication.chat",
+            "lms_communication.feedback",
+            "lms_assessments.take_exam",
+            "core_lms_auth.view",
+            "lms_finance.view",
+            "lms_timetable.view",
+            "dashboard.view"
+        ],
+        "website_user": [
+            "announcements.create",
+            "announcements.delete",
+            "announcements.edit",
+            "announcements.view"
+        ]
+    },
+    "workspaces_by_slug": {
+        "super_admin": {
+            "show_child_switcher": 1,
+            "landing_route": "dashboard",
+            "custom_labels": [],
+            "hidden_items": [],
+            "dashboard_widgets": [
+                "kpi_overview",
+                "quick_modules"
+            ]
+        },
+        "admin": {
+            "show_child_switcher": 0,
+            "landing_route": "dashboard",
+            "custom_labels": {
+                "addon_core_lms_auth": "Family & Role Setup",
+                "addon_lms_hierarchy": "Courses & Fee Plans",
+                "addon_lms_timetable": "Live Batches & Timetable",
+                "addon_lms_assessments": "Exams & Question Bank",
+                "addon_lms_finance": "Finance, Invoices & Payroll",
+                "addon_lms_communication": "Chat Moderation & Feedback",
+                "addon_abacus_pro_suite": "3D Abacus & Analytics",
+                "addon_lms_onboarding": "Demo Leads & Admissions"
+            },
+            "hidden_items": [],
+            "dashboard_widgets": [
+                "kpi_overview",
+                "quick_modules",
+                "mod_flagged_chat"
+            ]
+        },
+        "teacher": {
+            "show_child_switcher": 0,
+            "landing_route": "timetable\/portal",
+            "custom_labels": {
+                "addon_lms_timetable": "My Live Classes & Batches",
+                "addon_lms_hierarchy": "My Assigned Courses",
+                "addon_lms_assessments": "Question Bank & Scores",
+                "addon_lms_communication": "Student Chat & Feedback",
+                "addon_lms_finance": "My Salary Slips",
+                "addon_abacus_pro_suite": "3D Abacus & Batch Progress",
+                "addon_lms_onboarding": "My Demo Classes"
+            },
+            "hidden_items": {
+                "fin.portal": 1
+            },
+            "dashboard_widgets": [
+                "teacher_schedule",
+                "quick_modules"
+            ]
+        },
+        "student": {
+            "show_child_switcher": 0,
+            "landing_route": "dashboard",
+            "custom_labels": {
+                "addon_core_lms_auth": "My Learning Hub",
+                "addon_lms_timetable": "My Live Classes",
+                "addon_abacus_pro_suite": "3D Abacus & Speed Drills",
+                "addon_lms_assessments": "Practice Exams & Worksheets",
+                "addon_lms_hierarchy": "My Courses",
+                "addon_lms_communication": "Ask My Teacher & Feedback"
+            },
+            "hidden_items": {
+                "cla.add_child": 1
+            },
+            "dashboard_widgets": [
+                "student_arena",
+                "quick_modules"
+            ]
+        },
+        "parent": {
+            "show_child_switcher": 1,
+            "landing_route": "portal\/family",
+            "custom_labels": {
+                "addon_core_lms_auth": "My Children & Profile",
+                "addon_lms_hierarchy": "Enrolled Courses",
+                "addon_lms_timetable": "Kids Class Schedule",
+                "addon_lms_assessments": "Worksheets & Exam Reports",
+                "addon_lms_finance": "Fee Payment & Receipts",
+                "addon_lms_communication": "Teacher Chat & Feedback",
+                "addon_abacus_pro_suite": "Kids Abacus Progress"
+            },
+            "hidden_items": {
+                "ass.portal_exams": 1
+            },
+            "dashboard_widgets": [
+                "parent_children",
+                "quick_modules"
+            ]
+        },
+        "website_user": {
+            "show_child_switcher": 0,
+            "landing_route": "dashboard",
+            "custom_labels": [],
+            "hidden_items": [],
+            "dashboard_widgets": [
+                "kpi_overview",
+                "quick_modules"
+            ]
+        }
+    }
+}

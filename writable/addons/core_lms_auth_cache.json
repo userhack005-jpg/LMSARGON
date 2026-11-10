@@ -1,5 +1,5 @@
 {
-    "updated_at": 1793192160,
+    "updated_at": 1793813491,
     "storage_timezone": "UTC",
     "role_map": {
         "super_admin": [
@@ -31,7 +31,7 @@
                 "Asia\/Kolkata"
             ],
             "is_enabled": 1,
-            "live_local_time": "28 Oct 2026, 06:26 PM",
+            "live_local_time": "04 Nov 2026, 11:01 PM",
             "utc_offset": "UTC+05:30"
         },
         "AE": {
@@ -46,7 +46,7 @@
                 "Asia\/Dubai"
             ],
             "is_enabled": 1,
-            "live_local_time": "28 Oct 2026, 04:56 PM",
+            "live_local_time": "04 Nov 2026, 09:31 PM",
             "utc_offset": "UTC+04:00"
         }
     }

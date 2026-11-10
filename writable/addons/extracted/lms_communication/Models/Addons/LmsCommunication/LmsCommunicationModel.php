@@ -51,6 +51,9 @@ class LmsCommunicationModel extends Model
 
     public function ensureSchema(): void
     {
+        if (is_file(WRITEPATH . 'addons/schema_addon_lms_communication_v81.lock')) {
+            return;
+        }
         try {
             // 1. Create or Heal `lms_chat_messages` (100% compatible with both v4/v6 and v8!)
             if (! $this->db->tableExists('lms_chat_messages')) {
@@ -603,9 +606,7 @@ class LmsCommunicationModel extends Model
             ->where('student_user_id', $studentId)
             ->where('teacher_user_id', $teacherId);
 
-        if ($nodeId > 0 && in_array('node_id', $mCols, true)) {
-            $builder->whereIn('node_id', [$nodeId, 0]);
-        }
+        // Show full 1-to-1 history between this Student and Teacher across batch nodes
 
         $rows = $builder->orderBy('id', 'ASC')->limit(120)->get()->getResultArray();
         $out  = [];

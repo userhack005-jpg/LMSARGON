@@ -4,7 +4,6 @@ namespace App\Controllers\Addons\LmsFinance;
 
 use App\Controllers\BaseController;
 use App\Models\Addons\LmsFinance\LmsFinanceModel;
-use Throwable;
 
 class LmsFinanceController extends BaseController
 {
@@ -13,6 +12,7 @@ class LmsFinanceController extends BaseController
 
     public function __construct()
     {
+        @date_default_timezone_set('Asia/Kolkata');
         helper(['url', 'form']);
         $this->addonPath = WRITEPATH . 'addons/extracted/lms_finance';
     }
@@ -49,7 +49,7 @@ class LmsFinanceController extends BaseController
             $data['activeMenu'] = 'addon_lms_finance';
         }
         if (empty($data['user'])) {
-            $data['user'] = session()->get();
+            $data['user'] = session()->get() ?: [];
         }
 
         $cleanView = ltrim($viewRelPath, '/');
@@ -63,55 +63,63 @@ class LmsFinanceController extends BaseController
 
     private function buildCommonAdminData(string $activeSubTab, string $pageTitle): array
     {
-        $model = $this->getModel();
-        $model->mirrorAssets(false);
-        $model->syncSubscriptionsAndAutoInvoices();
-
-        $roleUsers = $model->getRoleFilteredUsers();
-        $leafNodes = $model->getLeafNodesWithPricing();
-        $nodesById = [];
-        foreach ($leafNodes as $nid => $n) {
-            $nodesById[(int) $nid] = $n['title'];
+        $model       = $this->getModel();
+        $db          = \Config\Database::connect();
+        $usersBundle = $model->getRoleUsersWithMeta();
+        $nodesById   = [];
+        foreach ($model->getLeafNodesWithPricing() as $nid => $nRow) {
+            $nodesById[(int) $nid] = $nRow['title'] ?? 'Course';
         }
 
-        $db           = \Config\Database::connect();
-        $transactions = $model->orderBy('id', 'DESC')->findAll(80);
-        $subs         = $db->table('lms_student_subscriptions')->orderBy('due_date', 'ASC')->get()->getResultArray();
-        $invoices     = $db->table('lms_finance_invoices')->orderBy('id', 'DESC')->get()->getResultArray();
-        $payouts      = $db->table('lms_teacher_payouts')->orderBy('id', 'DESC')->get()->getResultArray();
-        $expenses     = $db->table('lms_general_expenses')->orderBy('expense_date', 'DESC')->get()->getResultArray();
+        $txns     = $db->table('payment_transactions')->orderBy('id', 'DESC')->limit(200)->get()->getResultArray();
+        $model->evaluateSubscriptionLocks();
+        $subs     = $db->table('lms_student_subscriptions')->orderBy('id', 'DESC')->get()->getResultArray();
+        $invoices = $db->table('lms_finance_invoices')->orderBy('id', 'DESC')->limit(150)->get()->getResultArray();
+        $expenses = $db->table('lms_finance_expenses')->orderBy('id', 'DESC')->limit(150)->get()->getResultArray();
+
+        $revenueInr    = 0.0;
+        $pendingProofs = [];
+        foreach ($txns as $t) {
+            if (($t['status'] ?? '') === 'paid') {
+                $eq = (float) ($t['amount_inr_equiv'] ?? 0);
+                $revenueInr += $eq > 0 ? $eq : (float) ($t['amount'] ?? 0);
+            } elseif (($t['status'] ?? '') === 'pending_verification') {
+                $pendingProofs[] = $t;
+            }
+        }
+
+        $expensesInr = 0.0;
+        foreach ($expenses as $ex) {
+            $expensesInr += $model->convertToInrEquiv((float) ($ex['amount'] ?? 0), (string) ($ex['currency'] ?? 'INR'));
+        }
 
         return [
-            'pageTitle'         => $pageTitle,
-            'activeMenu'        => 'addon_lms_finance',
-            'activeNav'         => 'lms_finance',
-            'activeSubTab'      => $activeSubTab,
-            'settings'          => $model->getGlobalSiteSettings(),
-            'user'              => session()->get(),
-            'pnl'               => $model->getProfitAndLossSummary(),
-            'graceDays'         => (int) $model->getFinanceSetting('grace_period_days', '5'),
-            'autoInvoiceDays'   => (int) $model->getFinanceSetting('auto_invoice_days', '5'),
-            'autoLockOn'        => $model->getFinanceSetting('auto_lock_overdue', '1') === '1',
-            'gatewaysConfig'    => $model->getGatewaysConfig(),
-            'razorpayConfig'    => $model->getActiveRazorpayConfig(),
-            'receiptTemplate'   => $model->getReceiptTemplateConfig(),
-            'enabledCountries'  => $model->getEnabledCountriesOnly(),
-            'teachers'          => $roleUsers['teachers'],
-            'students'          => $roleUsers['students'],
-            'parents'           => $roleUsers['parents'],
-            'childrenByParent'  => $roleUsers['children_by_parent'],
-            'allUsers'          => $roleUsers['all'],
-            'leafNodes'         => $leafNodes,
-            'nodesById'         => $nodesById,
-            'transactions'      => $transactions,
-            'subscriptions'     => $subs,
-            'invoices'          => $invoices,
-            'payouts'           => $payouts,
-            'expenses'          => $expenses,
-            'canCollect'        => $this->hasPermission('lms_finance.collect'),
-            'canPayroll'        => $this->hasPermission('lms_finance.payroll'),
-            'canExpenses'       => $this->hasPermission('lms_finance.expenses'),
-            'canDelete'         => $this->hasPermission('lms_finance.delete'),
+            'pageTitle'        => $pageTitle,
+            'activeMenu'       => 'addon_lms_finance',
+            'activeNav'        => 'lms_finance',
+            'activeSubTab'     => $activeSubTab,
+            'settings'         => $model->getGlobalSiteSettings(),
+            'user'             => session()->get() ?: [],
+            'allUsers'         => $usersBundle['all'],
+            'students'         => $usersBundle['students'],
+            'parents'          => $usersBundle['parents'],
+            'teachers'         => $usersBundle['teachers'],
+            'nodesById'        => $nodesById,
+            'txns'             => $txns,
+            'pendingProofs'    => $pendingProofs,
+            'subs'             => $subs,
+            'invoices'         => $invoices,
+            'expenses'         => $expenses,
+            'revenueInr'       => $revenueInr,
+            'expensesInr'      => $expensesInr,
+            'netProfitInr'     => $revenueInr - $expensesInr,
+            'razorpayConfig'   => $model->getActiveRazorpayConfig(),
+            'receiptTemplate'  => $model->getActiveReceiptTemplateConfig(),
+            'enabledCountries' => $model->getEnabledCountriesOnly(),
+            'canCollect'       => $this->hasPermission('lms_finance.collect'),
+            'canExpenses'      => $this->hasPermission('lms_finance.expenses'),
+            'canSettings'      => $this->hasPermission('lms_finance.settings'),
+            'canDelete'        => $this->hasPermission('lms_finance.delete'),
         ];
     }
 
@@ -120,201 +128,241 @@ class LmsFinanceController extends BaseController
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
-        $effectiveRole = function_exists('cms_get_effective_role')
-            ? cms_get_effective_role()
-            : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
-
-        if ($effectiveRole === 'teacher') {
-            return redirect()->to(base_url('finance/my-payouts'));
+        $effectiveRole = function_exists('cms_get_effective_role') ? cms_get_effective_role() : 'student';
+        if ($effectiveRole === 'teacher' && ! $this->hasPermission('lms_finance.collect')) {
+            return $this->teacherPayoutsPortal();
         }
-        if (! $this->hasPermission(['lms_finance.collect', 'lms_finance.payroll', 'lms_finance.expenses'])) {
-            return redirect()->to(base_url('finance/portal'));
+        if ($this->hasPermission(['lms_finance.collect', 'lms_finance.settings'])) {
+            $data = $this->buildCommonAdminData('ledger', 'Finance Overview & Payment Transactions');
+            return $this->renderAddonView('addons/lms_finance/index_view', $data);
         }
-
-        $data = $this->buildCommonAdminData('overview', 'Finance Overview & Revenue Ledger');
-        return $this->renderAddonView('addons/lms_finance/overview_view', $data);
+        return $this->portalFinance();
     }
 
-    public function invoicesAndApprovalsView()
+    public function invoicesView()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if (! $this->hasPermission(['lms_finance.collect', 'lms_finance.expenses'])) {
+        if (! $this->hasPermission('lms_finance.collect')) {
             return redirect()->to(base_url('finance/portal'));
         }
-
-        $data = $this->buildCommonAdminData('invoices', 'Student Subscriptions, Offline Approvals & Direct Mark Paid');
+        $data = $this->buildCommonAdminData('invoices', 'Batch Subscriptions & Monthly Locks');
         return $this->renderAddonView('addons/lms_finance/invoices_view', $data);
     }
 
     public function customBillingView()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if (! $this->hasPermission(['lms_finance.collect', 'lms_finance.expenses'])) {
+        if (! $this->hasPermission('lms_finance.collect')) {
             return redirect()->to(base_url('finance/portal'));
         }
-
-        $data = $this->buildCommonAdminData('custom_billing', 'Request Custom Payment from Parent & Child');
+        $data = $this->buildCommonAdminData('custom_billing', 'Custom Parent-Child Fee Billing');
         return $this->renderAddonView('addons/lms_finance/custom_billing_view', $data);
     }
 
-    public function payrollView()
+    public function payoutsView()
     {
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
-        if (! $this->hasPermission(['lms_finance.payroll', 'lms_finance.collect'])) {
-            return redirect()->to(base_url('finance/portal'));
-        }
-
-        $data = $this->buildCommonAdminData('payroll', 'Teacher Salary Disbursement');
-        return $this->renderAddonView('addons/lms_finance/payroll_view', $data);
-    }
-
-    public function expensesView()
-    {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
+        $effectiveRole = function_exists('cms_get_effective_role')
+            ? cms_get_effective_role()
+            : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
+        if ($effectiveRole === 'teacher' && ! $this->hasPermission('lms_finance.collect')) {
+            return $this->teacherPayoutsPortal();
         }
         if (! $this->hasPermission(['lms_finance.expenses', 'lms_finance.collect'])) {
             return redirect()->to(base_url('finance/portal'));
         }
-
-        $data = $this->buildCommonAdminData('expenses', 'Operational Expenses Ledger');
-        return $this->renderAddonView('addons/lms_finance/expenses_view', $data);
+        $data = $this->buildCommonAdminData('payouts', 'Teacher Payroll & Academy Expenses');
+        return $this->renderAddonView('addons/lms_finance/payouts_view', $data);
     }
 
-    public function gatewaysAndReceiptView()
+    public function settingsView()
     {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-        if (! $this->hasPermission(['lms_finance.expenses', 'lms_finance.collect'])) {
+        if (! $this->hasPermission('lms_finance.settings')) {
             return redirect()->to(base_url('finance/portal'));
         }
-
-        $data = $this->buildCommonAdminData('gateways', 'Razorpay Gateway Setup & Receipt Template Designer');
-        return $this->renderAddonView('addons/lms_finance/gateways_view', $data);
+        $data = $this->buildCommonAdminData('settings', 'Razorpay Gateway & Official Receipt Designer');
+        return $this->renderAddonView('addons/lms_finance/settings_view', $data);
     }
 
-    public function teacherSalaryPortal()
+    /**
+     * ULTRA-FAST FAMILY FEE PORTAL (`/finance/portal`):
+     * Queries ONLY the current Parent/Student's records (0ms latency) and maps latest paid receipts!
+     */
+    public function portalFinance()
     {
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
-        $uid   = (int) (session()->get('user_id') ?: 1);
-        $model = $this->getModel();
-        $model->mirrorAssets(false);
-
-        $db        = \Config\Database::connect();
-        $myPayouts = $db->table('lms_teacher_payouts')
-            ->where('teacher_user_id', $uid)
-            ->orderBy('id', 'DESC')
-            ->get()
-            ->getResultArray();
-
-        return $this->renderAddonView('addons/lms_finance/portal_teacher_view', [
-            'pageTitle'      => 'My Monthly Salary Slips',
-            'activeMenu'     => 'addon_lms_finance',
-            'settings'       => $model->getGlobalSiteSettings(),
-            'user'           => session()->get(),
-            'myPayouts'      => $myPayouts,
-            'canManageAdmin' => $this->hasPermission(['lms_finance.payroll', 'lms_finance.collect']),
-        ]);
-    }
-
-    public function parentFeePortal()
-    {
-        if (! session()->get('isLoggedIn')) {
-            return redirect()->to(base_url('login'));
-        }
-
-        $effectiveRole  = function_exists('cms_get_effective_role')
+        $effectiveRole = function_exists('cms_get_effective_role')
             ? cms_get_effective_role()
             : strtolower(trim((string) (session()->get('effective_role_slug') ?: session()->get('role_slug') ?: 'student')));
 
-        if ($effectiveRole === 'teacher') {
-            return redirect()->to(base_url('finance/my-payouts'));
+        if ($effectiveRole === 'teacher' && ! $this->hasPermission('lms_finance.collect')) {
+            return $this->teacherPayoutsPortal();
         }
 
-        $data           = $this->buildCommonAdminData('portal', 'Family Fee Subscriptions & Official Receipts');
-        $uid            = (int) (session()->get('user_id') ?: 1);
+        $model          = $this->getModel();
+        $db             = \Config\Database::connect();
+        $uid            = (int) (session()->get('user_id') ?: (session()->get('id') ?: 1));
         $activeStuId    = (int) (session()->get('active_student_id') ?: 0);
         $portalViewMode = (string) (session()->get('portal_view_mode') ?: 'default');
-        $baseRole       = strtolower(trim((string) (session()->get('role_slug') ?: 'student')));
+        $isChildMode    = ($portalViewMode === 'student' && $activeStuId > 0) || ($effectiveRole === 'student');
+        $canManageAdmin = $this->hasPermission(['lms_finance.collect', 'lms_finance.settings']);
 
-        $isChildViewOnly = ($baseRole === 'student') || ($portalViewMode === 'student' && $activeStuId > 0);
-        $parentKidsMap   = [];
-        $targetChildIds  = [];
+        $parentKidsMap = [];
+        $targetStuIds  = [];
+        $allUsers      = [];
 
-        if (! $isChildViewOnly && isset($data['childrenByParent'][$uid])) {
-            foreach ($data['childrenByParent'][$uid] as $ch) {
-                $cid = (int) $ch['id'];
-                $parentKidsMap[$cid] = $ch['display_name'];
-                $targetChildIds[]    = $cid;
-            }
-        }
-
-        if (empty($targetChildIds)) {
+        if ($isChildMode) {
             $stuId = $activeStuId > 0 ? $activeStuId : $uid;
-            if (isset($data['students'][$stuId])) {
-                $parentKidsMap[$stuId] = $data['students'][$stuId]['display_name'];
-                $targetChildIds[]      = $stuId;
-            } elseif (! empty($data['students']) && $this->hasPermission('lms_finance.collect')) {
-                foreach ($data['students'] as $sid => $sRow) {
-                    $parentKidsMap[(int) $sid] = $sRow['display_name'];
-                    $targetChildIds[]          = (int) $sid;
+            $sRow  = $db->table('users')->select('id, full_name, email')->where('id', $stuId)->get()->getRowArray();
+            $sName = ! empty($sRow['full_name']) ? $sRow['full_name'] : 'Student';
+            $targetStuIds               = [$stuId];
+            $parentKidsMap[$stuId]      = $sName;
+            $allUsers[$stuId]           = ['id' => $stuId, 'display_name' => $sName];
+        } elseif ($effectiveRole === 'parent' || ! $canManageAdmin) {
+            foreach ($db->table('users')->select('id, full_name, email')->where('parent_user_id', $uid)->orderBy('id', 'ASC')->get()->getResultArray() as $k) {
+                $kidId = (int) $k['id'];
+                $kName = ! empty($k['full_name']) ? $k['full_name'] : ($k['email'] ?: 'Child');
+                $targetStuIds[]        = $kidId;
+                $parentKidsMap[$kidId] = $kName;
+                $allUsers[$kidId]      = ['id' => $kidId, 'display_name' => $kName];
+            }
+        } else {
+            // Admin previewing portal
+            foreach ($db->table('users')->select('id, full_name, email, role_id, role_slug')->orderBy('id', 'ASC')->limit(100)->get()->getResultArray() as $u) {
+                $id    = (int) $u['id'];
+                $rSlug = strtolower(trim((string) ($u['role_slug'] ?? 'student')));
+                $uName = ! empty($u['full_name']) ? $u['full_name'] : ($u['email'] ?: ('User #' . $id));
+                $allUsers[$id] = ['id' => $id, 'display_name' => $uName];
+                if ($rSlug === 'student' || (int) ($u['role_id'] ?? 4) === 4) {
+                    $targetStuIds[]      = $id;
+                    $parentKidsMap[$id]  = $uName;
                 }
             }
         }
 
-        $db         = \Config\Database::connect();
+        $nodesById = [];
+        foreach ($model->getLeafNodesWithPricing() as $nid => $nRow) {
+            $nodesById[(int) $nid] = $nRow['title'] ?? 'Course';
+        }
+
         $mySubs     = [];
         $myInvoices = [];
         $myTxns     = [];
 
-        if (! empty($targetChildIds)) {
-            $mySubs     = $db->table('lms_student_subscriptions')->whereIn('student_user_id', $targetChildIds)->orderBy('due_date', 'ASC')->get()->getResultArray();
-            $myInvoices = $db->table('lms_finance_invoices')->whereIn('student_user_id', $targetChildIds)->orderBy('id', 'DESC')->get()->getResultArray();
-            $myTxns     = $this->getModel()->whereIn('student_user_id', $targetChildIds)->orderBy('id', 'DESC')->findAll(50);
+        if (! empty($targetStuIds)) {
+            $model->evaluateSubscriptionLocks($targetStuIds);
+            $mySubs     = $db->table('lms_student_subscriptions')->whereIn('student_user_id', $targetStuIds)->orderBy('id', 'DESC')->get()->getResultArray();
+            $myInvoices = $db->table('lms_finance_invoices')->whereIn('student_user_id', $targetStuIds)->orderBy('id', 'DESC')->get()->getResultArray();
         }
 
-        $data['isChildViewOnly'] = $isChildViewOnly;
-        $data['parentKidsMap']   = $parentKidsMap;
-        $data['mySubs']          = $mySubs;
-        $data['myInvoices']      = $myInvoices;
-        $data['myTxns']          = $myTxns;
-        $data['isLockedBanner']  = (int) ($this->request->getGet('locked') ?: session()->get('lms_child_fee_locked')) === 1;
-        $data['canManageAdmin']  = $this->hasPermission(['lms_finance.collect', 'lms_finance.expenses']);
+        // Fetch transactions matching EITHER the children's `student_user_id` OR the logged-in `parent_user_id`!
+        $txQb = $db->table('payment_transactions')->orderBy('id', 'DESC');
+        if (! empty($targetStuIds) && ! $canManageAdmin) {
+            $txQb->groupStart()
+                ->whereIn('student_user_id', $targetStuIds)
+                ->orWhere('parent_user_id', $uid)
+            ->groupEnd();
+            $myTxns = $txQb->get()->getResultArray();
+        } elseif (! empty($targetStuIds) && $canManageAdmin) {
+            $myTxns = $txQb->limit(100)->get()->getResultArray();
+        } elseif ($uid > 0) {
+            $myTxns = $txQb->where('parent_user_id', $uid)->get()->getResultArray();
+        }
+
+        // Map latest paid transaction per student & per subscription so Subscription Cards ALWAYS have Receipt buttons!
+        $latestPaidTxnByStu = [];
+        $latestPaidTxnBySub = [];
+        foreach ($myTxns as $tx) {
+            $st  = strtolower(trim((string) ($tx['status'] ?? 'paid')));
+            $tid = (int) ($tx['id'] ?? 0);
+            $sid = (int) ($tx['student_user_id'] ?? 0);
+            $sub = (int) ($tx['subscription_id'] ?? 0);
+            if (in_array($st, ['paid', 'success', 'captured', 'verified', 'completed'], true) && $tid > 0) {
+                if ($sid > 0 && ! isset($latestPaidTxnByStu[$sid])) {
+                    $latestPaidTxnByStu[$sid] = $tx;
+                }
+                if ($sub > 0 && ! isset($latestPaidTxnBySub[$sub])) {
+                    $latestPaidTxnBySub[$sub] = $tx;
+                }
+            }
+        }
+
+        $data = [
+            'pageTitle'          => 'Family Course Fee Subscriptions & Official Receipts',
+            'activeMenu'         => 'addon_lms_finance',
+            'activeNav'          => 'lms_finance',
+            'activeSubTab'       => 'portal',
+            'settings'           => $model->getGlobalSiteSettings(),
+            'user'               => session()->get() ?: [],
+            'allUsers'           => $allUsers,
+            'nodesById'          => $nodesById,
+            'razorpayConfig'     => $model->getActiveRazorpayConfig(),
+            'parentKidsMap'      => $parentKidsMap,
+            'isChildViewOnly'    => $isChildMode,
+            'isLockedBanner'     => (int) ($this->request->getGet('locked') ?? 0) === 1 || (int) session()->get('lms_child_fee_locked') === 1,
+            'mySubs'             => $mySubs,
+            'myInvoices'         => $myInvoices,
+            'myTxns'             => $myTxns,
+            'latestPaidTxnByStu' => $latestPaidTxnByStu,
+            'latestPaidTxnBySub' => $latestPaidTxnBySub,
+            'canManageAdmin'     => $canManageAdmin,
+            'canCollect'         => $this->hasPermission('lms_finance.collect'),
+            'canExpenses'        => $this->hasPermission('lms_finance.expenses'),
+            'canSettings'        => $this->hasPermission('lms_finance.settings'),
+        ];
 
         return $this->renderAddonView('addons/lms_finance/portal_parent_view', $data);
     }
 
+    public function teacherPayoutsPortal()
+    {
+        if (! session()->get('isLoggedIn')) {
+            return redirect()->to(base_url('login'));
+        }
+        $uid   = (int) (session()->get('user_id') ?: (session()->get('id') ?: 1));
+        $model = $this->getModel();
+        $db    = \Config\Database::connect();
+
+        return $this->renderAddonView('addons/lms_finance/portal_teacher_view', [
+            'pageTitle' => 'My Instructor Salary Slips & Payout History',
+            'settings'  => $model->getGlobalSiteSettings(),
+            'user'      => session()->get() ?: [],
+            'myPayouts' => $db->table('lms_finance_expenses')
+                ->where('expense_type', 'teacher_payout')
+                ->where('teacher_user_id', $uid)
+                ->orderBy('id', 'DESC')
+                ->get()
+                ->getResultArray(),
+        ]);
+    }
+
     public function directCourseEnrollCheckout($nodeId = 0)
     {
-        $nid   = (int) $nodeId;
-        $model = $this->getModel();
-        $model->mirrorAssets(false);
-
+        $nid    = (int) $nodeId;
+        $model  = $this->getModel();
         $leaves = $model->getLeafNodesWithPricing();
-        if (! isset($leaves[$nid])) {
-            return redirect()->to(base_url('/'))->with('error', 'Course not found.');
+        if (! isset($leaves[$nid]) && ! empty($leaves)) {
+            $nid = (int) array_key_first($leaves);
         }
 
-        $cCode = strtoupper(trim((string) ($this->request->getGet('country') ?: (session()->get('user_country') ?: 'IN'))));
-        $quote = $model->resolveCourseFeeForCountry($nid, $cCode, 'monthly');
+        $loggedUser   = $model->getLoggedInUserRecord();
+        $isLogged     = ($loggedUser !== null);
+        $loggedUid    = $isLogged ? (int) $loggedUser['id'] : 0;
+        $existingKids = ($isLogged && $loggedUid > 0) ? $model->getParentLinkedChildren($loggedUid) : [];
+        $cCode        = $model->resolveViewerCountryCode();
+        $quote        = $model->resolveCourseFeeForCountry($nid, $cCode, 'monthly');
 
         return $this->renderAddonView('addons/lms_finance/enroll_checkout_view', [
-            'pageTitle'        => 'Enroll in ' . $quote['course_title'],
-            'settings'         => $model->getGlobalSiteSettings(),
-            'user'             => session()->get(),
-            'isLoggedIn'       => (bool) session()->get('isLoggedIn'),
-            'courseQuote'      => $quote,
-            'razorpayConfig'   => $model->getActiveRazorpayConfig(),
-            'enabledCountries' => $model->getEnabledCountriesOnly(),
+            'pageTitle'      => 'Course Enrollment - ' . $quote['course_title'],
+            'settings'       => $model->getGlobalSiteSettings(),
+            'user'           => $loggedUser ?: (session()->get() ?: []),
+            'loggedUser'     => $loggedUser,
+            'isLoggedIn'     => $isLogged,
+            'existingKids'   => $existingKids,
+            'courseQuote'    => $quote,
+            'razorpayConfig' => $model->getActiveRazorpayConfig(),
         ]);
     }
 
@@ -322,161 +370,226 @@ class LmsFinanceController extends BaseController
     {
         $model       = $this->getModel();
         $db          = \Config\Database::connect();
-        $nodeId      = (int) ($this->request->getPost('node_id') ?? 0);
-        $countryCode = strtoupper(trim((string) ($this->request->getPost('country_code') ?? 'IN'))) ?: 'IN';
-        $parentName  = trim((string) ($this->request->getPost('parent_name') ?? ''));
-        $parentEmail = strtolower(trim((string) ($this->request->getPost('parent_email') ?? '')));
-        $childName   = trim((string) ($this->request->getPost('child_name') ?? ''));
-        $childAge    = max(4, min(22, (int) ($this->request->getPost('child_age') ?? 8)));
+        $defaultNid  = (int) ($this->request->getPost('node_id') ?? 0);
+        $countryCode = strtoupper(trim((string) ($this->request->getPost('country_code') ?? $model->resolveViewerCountryCode()))) ?: 'IN';
         $payMethod   = trim((string) ($this->request->getPost('payment_method') ?? 'razorpay'));
-        $txnRef      = trim((string) ($this->request->getPost('txn_reference') ?? ''));
 
-        if ($nodeId <= 0 || $parentName === '' || $parentEmail === '' || $childName === '') {
-            return redirect()->back()->with('error', 'Please fill in both Parent and Child details.');
+        $rzpPayId = trim((string) ($this->request->getPost('razorpay_payment_id') ?? ''));
+        $rzpOrdId = trim((string) ($this->request->getPost('razorpay_order_id') ?? ''));
+        $rzpSig   = trim((string) ($this->request->getPost('razorpay_signature') ?? ''));
+        $utrRef   = trim((string) ($this->request->getPost('txn_reference') ?? ''));
+
+        if ($payMethod === 'razorpay') {
+            $sigCheck = $model->verifyRazorpaySignatureStrict($rzpOrdId, $rzpPayId, $rzpSig);
+            if (! $sigCheck['ok']) {
+                return redirect()->back()->with('error', $sigCheck['message']);
+            }
         }
 
-        $now   = gmdate('Y-m-d H:i:s');
+        $loggedUser = $model->getLoggedInUserRecord();
+
+        if ($loggedUser) {
+            $parentId    = (int) $loggedUser['id'];
+            $parentName  = (string) ($loggedUser['full_name'] ?: ($loggedUser['display_name'] ?? 'Parent'));
+            $parentEmail = strtolower(trim((string) ($loggedUser['email'] ?? '')));
+        } else {
+            $parentName     = trim((string) ($this->request->getPost('parent_name') ?? ''));
+            $parentEmail    = strtolower(trim((string) ($this->request->getPost('parent_email') ?? '')));
+            $parentPassword = (string) ($this->request->getPost('parent_password') ?? '');
+
+            if ($parentName === '' || $parentEmail === '' || strlen($parentPassword) < 4) {
+                return redirect()->back()->with('error', 'Please enter your Full Name, Email, and a Password (min 4 characters).');
+            }
+        }
+
+        $childrenRows = $this->request->getPost('children') ?? [];
+        if (! is_array($childrenRows) || empty($childrenRows)) {
+            return redirect()->back()->with('error', 'Please select or enter at least one Child profile.');
+        }
+
+        $now   = $model->nowIst();
         $uCols = array_flip($db->getFieldNames('users'));
 
-        $parentRow = $db->table('users')->where('email', $parentEmail)->get()->getRowArray();
-        if ($parentRow) {
-            $parentId = (int) $parentRow['id'];
-        } else {
-            $pInsert = array_intersect_key([
-                'role_id'       => 4,
-                'role_slug'     => 'parent',
-                'full_name'     => $parentName,
-                'name'          => $parentName,
-                'email'         => $parentEmail,
-                'password_hash' => password_hash('Parent@123', PASSWORD_DEFAULT),
-                'status'        => 'active',
-                'created_at'    => $now,
-                'updated_at'    => $now,
-            ], $uCols);
-            $db->table('users')->insert($pInsert);
-            $parentId = (int) $db->insertID();
+        if (! $loggedUser) {
+            $parentRow = $db->table('users')->where('email', $parentEmail)->get()->getRowArray();
+            if ($parentRow) {
+                return redirect()->to(base_url('login'))
+                    ->with('error', 'This email ID is already used. Please log in to add a new child or buy a new course.');
+            } else {
+                $hashedPass = password_hash($parentPassword, PASSWORD_DEFAULT);
+                $pInsert = array_intersect_key([
+                    'role_id'       => 5,
+                    'role_slug'     => 'parent',
+                    'full_name'     => $parentName,
+                    'email'         => $parentEmail,
+                    'password_hash' => $hashedPass,
+                    'status'        => 'active',
+                    'created_at'    => $now,
+                    'updated_at'    => $now,
+                ], $uCols);
+                $db->table('users')->insert($pInsert);
+                $parentId = (int) $db->insertID();
+            }
         }
 
-        $childEmail = preg_replace('/[^a-z0-9]+/', '', strtolower($childName)) . '.' . $parentId . '.' . rand(10, 99) . '@student.portal';
-        $cInsert = array_intersect_key([
-            'role_id'        => 4,
-            'role_slug'      => 'student',
-            'parent_user_id' => $parentId,
-            'full_name'      => $childName,
-            'name'           => $childName,
-            'email'          => $childEmail,
-            'password_hash'  => password_hash('Kid@123', PASSWORD_DEFAULT),
-            'status'         => 'active',
-            'created_at'     => $now,
-            'updated_at'     => $now,
-        ], $uCols);
-        $db->table('users')->insert($cInsert);
-        $studentId = (int) $db->insertID();
+        $existingKids = $model->getParentLinkedChildren($parentId);
+        $quote        = $model->resolveCourseFeeForCountry($defaultNid, $countryCode, 'monthly');
+        $cohortId     = (int) ($quote['cohort_id'] ?? 0);
 
-        $quote = $model->resolveCourseFeeForCountry($nodeId, $countryCode, 'monthly');
         if ($db->tableExists('cms_user_meta')) {
-            $db->table('cms_user_meta')->insert([
-                'user_id'       => $studentId,
-                'leaf_node_id'  => $nodeId,
-                'child_age'     => $childAge,
-                'grade_level'   => $quote['course_title'],
-                'country_code'  => $countryCode,
-                'currency_code' => $quote['currency'],
-                'timezone'      => 'Asia/Kolkata',
-                'created_at'    => $now,
-                'updated_at'    => $now,
+            $exPMeta = $db->table('cms_user_meta')->where('user_id', $parentId)->get()->getRowArray();
+            if (! $exPMeta) {
+                $db->table('cms_user_meta')->insert([
+                    'user_id'       => $parentId,
+                    'country_code'  => $countryCode,
+                    'currency_code' => $quote['currency'],
+                    'timezone'      => 'Asia/Kolkata',
+                    'created_at'    => $now,
+                    'updated_at'    => $now,
+                ]);
+            }
+        }
+
+        $lastTxnId     = 0;
+        $enrolledCount = 0;
+        $uploadedProof = $this->request->getFile('proof_file');
+        $rzpMode       = $model->getActiveRazorpayConfig()['mode'] ?? 'test';
+
+        foreach ($childrenRows as $idx => $ch) {
+            $selectedStuId = (int) ($ch['existing_student_id'] ?? 0);
+            $kidName       = '';
+            $kidAge        = max(3, min(22, (int) ($ch['age'] ?? 8)));
+            $studentId     = 0;
+
+            if ($selectedStuId > 0 && isset($existingKids[$selectedStuId])) {
+                $studentId = $selectedStuId;
+                $kidName   = $existingKids[$selectedStuId]['full_name'];
+                $kidAge    = $existingKids[$selectedStuId]['age'];
+            } else {
+                $kidName = trim((string) ($ch['name'] ?? ''));
+                if ($kidName === '') {
+                    continue;
+                }
+                $slugKid    = preg_replace('/[^a-z0-9]+/', '', strtolower($kidName)) ?: 'learner';
+                $childEmail = $slugKid . '.' . $parentId . '.' . rand(100, 999) . '@student.portal';
+                $kidPass    = isset($parentPassword) && $parentPassword !== '' ? password_hash($parentPassword, PASSWORD_DEFAULT) : password_hash('Kid@123', PASSWORD_DEFAULT);
+
+                $cInsert = array_intersect_key([
+                    'role_id'        => 4,
+                    'role_slug'      => 'student',
+                    'parent_user_id' => $parentId,
+                    'full_name'      => $kidName,
+                    'email'          => $childEmail,
+                    'password_hash'  => $kidPass,
+                    'status'         => 'active',
+                    'created_at'     => $now,
+                    'updated_at'     => $now,
+                ], $uCols);
+                $db->table('users')->insert($cInsert);
+                $studentId = (int) $db->insertID();
+
+                if ($db->tableExists('cms_user_meta')) {
+                    $db->table('cms_user_meta')->insert([
+                        'user_id'       => $studentId,
+                        'leaf_node_id'  => $defaultNid,
+                        'child_age'     => $kidAge,
+                        'grade_level'   => $quote['course_title'],
+                        'country_code'  => $countryCode,
+                        'currency_code' => $quote['currency'],
+                        'timezone'      => 'Asia/Kolkata',
+                        'avatar_color'  => '#10b981',
+                        'created_at'    => $now,
+                        'updated_at'    => $now,
+                    ]);
+                }
+            }
+
+            if ($cohortId > 0 && $db->tableExists('lms_classroom_batch_students')) {
+                $db->query("
+                    INSERT INTO `lms_classroom_batch_students` (`cohort_id`, `leaf_node_id`, `student_user_id`, `status`, `assigned_at`)
+                    VALUES (?, ?, ?, 'active', ?)
+                    ON DUPLICATE KEY UPDATE `status` = 'active'
+                ", [$cohortId, $defaultNid, $studentId, $now]);
+            }
+
+            if ($payMethod === 'offline_proof') {
+                $model->submitOfflineProofTransaction([
+                    'student_user_id' => $studentId,
+                    'node_id'         => $defaultNid,
+                    'txn_reference'   => $utrRef ?: ('UTR-' . time()),
+                ], $uploadedProof);
+            } else {
+                $res = $model->finalizePaidTransaction([
+                    'student_user_id'    => $studentId,
+                    'parent_user_id'     => $parentId,
+                    'node_id'            => $defaultNid,
+                    'payer_name'         => $parentName,
+                    'payer_email'        => $parentEmail,
+                    'provider'           => 'razorpay_' . $rzpMode,
+                    'txn_reference'      => $rzpPayId . ($enrolledCount > 0 ? ('-C' . ($enrolledCount + 1)) : ''),
+                    'razorpay_order_id'  => $rzpOrdId,
+                    'razorpay_signature' => $rzpSig,
+                    'country_code'       => $countryCode,
+                    'currency'           => $quote['currency'],
+                    'amount'             => $quote['amount'],
+                    'verification_note'  => 'Verified via Razorpay (' . strtoupper($rzpMode) . ')',
+                ]);
+                $lastTxnId = (int) ($res['txn_id'] ?? 0);
+            }
+            $enrolledCount++;
+        }
+
+        if ($enrolledCount === 0) {
+            return redirect()->back()->with('error', 'Please select an existing child or enter a new child name.');
+        }
+
+        if (! $loggedUser) {
+            $parentPerms = ['dashboard.view', 'core_lms_auth.view', 'lms_hierarchy.view', 'lms_assessments.take_exam', 'lms_communication.chat', 'lms_communication.feedback', 'lms_timetable.view', 'lms_finance.view'];
+            session()->set([
+                'isLoggedIn'          => true,
+                'user_id'             => $parentId,
+                'id'                  => $parentId,
+                'role_id'             => 5,
+                'role_slug'           => 'parent',
+                'effective_role_slug' => 'parent',
+                'permissions'         => $parentPerms,
+                'role_permissions'    => $parentPerms,
+                'portal_view_mode'    => 'default',
+                'active_student_id'   => 0,
+                'full_name'           => $parentName,
+                'email'               => $parentEmail,
+                'user_country'        => $countryCode,
+                'user_currency'       => $quote['currency'],
             ]);
         }
 
-        if ($db->tableExists('lms_hierarchy_enrollments')) {
-            $db->table('lms_hierarchy_enrollments')->insert([
-                'student_user_id'    => $studentId,
-                'parent_user_id'     => $parentId,
-                'leaf_node_id'       => $nodeId,
-                'country_code'       => $countryCode,
-                'currency_code'      => $quote['currency'],
-                'monthly_fee'        => $quote['amount'],
-                'billing_cycle'      => 'monthly',
-                'next_due_date'      => date('Y-m-d', strtotime('+30 days')),
-                'attendance_pct'     => 100.00,
-                'test_score_avg'     => 0.00,
-                'certificates_count' => 0,
-                'history_json'       => json_encode([]),
-                'status'             => 'active',
-                'enrolled_at'        => $now,
-                'updated_at'         => $now,
-            ]);
+        if ($payMethod === 'offline_proof' || $lastTxnId <= 0) {
+            return redirect()->to(base_url('finance/portal'))
+                ->with('success', 'Enrollment submitted! Your offline payment proof is awaiting Admin verification.');
         }
 
-        if ($payMethod === 'offline_proof') {
-            $uploadedProof = $this->request->getFile('proof_file');
-            $res = $model->submitOfflineProofTransaction([
-                'student_user_id' => $studentId,
-                'node_id'         => $nodeId,
-                'txn_reference'   => $txnRef,
-            ], $uploadedProof);
-            return redirect()->to(base_url('finance/portal'))->with($res['ok'] ? 'success' : 'error', $res['message']);
-        }
-
-        $res = $model->finalizePaidTransaction([
-            'student_user_id' => $studentId,
-            'parent_user_id'  => $parentId,
-            'node_id'         => $nodeId,
-            'provider'        => 'razorpay',
-            'txn_reference'   => $txnRef ?: ('RZP-' . strtoupper(bin2hex(random_bytes(4)))),
-            'currency'        => $quote['currency'],
-            'amount'          => $quote['amount'],
-        ]);
-
-        return redirect()->to(base_url('finance/receipt-view/' . (int) ($res['txn_id'] ?? 0)))
-            ->with('success', $res['message']);
+        return redirect()->to(base_url('finance/receipt-view/' . $lastTxnId))
+            ->with('success', 'Razorpay Payment Verified & Enrollment Confirmed! Here is your official fee receipt.');
     }
 
     public function createRazorpayOrderJson()
     {
-        if (! session()->get('isLoggedIn')) {
-            return $this->response->setStatusCode(401)->setJSON(['ok' => false, 'message' => 'Please log in.']);
+        $model    = $this->getModel();
+        $amount   = max(1.0, (float) ($this->request->getPost('amount') ?? 1000));
+        $currency = strtoupper(trim((string) ($this->request->getPost('currency') ?? 'INR'))) ?: 'INR';
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            @session_write_close();
         }
 
-        $model      = $this->getModel();
-        $rzpConfig  = $model->getActiveRazorpayConfig();
-        $amount     = max(1, (float) ($this->request->getPost('amount') ?? 1000));
-        $currency   = strtoupper(trim((string) ($this->request->getPost('currency') ?? 'INR'))) ?: 'INR';
-        $amtSubunit = (int) round($amount * 100);
+        $orderRes               = $model->createRealRazorpayOrder($amount, $currency);
+        $orderRes['csrf_token'] = csrf_hash();
 
-        $orderId = '';
-        if ($rzpConfig['key_id'] !== '' && $rzpConfig['key_secret'] !== '' && function_exists('curl_init')) {
-            try {
-                $ch = curl_init('https://api.razorpay.com/v1/orders');
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_USERPWD, $rzpConfig['key_id'] . ':' . $rzpConfig['key_secret']);
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-                    'amount'   => $amtSubunit,
-                    'currency' => $currency,
-                    'receipt'  => 'rcpt_' . time(),
-                ]));
-                curl_setopt($ch, CURLOPT_TIMEOUT, 8);
-                $resp = curl_exec($ch);
-                curl_close($ch);
-                $decoded = json_decode((string) $resp, true);
-                if (! empty($decoded['id'])) {
-                    $orderId = (string) $decoded['id'];
-                }
-            } catch (Throwable $e) {
-            }
+        if (! $orderRes['ok']) {
+            return $this->response->setStatusCode(400)->setJSON($orderRes);
         }
 
-        return $this->response->setJSON([
-            'ok'         => true,
-            'mode'       => $rzpConfig['mode'],
-            'key_id'     => $rzpConfig['key_id'],
-            'order_id'   => $orderId,
-            'amount'     => $amount,
-            'subunit'    => $amtSubunit,
-            'currency'   => $currency,
-            'csrf_token' => csrf_hash(),
-        ]);
+        return $this->response->setJSON($orderRes);
     }
 
     public function verifyRazorpayPayment()
@@ -484,351 +597,201 @@ class LmsFinanceController extends BaseController
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
+        $paymentId = trim((string) $this->request->getPost('razorpay_payment_id'));
+        $orderId   = trim((string) $this->request->getPost('razorpay_order_id'));
+        $signature = trim((string) $this->request->getPost('razorpay_signature'));
+        $subId     = (int) $this->request->getPost('subscription_id');
+        $invId     = (int) ($this->request->getPost('invoice_id') ?: $this->request->getPost('custom_invoice_id'));
+        $nodeId    = (int) $this->request->getPost('node_id');
+        $studentId = (int) $this->request->getPost('student_user_id');
 
-        $model     = $this->getModel();
-        $rzpConfig = $model->getActiveRazorpayConfig();
-        $payId     = trim((string) ($this->request->getPost('razorpay_payment_id') ?? ''));
-        $orderId   = trim((string) ($this->request->getPost('razorpay_order_id') ?? ''));
-        $sig       = trim((string) ($this->request->getPost('razorpay_signature') ?? ''));
+        if ($paymentId === '' || $orderId === '' || $signature === '') {
+            return redirect()->to(base_url('finance/portal'))
+                ->with('error', 'Security verification failed: Missing Razorpay payment signature.');
+        }
 
-        if ($orderId !== '' && $sig !== '' && $rzpConfig['key_secret'] !== '') {
-            $expected = hash_hmac('sha256', $orderId . '|' . $payId, $rzpConfig['key_secret']);
-            if (! hash_equals($expected, $sig)) {
-                return redirect()->to(base_url('finance/portal'))->with('error', 'Razorpay signature verification failed.');
+        $model  = $this->getModel();
+        $rzpCfg = $model->getActiveRazorpayConfig();
+        $secret = trim((string) ($rzpCfg['key_secret'] ?? ''));
+
+        if ($secret === '') {
+            return redirect()->to(base_url('finance/portal'))
+                ->with('error', 'Payment gateway secret is not configured. Verification aborted.');
+        }
+
+        // Strict Cryptographic HMAC-SHA256 Check (Blocks spoofed POST requests / parameter tampering)
+        $expectedSig = hash_hmac('sha256', $orderId . '|' . $paymentId, $secret);
+        if (! hash_equals($expectedSig, $signature)) {
+            $model->recordFailedPaymentTransaction([
+                'student_user_id'   => $studentId,
+                'node_id'           => $nodeId,
+                'subscription_id'   => $subId,
+                'custom_invoice_id' => $invId,
+                'txn_reference'     => $paymentId ?: $orderId,
+                'reason'            => 'Invalid HMAC-SHA256 signature tampering detected',
+            ]);
+            return redirect()->to(base_url('finance/portal'))
+                ->with('error', 'Payment signature mismatch! Unverified transaction blocked.');
+        }
+
+        // Prevent Replay Attacks (Duplicate `razorpay_payment_id` reuse)
+        $db = \Config\Database::connect();
+        if ($db->tableExists('payment_transactions')) {
+            $dup = $db->table('payment_transactions')
+                ->where('txn_reference', $paymentId)
+                ->whereIn('status', ['paid', 'success', 'completed', 'captured', 'verified'])
+                ->get()->getRowArray();
+            if ($dup) {
+                return redirect()->to(base_url('finance/receipt-view/' . (int) $dup['id']))
+                    ->with('success', 'Payment already verified.');
             }
         }
 
-        $res = $model->finalizePaidTransaction([
-            'student_user_id'   => (int) ($this->request->getPost('student_user_id') ?? 0),
-            'invoice_id'        => (int) ($this->request->getPost('invoice_id') ?? 0),
-            'subscription_id'   => (int) ($this->request->getPost('subscription_id') ?? 0),
-            'node_id'           => (int) ($this->request->getPost('node_id') ?? 0),
-            'provider'          => 'razorpay_' . $rzpConfig['mode'],
-            'txn_reference'     => $payId ?: ('RZP-' . strtoupper(bin2hex(random_bytes(4)))),
-            'currency'          => (string) ($this->request->getPost('currency') ?? 'INR'),
-            'amount'            => (float) ($this->request->getPost('amount') ?? 0),
-            'verification_note' => 'Verified via Razorpay (' . strtoupper($rzpConfig['mode']) . ')',
-        ]);
-
-        if ($this->request->isAJAX()) {
-            return $this->response->setJSON($res);
+        // Server-side authoritative amount & currency verification (Blocks client-side price tampering)
+        $verifiedAmount   = (float) ($this->request->getPost('amount') ?: 0);
+        $verifiedCurrency = (string) ($this->request->getPost('currency') ?: 'INR');
+        if ($invId > 0 && $db->tableExists('lms_finance_invoices')) {
+            $invRow = $db->table('lms_finance_invoices')->where('id', $invId)->get()->getRowArray();
+            if ($invRow && (float) ($invRow['total_amount'] ?? 0) > 0) {
+                $verifiedAmount   = (float) $invRow['total_amount'];
+                $verifiedCurrency = (string) ($invRow['currency'] ?: $verifiedCurrency);
+            }
+        } elseif ($subId > 0 && $db->tableExists('lms_student_subscriptions')) {
+            $subRow = $db->table('lms_student_subscriptions')->where('id', $subId)->get()->getRowArray();
+            if ($subRow && (float) ($subRow['fee_amount'] ?? 0) > 0) {
+                $verifiedAmount   = (float) $subRow['fee_amount'];
+                $verifiedCurrency = (string) ($subRow['currency'] ?: $verifiedCurrency);
+            }
+        } elseif ($nodeId > 0) {
+            $qRow = $model->resolveCourseFeeForCountry($nodeId, $model->resolveViewerCountryCode(), 'monthly', $studentId);
+            if ((float) ($qRow['amount'] ?? 0) > 0) {
+                $verifiedAmount   = (float) $qRow['amount'];
+                $verifiedCurrency = (string) ($qRow['currency'] ?: $verifiedCurrency);
+            }
         }
 
-        return redirect()->to(base_url('finance/receipt-view/' . (int) ($res['txn_id'] ?? 0)))
-            ->with('success', $res['message']);
-    }
+        $finRes = $model->finalizePaidTransaction([
+            'txn_reference'      => $paymentId,
+            'razorpay_order_id'  => $orderId,
+            'razorpay_signature' => $signature,
+            'subscription_id'    => $subId,
+            'invoice_id'         => $invId,
+            'node_id'            => $nodeId,
+            'student_user_id'    => $studentId,
+            'parent_user_id'     => (int) (session()->get('user_id') ?: (session()->get('id') ?: 0)),
+            'payer_name'         => (string) (session()->get('full_name') ?: 'Parent'),
+            'provider'           => 'razorpay_' . ($rzpCfg['mode'] ?? 'test'),
+            'amount'             => $verifiedAmount,
+            'currency'           => $verifiedCurrency,
+        ]);
+        $txnId = (int) ($finRes['txn_id'] ?? 0);
 
-    public function submitOfflinePaymentProof()
+        if (! $txnId) {
+            return redirect()->to(base_url('finance/portal'))
+                ->with('error', 'Could not verify payment with gateway.');
+        }
+
+        session()->set('lms_child_fee_locked', 0);
+        return redirect()->to(base_url('finance/receipt-view/' . (int) $txnId))
+            ->with('success', 'Payment verified! Official fee receipt generated.');
+    }
+    public function submitOfflineProof()
     {
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
-        $uploadedProof = $this->request->getFile('proof_file');
-        $res           = $this->getModel()->submitOfflineProofTransaction($this->request->getPost(), $uploadedProof);
-
+        $res = $this->getModel()->submitOfflineProofTransaction(
+            $this->request->getPost(),
+            $this->request->getFile('proof_file')
+        );
         return redirect()->to(base_url('finance/portal'))
             ->with($res['ok'] ? 'success' : 'error', $res['message']);
     }
 
-    public function adminMarkPaidDirect()
-    {
-        if (! $this->hasPermission('lms_finance.collect')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-
-        $res = $this->getModel()->finalizePaidTransaction([
-            'student_user_id'   => (int) ($this->request->getPost('student_user_id') ?? 0),
-            'invoice_id'        => (int) ($this->request->getPost('invoice_id') ?? 0),
-            'subscription_id'   => (int) ($this->request->getPost('subscription_id') ?? 0),
-            'node_id'           => (int) ($this->request->getPost('node_id') ?? 0),
-            'provider'          => 'admin_direct_paid',
-            'txn_reference'     => trim((string) ($this->request->getPost('txn_reference') ?? '')) ?: ('ADM-PAID-' . date('YmdHis')),
-            'verification_note' => 'Directly Marked Paid by Admin',
-        ]);
-
-        return redirect()->to(base_url('addons/lms-finance/invoices'))
-            ->with($res['ok'] ? 'success' : 'error', $res['message']);
-    }
-
-    public function approveOfflineTransaction()
-    {
-        if (! $this->hasPermission('lms_finance.collect')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-
-        $txnId = (int) ($this->request->getPost('txn_id') ?? 0);
-        $model = $this->getModel();
-        $tx    = $model->find($txnId);
-        if (! $tx) {
-            return redirect()->back()->with('error', 'Transaction not found.');
-        }
-
-        $res = $model->finalizePaidTransaction([
-            'existing_txn_id'   => $txnId,
-            'student_user_id'   => (int) $tx['student_user_id'],
-            'parent_user_id'    => (int) $tx['parent_user_id'],
-            'invoice_id'        => (int) $tx['invoice_id'],
-            'node_id'           => (int) $tx['node_id'],
-            'provider'          => 'offline_verified',
-            'txn_reference'     => $tx['txn_reference'],
-            'currency'          => $tx['currency'],
-            'subtotal_amount'   => (float) $tx['subtotal_amount'],
-            'tax_percent'       => (float) $tx['tax_percent'],
-            'tax_amount'        => (float) $tx['tax_amount'],
-            'amount'            => (float) $tx['amount'],
-            'proof_file_url'    => $tx['proof_file_url'],
-            'verification_note' => 'Approved by Admin on ' . gmdate('d M Y'),
-        ]);
-
-        return redirect()->to(base_url('addons/lms-finance/invoices'))
-            ->with('success', 'Offline payment #' . $txnId . ' approved & official receipt unlocked!');
-    }
-
-    public function rejectOfflineTransaction()
-    {
-        if (! $this->hasPermission('lms_finance.collect')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $txnId = (int) ($this->request->getPost('txn_id') ?? 0);
-        $note  = trim((string) ($this->request->getPost('verification_note') ?? 'Screenshot / Reference could not be verified'));
-        $model = $this->getModel();
-        $tx    = $model->find($txnId);
-
-        if ($tx) {
-            $model->update($txnId, [
-                'status'            => 'rejected',
-                'verification_note' => $note,
-                'updated_at'        => gmdate('Y-m-d H:i:s'),
-            ]);
-            if ((int) $tx['invoice_id'] > 0) {
-                \Config\Database::connect()->table('lms_finance_invoices')
-                    ->where('id', (int) $tx['invoice_id'])
-                    ->update(['status' => 'unpaid']);
-            }
-        }
-        return redirect()->to(base_url('addons/lms-finance/invoices'))
-            ->with('error', 'Offline payment submission marked as Rejected.');
-    }
-
-    public function createCustomInvoice()
-    {
-        if (! $this->hasPermission('lms_finance.collect')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $res = $this->getModel()->createCustomParentChildInvoice($this->request->getPost());
-        return redirect()->to(base_url('addons/lms-finance/custom-billing'))
-            ->with($res['ok'] ? 'success' : 'error', $res['message']);
-    }
-
-    public function deleteInvoice()
-    {
-        if (! $this->hasPermission('lms_finance.delete')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $id = (int) ($this->request->getPost('id') ?? 0);
-        if ($id > 0) {
-            \Config\Database::connect()->table('lms_finance_invoices')->where('id', $id)->delete();
-        }
-        return redirect()->back()->with('success', 'Invoice removed.');
-    }
-
-    public function saveSettings()
-    {
-        if (! $this->hasPermission(['lms_finance.expenses', 'lms_finance.collect'])) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $grace   = max(0, (int) ($this->request->getPost('grace_period_days') ?? 5));
-        $autoInv = max(1, (int) ($this->request->getPost('auto_invoice_days') ?? 5));
-        $lock    = $this->request->getPost('auto_lock_overdue') ? '1' : '0';
-
-        $model = $this->getModel();
-        $model->saveFinanceSetting('grace_period_days', (string) $grace);
-        $model->saveFinanceSetting('auto_invoice_days', (string) $autoInv);
-        $model->saveFinanceSetting('auto_lock_overdue', $lock);
-        $model->syncSubscriptionsAndAutoInvoices();
-        $stats = $model->evaluateGracePeriodLocks();
-
-        return redirect()->back()->with(
-            'success',
-            'Billing rules saved (Auto-Invoice: ' . $autoInv . 'd before due | Grace: ' . $grace . 'd | Locked: ' . (int) $stats['locked_count'] . ').'
-        );
-    }
-
-    public function saveGatewayConfig()
-    {
-        if (! $this->hasPermission('lms_finance.expenses')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $model    = $this->getModel();
-        $gateways = $model->getGatewaysConfig();
-        $post     = $this->request->getPost();
-
-        $gateways['razorpay'] = [
-            'slug'            => 'razorpay',
-            'name'            => 'Razorpay Checkout',
-            'is_enabled'      => ! empty($post['rzp_enabled']) ? 1 : 0,
-            'mode'            => ($post['rzp_mode'] ?? 'sandbox') === 'live' ? 'live' : 'sandbox',
-            'test_key_id'     => trim((string) ($post['rzp_test_key_id'] ?? '')),
-            'test_key_secret' => trim((string) ($post['rzp_test_key_secret'] ?? '')),
-            'live_key_id'     => trim((string) ($post['rzp_live_key_id'] ?? '')),
-            'live_key_secret' => trim((string) ($post['rzp_live_key_secret'] ?? '')),
-        ];
-
-        $model->saveFinanceSetting('gateways_json', json_encode($gateways, JSON_UNESCAPED_UNICODE));
-        return redirect()->to(base_url('addons/lms-finance/gateways'))
-            ->with('success', 'Razorpay Gateway (' . strtoupper($gateways['razorpay']['mode']) . ' Mode) configuration saved!');
-    }
-
-    public function saveReceiptTemplate()
-    {
-        if (! $this->hasPermission('lms_finance.expenses')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $model = $this->getModel();
-        $curr  = $model->getReceiptTemplateConfig();
-        $post  = $this->request->getPost();
-
-        $logoUrl      = trim((string) ($post['logo_url'] ?? $curr['logo_url']));
-        $uploadedLogo = $this->request->getFile('logo_file');
-        if ($uploadedLogo && $uploadedLogo->isValid() && ! $uploadedLogo->hasMoved()) {
-            $ext = strtolower($uploadedLogo->getClientExtension());
-            if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp', 'svg'], true)) {
-                $uploadDir = FCPATH . 'uploads/lms_finance/';
-                if (! is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0775, true);
-                }
-                $newName = 'receipt_logo_' . time() . '_' . $uploadedLogo->getRandomName();
-                $uploadedLogo->move($uploadDir, $newName);
-                $logoUrl = base_url('uploads/lms_finance/' . $newName);
-            }
-        }
-
-        $tpl = [
-            'academy_name'    => trim((string) ($post['academy_name'] ?? $curr['academy_name'])),
-            'logo_url'        => $logoUrl,
-            'accent_color'    => trim((string) ($post['accent_color'] ?? '#10b981')),
-            'tax_label'       => trim((string) ($post['tax_label'] ?? 'GST / Tax Reg No.')),
-            'tax_number'      => trim((string) ($post['tax_number'] ?? '')),
-            'support_email'   => trim((string) ($post['support_email'] ?? '')),
-            'support_phone'   => trim((string) ($post['support_phone'] ?? '')),
-            'address_line'    => trim((string) ($post['address_line'] ?? '')),
-            'signature_name'  => trim((string) ($post['signature_name'] ?? 'Authorized Signatory')),
-            'footer_note'     => trim((string) ($post['footer_note'] ?? '')),
-        ];
-
-        $model->saveFinanceSetting('receipt_template_json', json_encode($tpl, JSON_UNESCAPED_UNICODE));
-        return redirect()->to(base_url('addons/lms-finance/gateways'))
-            ->with('success', 'Official Receipt Template design updated!');
-    }
-
-    public function runGraceLockCheck()
-    {
-        if (! $this->hasPermission('lms_finance.collect')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $model = $this->getModel();
-        $model->syncSubscriptionsAndAutoInvoices();
-        $stats = $model->evaluateGracePeriodLocks();
-        return redirect()->back()->with('success', 'Auto-Invoices & Grace Locks verified (' . (int) $stats['locked_count'] . ' overdue locked).');
-    }
-
-    public function sendPaymentReminder()
-    {
-        if (! $this->hasPermission('lms_finance.collect')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $subId = (int) ($this->request->getPost('subscription_id') ?? 0);
-        $db    = \Config\Database::connect();
-        $sub   = $db->table('lms_student_subscriptions')->where('id', $subId)->get()->getRowArray();
-        if ($sub) {
-            $now = gmdate('Y-m-d H:i:s');
-            $db->table('lms_student_subscriptions')->where('id', $subId)->update(['last_reminder_sent_at' => $now]);
-
-            if ($db->tableExists('lms_notification_logs')) {
-                $db->table('lms_notification_logs')->insert([
-                    'event_type'         => 'Fee Due Reminder (' . $sub['currency'] . ' ' . $sub['fee_amount'] . ' due on ' . $sub['due_date'] . ')',
-                    'channel'            => 'whatsapp_and_email',
-                    'recipient_user_id'  => (int) ($sub['parent_user_id'] ?: $sub['student_user_id']),
-                    'recipient_timezone' => 'UTC',
-                    'formatted_message'  => 'Friendly Reminder: Course fee of ' . $sub['currency'] . ' ' . $sub['fee_amount'] . ' is due on ' . $sub['due_date'] . '. You can pay online anytime via your Family Fee Portal.',
-                    'status'             => 'sent',
-                    'created_at'         => $now,
-                ]);
-            }
-        }
-        return redirect()->back()->with('success', 'Fee Payment Reminder sent to Parent!');
-    }
-
-    public function saveTeacherSalary()
-    {
-        if (! $this->hasPermission('lms_finance.payroll')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $res = $this->getModel()->saveManualTeacherPayout($this->request->getPost());
-        return redirect()->to(base_url('addons/lms-finance/payroll'))
-            ->with($res['ok'] ? 'success' : 'error', $res['message']);
-    }
-
-    public function deleteTeacherSalary()
-    {
-        if (! $this->hasPermission('lms_finance.delete')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $id = (int) ($this->request->getPost('id') ?? 0);
-        if ($id > 0) {
-            \Config\Database::connect()->table('lms_teacher_payouts')->where('id', $id)->delete();
-        }
-        return redirect()->to(base_url('addons/lms-finance/payroll'))->with('success', 'Salary entry deleted.');
-    }
-
-    public function saveExpense()
-    {
-        if (! $this->hasPermission('lms_finance.expenses')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $adminId = (int) (session()->get('user_id') ?: 1);
-        $res     = $this->getModel()->saveGeneralExpense($this->request->getPost(), $adminId);
-        return redirect()->to(base_url('addons/lms-finance/expenses'))->with($res['ok'] ? 'success' : 'error', $res['message']);
-    }
-
-    public function deleteExpense()
-    {
-        if (! $this->hasPermission('lms_finance.delete')) {
-            return redirect()->back()->with('error', 'Access denied.');
-        }
-        $id = (int) ($this->request->getPost('id') ?? 0);
-        if ($id > 0) {
-            \Config\Database::connect()->table('lms_general_expenses')->where('id', $id)->delete();
-        }
-        return redirect()->to(base_url('addons/lms-finance/expenses'))->with('success', 'Expense deleted.');
-    }
-
-    public function styledReceiptView($txnId = 0)
+    public function receiptView($txnId = 0)
     {
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
         $model = $this->getModel();
-        $txn   = $model->find((int) $txnId);
+        $db    = \Config\Database::connect();
+        $txn   = $db->table('payment_transactions')->where('id', (int) $txnId)->get()->getRowArray();
         if (! $txn) {
-            return redirect()->back()->with('error', 'Receipt not found.');
+            return redirect()->to(base_url('finance/portal'))->with('error', 'Receipt not found.');
         }
 
-        $users   = $model->getRoleFilteredUsers()['all'];
-        $sId     = (int) ($txn['student_user_id'] ?? 0);
-        $sName   = $users[$sId]['display_name'] ?? 'Student';
-        $leaves  = $model->getLeafNodesWithPricing();
-        $nid     = (int) ($txn['node_id'] ?? 0);
-        $cTitle  = $leaves[$nid]['title'] ?? ($txn['invoice_title'] ?? 'Enrolled Course');
+        // 1. Verify that this transaction is actually PAID
+        $rawSt  = strtolower(trim((string) ($txn['status'] ?? '')));
+        $prov   = strtolower(trim((string) ($txn['provider'] ?? '')));
+        if ($rawSt === '') {
+            $rawSt = ($prov === 'offline_proof') ? 'pending_verification' : (strpos($prov, 'fail') !== false ? 'failed' : 'paid');
+        }
+        if (! in_array($rawSt, ['paid', 'success', 'completed', 'captured', 'verified'], true)) {
+            return redirect()->to(base_url('finance/portal'))
+                ->with('error', 'Official receipt is only available for verified paid transactions.');
+        }
+
+        // 2. STRICT OWNERSHIP CHECK (IDOR PROTECTION):
+        $roleId   = (int) (session()->get('role_id') ?? 0);
+        $roleSlug = strtolower(trim((string) (session()->get('role_slug') ?: 'student')));
+        $isAdmin  = in_array($roleId, [1, 2], true)
+            || in_array($roleSlug, ['super_admin', 'admin'], true)
+            || $this->hasPermission(['lms_finance.collect', 'lms_finance.settings']);
+
+        if (! $isAdmin) {
+            $uid            = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
+            $activeStuId    = (int) (session()->get('active_student_id') ?: 0);
+            $allowedStuIds  = [];
+
+            if ($uid > 0) {
+                $allowedStuIds[] = $uid;
+                if ($db->tableExists('users')) {
+                    foreach ($db->table('users')->select('id')->where('parent_user_id', $uid)->get()->getResultArray() as $kRow) {
+                        $allowedStuIds[] = (int) $kRow['id'];
+                    }
+                }
+            }
+            if ($activeStuId > 0) {
+                $allowedStuIds[] = $activeStuId;
+            }
+
+            $txnParentId  = (int) ($txn['parent_user_id'] ?? 0);
+            $txnStudentId = (int) ($txn['student_user_id'] ?? 0);
+
+            $isOwner = ($uid > 0 && $txnParentId === $uid)
+                || ($txnStudentId > 0 && in_array($txnStudentId, $allowedStuIds, true));
+
+            if (! $isOwner) {
+                return redirect()->to(base_url('finance/portal'))
+                    ->with('error', 'Access denied: You can only view official receipts for your own children.');
+            }
+        }
+
+        $tpl         = $model->getActiveReceiptTemplateConfig();
+        $studentName = 'Student';
+        if ($db->tableExists('users') && (int) $txn['student_user_id'] > 0) {
+            $sRow = $db->table('users')->select('full_name')->where('id', (int) $txn['student_user_id'])->get()->getRowArray();
+            if ($sRow && ! empty($sRow['full_name'])) {
+                $studentName = $sRow['full_name'];
+            }
+        }
+
+        $courseTitle = LmsFinanceModel::cleanText($txn['invoice_title'] ?: 'Course Tuition Fee');
+        if ($db->tableExists('lms_hierarchy_nodes') && (int) $txn['node_id'] > 0) {
+            $nRow = $db->table('lms_hierarchy_nodes')->select('title')->where('id', (int) $txn['node_id'])->get()->getRowArray();
+            if ($nRow && ! empty($nRow['title'])) {
+                $courseTitle = $nRow['title'];
+            }
+        }
 
         return $this->renderAddonView('addons/lms_finance/receipt_print_view', [
-            'pageTitle'   => 'Official Fee Receipt — ' . $txn['txn_reference'],
+            'pageTitle'   => 'Official Fee Receipt - ' . $txn['txn_reference'],
             'settings'    => $model->getGlobalSiteSettings(),
-            'user'        => session()->get(),
+            'user'        => session()->get() ?: [],
             'txn'         => $txn,
-            'studentName' => $sName,
-            'courseTitle' => $cTitle,
-            'tpl'         => $model->getReceiptTemplateConfig(),
+            'tpl'         => $tpl,
+            'studentName' => $studentName,
+            'courseTitle' => $courseTitle,
         ]);
     }
 
@@ -837,44 +800,249 @@ class LmsFinanceController extends BaseController
         if (! session()->get('isLoggedIn')) {
             return redirect()->to(base_url('login'));
         }
-        $model = $this->getModel();
-        $txn   = $model->find((int) $txnId);
-        if (! $txn) {
-            return redirect()->back()->with('error', 'Receipt not found.');
+        return redirect()->to(base_url('finance/receipt-view/' . (int) $txnId . '?download_pdf=1'));
+    }
+    public function saveSubscription()
+    {
+        if (! $this->hasPermission('lms_finance.collect')) return redirect()->back()->with('error', 'Access denied.');
+        $res = $this->getModel()->saveOrUpdateSubscription($this->request->getPost());
+        return redirect()->to(base_url('addons/lms-finance/invoices'))->with($res['ok'] ? 'success' : 'error', $res['message']);
+    }
+
+    public function toggleSubscriptionLock()
+    {
+        if (! $this->hasPermission('lms_finance.collect')) return redirect()->back()->with('error', 'Access denied.');
+        $id  = (int) ($this->request->getPost('id') ?? 0);
+        $db  = \Config\Database::connect();
+        $row = $db->table('lms_student_subscriptions')->where('id', $id)->get()->getRowArray();
+        if ($row) {
+            $newLock  = ((int) $row['is_access_locked'] === 1) ? 0 : 1;
+            $override = ($newLock === 0) ? 1 : 2;
+            $db->table('lms_student_subscriptions')->where('id', $id)->update([
+                'is_access_locked'    => $newLock,
+                'admin_lock_override' => $override,
+                'updated_at'          => $this->getModel()->nowIst(),
+            ]);
+        }
+        return redirect()->to(base_url('addons/lms-finance/invoices'))
+            ->with('success', 'Student access manually ' . (($newLock ?? 0) === 1 ? 'LOCKED' : 'UNLOCKED') . ' by Admin!');
+    }
+
+    public function deleteSubscription()
+    {
+        if (! $this->hasPermission('lms_finance.delete')) return redirect()->back()->with('error', 'Access denied.');
+        $id = (int) ($this->request->getPost('id') ?? 0);
+        if ($id > 0) \Config\Database::connect()->table('lms_student_subscriptions')->where('id', $id)->delete();
+        return redirect()->to(base_url('addons/lms-finance/invoices'))->with('success', 'Subscription deleted.');
+    }
+
+    public function saveCustomInvoice()
+    {
+        if (! $this->hasPermission('lms_finance.collect')) return redirect()->back()->with('error', 'Access denied.');
+        $res = $this->getModel()->createCustomParentChildInvoice($this->request->getPost());
+        return redirect()->to(base_url('addons/lms-finance/custom-billing'))->with($res['ok'] ? 'success' : 'error', $res['message']);
+    }
+
+    public function deleteInvoice()
+    {
+        if (! $this->hasPermission('lms_finance.delete')) return redirect()->back()->with('error', 'Access denied.');
+        $id = (int) ($this->request->getPost('id') ?? 0);
+        if ($id > 0) \Config\Database::connect()->table('lms_finance_invoices')->where('id', $id)->delete();
+        return redirect()->back()->with('success', 'Invoice deleted.');
+    }
+
+    public function verifyOfflineProof()
+    {
+        if (! session()->get('isLoggedIn')) {
+            return redirect()->to(base_url('login'));
         }
 
-        $users  = $model->getRoleFilteredUsers()['all'];
-        $sId    = (int) ($txn['student_user_id'] ?? 0);
-        $sName  = $users[$sId]['display_name'] ?? 'Student';
-        $leaves = $model->getLeafNodesWithPricing();
-        $nid    = (int) ($txn['node_id'] ?? 0);
-        $cTitle = $leaves[$nid]['title'] ?? ($txn['invoice_title'] ?? 'Enrolled Course');
+        $roleId   = (int) (session()->get('role_id') ?? 0);
+        $roleSlug = strtolower(trim((string) (session()->get('role_slug') ?: 'student')));
+        $isAdmin  = in_array($roleId, [1, 2], true)
+            || in_array($roleSlug, ['super_admin', 'admin'], true)
+            || (method_exists($this, 'hasPermission') && $this->hasPermission(['lms_finance.collect', 'lms_finance.settings']));
 
-        $pdfBytes = $model->generateBrandedPdfBinary($txn, $sName, $cTitle);
-        $fileName = 'Receipt_' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $txn['txn_reference']) . '.pdf';
+        if (! $isAdmin) {
+            return redirect()->to(base_url('dashboard'))->with('error', 'Access denied.');
+        }
 
-        return $this->response
-            ->setHeader('Content-Type', 'application/pdf')
-            ->setHeader('Content-Disposition', 'attachment; filename="' . $fileName . '"')
-            ->setBody($pdfBytes);
+        $txnId     = (int) $this->request->getPost('txn_id');
+        $decision  = strtolower(trim((string) $this->request->getPost('decision')));
+        $reason    = trim(strip_tags((string) $this->request->getPost('rejection_reason')));
+        $isApprove = ($decision === 'approve' || $decision === 'approved' || $decision === '1');
+
+        if ($txnId <= 0 || ! in_array($decision, ['approve', 'approved', 'reject', 'rejected'], true)) {
+            return redirect()->to(base_url('addons/lms-finance'))->with('error', 'Invalid verification request.');
+        }
+
+        $db  = \Config\Database::connect();
+        $row = $db->table('payment_transactions')->where('id', $txnId)->get()->getRowArray();
+        if (! $row) {
+            return redirect()->to(base_url('addons/lms-finance'))->with('error', 'Transaction record not found.');
+        }
+
+        $model   = $this->getModel();
+        $adminId = (int) (session()->get('user_id') ?: (session()->get('id') ?: 0));
+
+        if (method_exists($model, 'verifyOfflineProofByAdmin')) {
+            try {
+                $ref    = new \ReflectionMethod($model, 'verifyOfflineProofByAdmin');
+                $params = $ref->getParameters();
+                $p1Name = isset($params[1]) ? strtolower($params[1]->getName()) : '';
+                $arg2   = (strpos($p1Name, 'decision') !== false || strpos($p1Name, 'action') !== false || strpos($p1Name, 'status') !== false)
+                    ? ($isApprove ? 'approve' : 'reject')
+                    : $isApprove;
+
+                if (count($params) >= 3) {
+                    $model->verifyOfflineProofByAdmin($txnId, $arg2, $adminId);
+                } else {
+                    $model->verifyOfflineProofByAdmin($txnId, $arg2);
+                }
+            } catch (\Throwable $e) {
+                // Fallback handled below
+            }
+        }
+
+        $freshRow  = $db->table('payment_transactions')->where('id', $txnId)->get()->getRowArray() ?: $row;
+        $baseTitle = preg_replace('/\s*(\(Rejected:.*?\)|\[Rejected:.*?\])$/i', '', (string) ($freshRow['invoice_title'] ?? 'Course Tuition Fee'));
+        $baseTitle = trim($baseTitle) ?: 'Course Tuition Fee';
+
+        if ($isApprove) {
+            $updTxn = [
+                'status'        => 'paid',
+                'invoice_title' => $baseTitle,
+            ];
+            if ($db->fieldExists('verified_by', 'payment_transactions') && $adminId > 0) {
+                $updTxn['verified_by'] = $adminId;
+            }
+            if ($db->fieldExists('verified_at', 'payment_transactions')) {
+                $updTxn['verified_at'] = date('Y-m-d H:i:s');
+            }
+            $db->table('payment_transactions')->where('id', $txnId)->update($updTxn);
+
+            $sid = (int) ($freshRow['student_user_id'] ?? 0);
+            $nid = (int) ($freshRow['node_id'] ?? 0);
+            if ($sid > 0 && $db->tableExists('lms_student_subscriptions')) {
+                $subBuilder = $db->table('lms_student_subscriptions')->where('student_user_id', $sid);
+                if ($nid > 0) {
+                    $subBuilder->where('node_id', $nid);
+                }
+                $subRow = $subBuilder->get()->getRowArray();
+                if ($subRow && (int) ($subRow['is_access_locked'] ?? 0) === 1) {
+                    $subUpd = ['is_access_locked' => 0];
+                    if ((int) ($subRow['paid_cycles_count'] ?? 0) === 0 && $db->fieldExists('paid_cycles_count', 'lms_student_subscriptions')) {
+                        $subUpd['paid_cycles_count'] = 1;
+                    }
+                    $db->table('lms_student_subscriptions')->where('id', (int) $subRow['id'])->update($subUpd);
+                }
+            }
+
+            return redirect()->to(base_url('addons/lms-finance'))
+                ->with('success', 'Offline payment approved and student course access unlocked!');
+        }
+
+        $cleanReason = mb_substr(str_replace(['[', ']', '(', ')'], '', $reason), 0, 140);
+        $newTitle    = $baseTitle . ($cleanReason !== '' ? ' (Rejected: ' . $cleanReason . ')' : ' (Rejected)');
+
+        $updReject = [
+            'status'        => 'rejected',
+            'invoice_title' => $newTitle,
+        ];
+        if ($db->fieldExists('rejection_reason', 'payment_transactions')) {
+            $updReject['rejection_reason'] = $cleanReason;
+        }
+        if ($db->fieldExists('admin_note', 'payment_transactions')) {
+            $updReject['admin_note'] = $cleanReason;
+        }
+        if ($db->fieldExists('remarks', 'payment_transactions')) {
+            $updReject['remarks'] = $cleanReason;
+        }
+        if ($db->fieldExists('provider_payload', 'payment_transactions')) {
+            $payload = json_decode((string) ($freshRow['provider_payload'] ?? '{}'), true);
+            if (! is_array($payload)) {
+                $payload = [];
+            }
+            $payload['rejection_reason'] = $cleanReason;
+            $updReject['provider_payload'] = json_encode($payload, JSON_UNESCAPED_UNICODE);
+        }
+
+        $db->table('payment_transactions')->where('id', $txnId)->update($updReject);
+
+        return redirect()->to(base_url('addons/lms-finance'))
+            ->with('success', 'Offline payment proof rejected.' . ($cleanReason !== '' ? ' Reason: ' . $cleanReason : ''));
+    }
+    public function deleteTransaction()
+    {
+        if (! $this->hasPermission('lms_finance.delete')) return redirect()->back()->with('error', 'Access denied.');
+        $id = (int) ($this->request->getPost('id') ?? 0);
+        if ($id > 0) $this->getModel()->delete($id);
+        return redirect()->back()->with('success', 'Transaction removed.');
+    }
+
+    public function savePayoutExpense()
+    {
+        if (! $this->hasPermission(['lms_finance.expenses', 'lms_finance.collect'])) return redirect()->back()->with('error', 'Access denied.');
+        $res = $this->getModel()->savePayoutOrExpense($this->request->getPost());
+        return redirect()->to(base_url('addons/lms-finance/payouts'))->with($res['ok'] ? 'success' : 'error', $res['message']);
+    }
+
+    public function deletePayoutExpense()
+    {
+        if (! $this->hasPermission('lms_finance.delete')) return redirect()->back()->with('error', 'Access denied.');
+        $id = (int) ($this->request->getPost('id') ?? 0);
+        if ($id > 0) \Config\Database::connect()->table('lms_finance_expenses')->where('id', $id)->delete();
+        return redirect()->to(base_url('addons/lms-finance/payouts'))->with('success', 'Expense entry removed.');
+    }
+
+    public function saveRazorpaySettings()
+    {
+        if (! $this->hasPermission('lms_finance.settings')) return redirect()->back()->with('error', 'Access denied.');
+        $this->getModel()->saveRazorpayConfig($this->request->getPost());
+        return redirect()->to(base_url('addons/lms-finance/settings'))->with('success', 'Razorpay Gateway settings updated!');
+    }
+
+    public function saveReceiptTemplate()
+    {
+        if (! $this->hasPermission('lms_finance.settings')) return redirect()->back()->with('error', 'Access denied.');
+        $this->getModel()->saveReceiptTemplateConfig($this->request->getPost());
+        return redirect()->to(base_url('addons/lms-finance/settings'))->with('success', 'Official Receipt branding saved!');
     }
 
     public function asset($file = '')
     {
-        if (session_status() === PHP_SESSION_ACTIVE) {
-            @session_write_close();
-        }
+        if (session_status() === PHP_SESSION_ACTIVE) @session_write_close();
         $safeFile = basename((string) $file);
         $fullPath = $this->addonPath . '/assets/' . $safeFile;
-        if (! is_file($fullPath)) {
-            return $this->response->setStatusCode(404)->setBody('/* Asset not found */');
-        }
+        if (! is_file($fullPath)) return $this->response->setStatusCode(404)->setBody('');
         $ext  = strtolower((string) pathinfo($safeFile, PATHINFO_EXTENSION));
         $mime = ($ext === 'css') ? 'text/css; charset=UTF-8' : 'application/javascript; charset=UTF-8';
-
-        return $this->response
-            ->setHeader('Content-Type', $mime)
-            ->setHeader('Cache-Control', 'no-cache, must-revalidate')
-            ->setBody((string) file_get_contents($fullPath));
+        return $this->response->setHeader('Content-Type', $mime)->setHeader('Cache-Control', 'public, max-age=3600')->setBody((string) file_get_contents($fullPath));
     }
+
+    public function logFailedPaymentJson()
+    {
+        $model = $this->getModel();
+        $txnId = $model->recordFailedPaymentTransaction([
+            'student_user_id'     => (int) ($this->request->getPost('student_user_id') ?? 0),
+            'subscription_id'     => (int) ($this->request->getPost('subscription_id') ?? 0),
+            'invoice_id'          => (int) ($this->request->getPost('invoice_id') ?? 0),
+            'node_id'             => (int) ($this->request->getPost('node_id') ?? 0),
+            'amount'              => (float) ($this->request->getPost('amount') ?? 1000),
+            'currency'            => (string) ($this->request->getPost('currency') ?? 'INR'),
+            'invoice_title'       => (string) ($this->request->getPost('title') ?? 'Course Fee - Failed Attempt'),
+            'razorpay_order_id'   => (string) ($this->request->getPost('razorpay_order_id') ?? ''),
+            'razorpay_payment_id' => (string) ($this->request->getPost('razorpay_payment_id') ?? ''),
+            'error_reason'        => (string) ($this->request->getPost('error_reason') ?? 'Payment failed at gateway'),
+            'payer_name'          => (string) ($this->request->getPost('payer_name') ?? ''),
+            'payer_email'         => (string) ($this->request->getPost('payer_email') ?? ''),
+        ]);
+
+        return $this->response->setJSON([
+            'ok'         => true,
+            'txn_id'     => $txnId,
+            'csrf_token' => csrf_hash(),
+        ]);
+    }
+
 }

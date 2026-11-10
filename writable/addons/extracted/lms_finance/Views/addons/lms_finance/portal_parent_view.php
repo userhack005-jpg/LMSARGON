@@ -1,16 +1,23 @@
 <?= $this->extend('layouts/master_layout') ?>
 
 <?= $this->section('content') ?>
+<link rel="stylesheet" href="<?= base_url('addons/lms-finance/assets/lms_finance.css') ?>">
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="<?= base_url('addons/lms-finance/assets/lms_finance.js') ?>" defer></script>
 <?php
+    @date_default_timezone_set('Asia/Kolkata');
     $kidsMap      = $parentKidsMap ?? [];
     $hasMultiKids = count($kidsMap) > 1;
     $viewOnly     = ! empty($isChildViewOnly);
     $rzp          = $razorpayConfig ?? [];
+    $paidByStu    = $latestPaidTxnByStu ?? [];
+    $paidBySub    = $latestPaidTxnBySub ?? [];
 ?>
 <div class="lfn-portal-wrapper" id="js-lfn-portal-root"
      data-order-url="<?= base_url('finance/create-razorpay-order') ?>"
-     data-verify-url="<?= base_url('finance/verify-razorpay-payment') ?>">
+     data-verify-url="<?= base_url('finance/verify-razorpay-payment') ?>" data-fail-url="<?= base_url('finance/log-failed-payment') ?>"
+     data-rzp-mode="<?= esc($rzp['mode'] ?? 'test') ?>"
+     data-rzp-key="<?= esc($rzp['key_id'] ?? '') ?>">
 
     <?php if (! empty($canManageAdmin)): ?>
         <?php include __DIR__ . '/partials/admin_nav.php'; ?>
@@ -25,70 +32,99 @@
 
     <?php if (! empty($isLockedBanner)): ?>
         <div class="alert-banner alert-error" style="margin-bottom:1.25rem;">
-            <strong>🔒 Course Access Temporarily Paused:</strong>
-            Your course fee is past the grace period. Complete your payment below to unlock live classes and practice drills immediately.
+            <strong>Course Fee Due &mdash; Batch Access Paused:</strong>
+            Please complete your due course fee payment below to activate/unlock live classes, practice labs, and exams immediately.
         </div>
     <?php endif; ?>
 
     <div class="lfn-compact-bar">
         <div>
             <h3 style="margin:0;">
-                <?= $viewOnly ? '🎓 My Course Fee Status & Receipts (View-Only)' : '👨‍👩‍👧‍👦 Family Course Fee & Receipts Portal' ?>
+                <?= $viewOnly ? 'My Course Fee Status &amp; Official Receipts' : 'Family Course Fee Subscriptions &amp; Official Receipts' ?>
             </h3>
             <p class="field-hint" style="margin:0;">
-                <?= $viewOnly ? 'Switch to your Parent Account to make fee payments.' : 'View your children\'s enrolled course fees, pay online via Razorpay or upload payment proof, and download official receipts.' ?>
+                <?= $viewOnly ? 'Switch to your Parent Account to make fee payments.' : 'Pay online via Razorpay or upload payment proof, and print or download your official PDF receipts anytime.' ?>
             </p>
         </div>
 
         <?php if ($hasMultiKids): ?>
             <div class="action-btn-group" id="js-lfn-child-filter-bar">
                 <button type="button" class="btn-action is-active js-lfn-child-tab" data-child-id="all">
-                    👨‍👩‍👧‍👦 All Children (<?= count($kidsMap) ?>)
+                    All Children (<?= count($kidsMap) ?>)
                 </button>
                 <?php foreach ($kidsMap as $kidId => $kidName): ?>
                     <button type="button" class="btn-action js-lfn-child-tab" data-child-id="<?= (int) $kidId ?>">
-                        🎓 <?= esc($kidName) ?>
+                        <?= esc($kidName) ?>
                     </button>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </div>
 
-    <div class="lfn-cards-grid" style="margin-bottom: 1.75rem;">
+    <!-- 1. Active Subscriptions & Direct Receipt Access -->
+    <div class="lfn-cards-grid" style="margin-bottom: 1.85rem;">
         <?php foreach (($mySubs ?? []) as $sub): ?>
             <?php
-                $sid      = (int) $sub['student_user_id'];
-                $sName    = $allUsers[$sid]['display_name'] ?? 'Child';
-                $cTitle   = $nodesById[(int) $sub['node_id']] ?? 'Enrolled Course';
-                $isLocked = ((int) $sub['is_access_locked'] === 1);
+                $subId       = (int) $sub['id'];
+                $sid         = (int) $sub['student_user_id'];
+                $sName       = $allUsers[$sid]['display_name'] ?? 'Child';
+                $cTitle      = \App\Models\Addons\LmsFinance\LmsFinanceModel::cleanText($nodesById[(int) $sub['node_id']] ?? 'Enrolled Course');
+                $isCompleted = (($sub['status'] ?? '') === 'completed');
+                $isLocked    = ((int) $sub['is_access_locked'] === 1);
+                $bStart      = ! empty($sub['batch_start_date']) && $sub['batch_start_date'] !== '0000-00-00' ? $sub['batch_start_date'] : date('Y-m-01');
+                $bEnd        = ! empty($sub['batch_end_date']) && $sub['batch_end_date'] !== '0000-00-00' ? $sub['batch_end_date'] : 'Ongoing';
+                $nextDue     = ! empty($sub['due_date']) && $sub['due_date'] !== '0000-00-00' ? $sub['due_date'] : date('Y-m-01');
+                $dueMonthLbl = date('M Y', strtotime($nextDue));
+                $latestPaid  = $paidBySub[$subId] ?? ($paidByStu[$sid] ?? null);
             ?>
             <article class="lfn-modern-fee-card js-lfn-child-item" data-child-id="<?= $sid ?>">
                 <div>
                     <div class="lfn-flex-between" style="margin-bottom:0.5rem;">
-                        <span class="role-badge text-emerald">🎓 <?= esc($sName) ?></span>
-                        <span class="role-badge <?= $isLocked ? 'text-danger' : 'text-cyan' ?>">
-                            <?= $isLocked ? '🔒 Overdue' : ('Due: ' . esc($sub['due_date'])) ?>
-                        </span>
+                        <span class="role-badge text-emerald"><?= esc($sName) ?></span>
+                        <?php if ($isCompleted): ?>
+                            <span class="role-badge text-emerald">Full Batch Paid</span>
+                        <?php elseif ($isLocked): ?>
+                            <span class="role-badge text-danger">Fee Due: <?= esc($nextDue) ?></span>
+                        <?php else: ?>
+                            <span class="role-badge text-cyan">Active &bull; Next Due: <?= esc($nextDue) ?></span>
+                        <?php endif; ?>
                     </div>
 
                     <h3 style="margin:0.25rem 0;"><?= esc($cTitle) ?></h3>
                     <div class="mono-cell muted-cell">
-                        Batch Dates: <?= esc($sub['batch_start_date'] ?: 'Active') ?> to <?= esc($sub['batch_end_date'] ?: 'Ongoing') ?>
+                        Batch Start: <strong><?= esc($bStart) ?></strong> &bull; Batch End: <strong><?= esc($bEnd) ?></strong>
                     </div>
 
                     <div class="lfn-fee-price-box">
                         <div>
-                            <span class="mono-label"><?= strtoupper(esc($sub['billing_cycle'])) ?> FEE</span>
+                            <span class="mono-label"><?= strtoupper(esc($sub['billing_cycle'])) ?> FEE (<?= esc($dueMonthLbl) ?>)</span>
                             <div class="lfn-big-price"><?= esc($sub['currency']) ?> <?= number_format((float) $sub['fee_amount'], 2) ?></div>
                         </div>
                         <div style="text-align:right;">
-                            <span class="mono-label">NEXT DUE DATE</span>
-                            <div class="identity-name text-cyan"><?= esc($sub['due_date']) ?></div>
+                            <span class="mono-label">NEXT DUE DATE (1ST)</span>
+                            <div class="identity-name text-cyan"><?= esc($nextDue) ?></div>
                         </div>
                     </div>
+
+                    <!-- Permanent Receipt Buttons on Subscription Card whenever a Paid Receipt Exists -->
+                    <?php if ($latestPaid): ?>
+                        <div style="margin-top:0.75rem; padding:0.65rem 0.85rem; border-radius:10px; background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.3); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+                            <span class="mono-cell text-emerald">
+                                <strong>Last Paid Receipt:</strong> <code><?= esc($latestPaid['txn_reference']) ?></code>
+                            </span>
+                            <div class="action-btn-group">
+                                <a href="<?= base_url('finance/receipt-view/' . (int) $latestPaid['id']) ?>" class="btn-secondary btn-sm" style="text-decoration:none;">
+                                    Print Receipt
+                                </a>
+                                <a href="<?= base_url('finance/receipt-view/' . (int) $latestPaid['id'] . '?download_pdf=1') ?>" class="lfn-btn lfn-btn-emerald lfn-btn-sm">
+                                                ⬇ PDF
+                                </a>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
-                <?php if (! $viewOnly): ?>
+                <?php if (! $viewOnly && ! $isCompleted): ?>
                     <div class="lfn-pay-btn-group">
                         <?php if (! empty($rzp['is_enabled'])): ?>
                             <button type="button"
@@ -96,13 +132,13 @@
                                     style="flex:1; justify-content:center;"
                                     data-student-id="<?= $sid ?>"
                                     data-student-name="<?= esc($sName) ?>"
-                                    data-subscription-id="<?= (int) $sub['id'] ?>"
+                                    data-subscription-id="<?= $subId ?>"
                                     data-invoice-id="0"
                                     data-node-id="<?= (int) $sub['node_id'] ?>"
-                                    data-title="<?= esc($cTitle . ' — ' . $sub['billing_cycle'] . ' Fee') ?>"
+                                    data-title="<?= esc($cTitle . ' - ' . $dueMonthLbl . ' Fee') ?>"
                                     data-amount="<?= (float) $sub['fee_amount'] ?>"
                                     data-currency="<?= esc($sub['currency']) ?>">
-                                ⚡ Pay <?= esc($sub['currency']) ?> <?= number_format((float) $sub['fee_amount'], 2) ?> Online
+                                <?= $isLocked ? 'Pay Now' : ('Pay Advance (' . esc($dueMonthLbl) . ')') ?> &mdash; <?= esc($sub['currency']) ?> <?= number_format((float) $sub['fee_amount'], 2) ?>
                             </button>
                         <?php endif; ?>
 
@@ -110,147 +146,113 @@
                                 class="btn-secondary js-open-offline-modal"
                                 data-student-id="<?= $sid ?>"
                                 data-student-name="<?= esc($sName) ?>"
-                                data-subscription-id="<?= (int) $sub['id'] ?>"
+                                data-subscription-id="<?= $subId ?>"
                                 data-invoice-id="0"
                                 data-node-id="<?= (int) $sub['node_id'] ?>"
-                                data-title="<?= esc($cTitle . ' — ' . $sub['billing_cycle'] . ' Fee') ?>"
+                                data-title="<?= esc($cTitle . ' - ' . $dueMonthLbl . ' Fee') ?>"
                                 data-amount="<?= (float) $sub['fee_amount'] ?>"
                                 data-currency="<?= esc($sub['currency']) ?>">
-                            📤 Upload Payment Screenshot
+                            Upload Screenshot
                         </button>
                     </div>
-                <?php endif; ?>
-            </article>
-        <?php endforeach; ?>
-
-        <?php foreach (($myInvoices ?? []) as $inv): ?>
-            <?php
-                if (($inv['status'] ?? '') === 'paid' || ($inv['invoice_type'] ?? '') !== 'custom_request') continue;
-                $sid   = (int) $inv['student_user_id'];
-                $sName = $allUsers[$sid]['display_name'] ?? 'Child';
-            ?>
-            <article class="lfn-modern-fee-card js-lfn-child-item" data-child-id="<?= $sid ?>" style="border-color: rgba(6, 182, 212, 0.45);">
-                <div>
-                    <div class="lfn-flex-between" style="margin-bottom:0.5rem;">
-                        <span class="role-badge text-emerald">🎓 <?= esc($sName) ?></span>
-                        <span class="role-badge text-cyan">🧾 Custom Fee Request</span>
-                    </div>
-                    <h3 style="margin:0.25rem 0;"><?= esc($inv['title']) ?></h3>
-                    <?php if (! empty($inv['remarks'])): ?>
-                        <p class="muted-cell" style="margin:0; font-size:0.84rem;"><?= esc($inv['remarks']) ?></p>
-                    <?php endif; ?>
-
-                    <div class="lfn-fee-price-box">
-                        <div>
-                            <span class="mono-label">TOTAL AMOUNT DUE</span>
-                            <div class="lfn-big-price"><?= esc($inv['currency']) ?> <?= number_format((float) $inv['total_amount'], 2) ?></div>
-                        </div>
-                        <div style="text-align:right;">
-                            <span class="mono-label">DUE DATE</span>
-                            <div class="identity-name text-amber"><?= esc($inv['due_date']) ?></div>
-                        </div>
-                    </div>
-                </div>
-
-                <?php if (! $viewOnly && ($inv['status'] ?? '') === 'unpaid'): ?>
-                    <div class="lfn-pay-btn-group">
-                        <button type="button"
-                                class="btn-primary js-rzp-pay-btn"
-                                style="flex:1; justify-content:center;"
-                                data-student-id="<?= $sid ?>"
-                                data-student-name="<?= esc($sName) ?>"
-                                data-subscription-id="0"
-                                data-invoice-id="<?= (int) $inv['id'] ?>"
-                                data-node-id="0"
-                                data-title="<?= esc($inv['title']) ?>"
-                                data-amount="<?= (float) $inv['total_amount'] ?>"
-                                data-currency="<?= esc($inv['currency']) ?>">
-                            ⚡ Pay Online
-                        </button>
-                        <button type="button"
-                                class="btn-secondary js-open-offline-modal"
-                                data-student-id="<?= $sid ?>"
-                                data-student-name="<?= esc($sName) ?>"
-                                data-subscription-id="0"
-                                data-invoice-id="<?= (int) $inv['id'] ?>"
-                                data-node-id="0"
-                                data-title="<?= esc($inv['title']) ?>"
-                                data-amount="<?= (float) $inv['total_amount'] ?>"
-                                data-currency="<?= esc($inv['currency']) ?>">
-                            📤 Upload Screenshot
-                        </button>
-                    </div>
-                <?php elseif (($inv['status'] ?? '') === 'pending_verification'): ?>
-                    <span class="role-badge text-amber" style="align-self:flex-start;">⏳ Screenshot Submitted — Awaiting Admin Approval</span>
                 <?php endif; ?>
             </article>
         <?php endforeach; ?>
     </div>
 
+    <!-- 2. Clear Payment History & Permanent Receipt Download Table -->
     <section class="console-card">
-        <div class="card-head">
+        <div class="card-head lfn-flex-between">
             <div>
-                <h3>Payment History &amp; Official Fee Receipts</h3>
-                <p class="field-hint" style="margin:0;">Download or print official branded fee receipts for each child.</p>
+                <span class="role-badge text-emerald">OFFICIAL BILLING &amp; RECEIPT LEDGER</span>
+                <h3 style="margin-top:0.25rem;">All Payments, Status &amp; Instant Receipt Downloads (<?= count($myTxns ?? []) ?>)</h3>
             </div>
         </div>
 
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>Child Name</th>
-                        <th>Receipt Ref &amp; Date</th>
-                        <th>Description &amp; Batch Dates</th>
-                        <th>Amount Paid</th>
-                        <th>Next Due Date</th>
-                        <th>Status &amp; Receipt</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($myTxns)): ?>
-                        <tr><td colspan="6" class="muted-cell" style="text-align:center; padding:2rem;">No fee transactions recorded yet.</td></tr>
-                    <?php else: ?>
+        <?php if (empty($myTxns)): ?>
+            <div class="panel-card" style="text-align:center; padding:2.5rem;">
+                <h4 style="margin:0 0 0.35rem;">No Fee Transactions Recorded Yet</h4>
+                <p class="muted-cell" style="margin:0;">Once you complete a payment above, your transaction status and Print / PDF Receipt buttons will always be available here.</p>
+            </div>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Ref &amp; Date (IST)</th>
+                            <th>Child &amp; Course</th>
+                            <th>Batch &amp; Next Due (1st)</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Official Receipt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
                         <?php foreach ($myTxns as $tx): ?>
                             <?php
-                                $sid   = (int) ($tx['student_user_id'] ?? 0);
-                                $sName = $allUsers[$sid]['display_name'] ?? 'Child';
-                                $st    = strtolower((string) ($tx['status'] ?? 'paid'));
+                                $tid        = (int) ($tx['id'] ?? 0);
+                                $sid        = (int) ($tx['student_user_id'] ?? 0);
+                                $sName      = $allUsers[$sid]['display_name'] ?? ($tx['payer_name'] ?: 'Student');
+                                $st         = strtolower(trim((string) ($tx['status'] ?? '')));
+                                $prov       = strtolower(trim((string) ($tx['provider'] ?? '')));
+                                if ($st === '') {
+                                    $st = ($prov === 'offline_proof') ? 'pending_verification' : (strpos($prov, 'fail') !== false ? 'failed' : 'paid');
+                                }
+                                $isPaid     = in_array($st, ['paid', 'success', 'captured', 'verified', 'completed'], true);
+                                $isPending  = ($st === 'pending_verification' || $st === 'pending');
+                                $paidDateTm = ! empty($tx['created_at']) ? date('d M Y, h:i:s A', strtotime((string) $tx['created_at'])) . ' IST' : '-';
+                                $bStart     = ! empty($tx['batch_start_date']) && $tx['batch_start_date'] !== '0000-00-00' ? $tx['batch_start_date'] : '-';
+                                $bEnd       = ! empty($tx['batch_end_date']) && $tx['batch_end_date'] !== '0000-00-00' ? $tx['batch_end_date'] : '-';
+                                $nextDue    = ! empty($tx['next_due_date']) && $tx['next_due_date'] !== '0000-00-00' ? $tx['next_due_date'] : '-';
+                                $cleanTitle = \App\Models\Addons\LmsFinance\LmsFinanceModel::cleanText($tx['invoice_title'] ?: 'Course Tuition Fee');
                             ?>
                             <tr class="js-lfn-child-item" data-child-id="<?= $sid ?>">
-                                <td class="identity-name">🎓 <?= esc($sName) ?></td>
-                                <td>
-                                    <div class="identity-name"><?= esc($tx['txn_reference']) ?></div>
-                                    <div class="mono-cell muted-cell"><?= esc(substr((string) $tx['created_at'], 0, 16)) ?></div>
+                                <td class="mono-cell">
+                                    <div><code><?= esc($tx['txn_reference']) ?></code></div>
+                                    <div class="muted-cell" style="font-size:0.73rem;"><?= esc($paidDateTm) ?></div>
                                 </td>
                                 <td>
-                                    <div class="identity-name"><?= esc($tx['invoice_title'] ?: 'Course Fee') ?></div>
-                                    <?php if (! empty($tx['batch_start_date'])): ?>
-                                        <div class="mono-cell muted-cell">Batch: <?= esc($tx['batch_start_date']) ?> to <?= esc($tx['batch_end_date'] ?: 'Ongoing') ?></div>
-                                    <?php endif; ?>
+                                    <div class="identity-name"><?= esc($sName) ?></div>
+                                    <div class="mono-cell text-emerald"><?= esc($cleanTitle) ?></div>
+                                </td>
+                                <td class="mono-cell">
+                                    <div class="text-cyan"><strong>Next Due: <?= esc($nextDue) ?></strong></div>
+                                    <div class="muted-cell" style="font-size:0.73rem;">Batch: <?= esc($bStart) ?> &rarr; <?= esc($bEnd) ?></div>
                                 </td>
                                 <td class="mono-cell text-emerald">
                                     <strong><?= esc($tx['currency']) ?> <?= number_format((float) $tx['amount'], 2) ?></strong>
                                 </td>
-                                <td class="mono-cell text-cyan"><?= esc($tx['next_due_date'] ?: '—') ?></td>
                                 <td>
-                                    <?php if ($st === 'paid'): ?>
-                                        <div class="action-btn-group">
-                                            <a href="<?= base_url('finance/receipt-view/' . (int) $tx['id']) ?>" target="_blank" class="btn-secondary btn-sm">🖨 View Receipt</a>
-                                            <a href="<?= base_url('finance/receipt-pdf/' . (int) $tx['id']) ?>" class="btn-primary btn-sm">⬇ PDF</a>
-                                        </div>
-                                    <?php elseif ($st === 'pending_verification'): ?>
-                                        <span class="role-badge text-amber">⏳ Awaiting Admin Verification</span>
+                                    <?php if ($isPaid): ?>
+                                        <span class="lfn-badge lfn-badge-success"><span class="lfn-dot"></span> PAID</span>
+                                    <?php elseif ($isPending): ?>
+                                        <span class="lfn-badge lfn-badge-pending"><span class="lfn-dot"></span> PENDING</span>
                                     <?php else: ?>
-                                        <span class="role-badge text-danger"><?= strtoupper(esc($st)) ?></span>
+                                        <span class="lfn-badge lfn-badge-danger"><span class="lfn-dot"></span> <?= strtoupper(esc($st)) ?></span>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($isPaid): ?>
+                                        <div class="action-btn-group">
+                                            <a href="<?= base_url('finance/receipt-view/' . $tid) ?>" class="lfn-btn lfn-btn-outline lfn-btn-sm">
+                                                🖨 Print Receipt
+                                            </a>
+                                            <a href="<?= base_url('finance/receipt-view/' . $tid . '?download_pdf=1') ?>" class="lfn-btn lfn-btn-emerald lfn-btn-sm">
+                                                ⬇ PDF
+                                            </a>
+                                        </div>
+                                    <?php elseif ($isPending): ?>
+                                        <span class="mono-cell muted-cell">Unlocks after Admin approval</span>
+                                    <?php else: ?>
+                                        <span class="mono-cell text-danger">No receipt (Payment Failed)</span>
                                     <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
     </section>
 
     <form action="<?= base_url('finance/verify-razorpay-payment') ?>" method="post" id="js-rzp-verify-form" class="is-hidden">
@@ -273,7 +275,7 @@
                     <span class="mono-label text-emerald">MANUAL / UPI / BANK TRANSFER PROOF</span>
                     <h3 id="js-off-modal-title" style="margin:0.2rem 0 0;">Upload Payment Screenshot</h3>
                 </div>
-                <button type="button" class="btn-action" id="js-off-modal-close">✕ Close</button>
+                <button type="button" class="btn-action" id="js-off-modal-close">Close</button>
             </div>
 
             <form action="<?= base_url('finance/submit-offline-proof') ?>" method="post" enctype="multipart/form-data">
@@ -293,7 +295,7 @@
                     <input type="file" name="proof_file" class="field-input" accept=".png,.jpg,.jpeg,.webp,.pdf" required>
                 </div>
 
-                <button type="submit" class="btn-primary btn-full">📤 Submit Payment Proof for Verification</button>
+                <button type="submit" class="btn-primary btn-full">Submit Payment Proof for Verification</button>
             </form>
         </div>
     </div>

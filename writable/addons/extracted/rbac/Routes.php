@@ -12,7 +12,7 @@ if (is_file($addonDir . '/Controllers/Addons/Rbac/RbacController.php')) {
 \Config\Services::autoloader()->addNamespace('AddonRbac', $addonDir);
 
 // ============================================================================
-// 0ms SESSION & CHILD-SANDBOX LOCK SYNC (Bypasses `/assets/` to Prevent Lock!)
+// 0ms SESSION, DYNAMIC ADDON LIFECYCLE & CHILD-SANDBOX LOCK SYNC
 // ============================================================================
 $rbacRawUri  = trim((string) service('uri')->getPath(), '/');
 $rbacIsAsset = (strpos($rbacRawUri, '/assets/') !== false) || (strpos($rbacRawUri, 'assets/') === 0);
@@ -33,11 +33,34 @@ if (! $rbacIsAsset && session()->get('isLoggedIn')) {
         ? 'student'
         : $baseRole;
 
+    // Compute fast active-addon signature so if an addon is activated/deactivated, cache auto-heals!
+    $activeSlugs = function_exists('cms_get_active_addon_slugs') ? array_keys((array) cms_get_active_addon_slugs()) : [];
+    sort($activeSlugs);
+    $addonsHash = ! empty($activeSlugs) ? md5(implode(',', $activeSlugs)) : '';
+
+    if (! is_file($cacheFile)) {
+        try {
+            (new \App\Models\Addons\Rbac\RbacModel())->rebuildStaticCache();
+        } catch (\Throwable $e) {
+        }
+    }
+
     $cacheMtime = is_file($cacheFile) ? (int) @filemtime($cacheFile) : 0;
-    $syncKey    = $cacheMtime . '_' . $effectiveRole;
+    $syncKey    = $cacheMtime . '_' . $effectiveRole . '_' . $addonsHash;
 
     if ($cacheMtime > 0 && ((string) session()->get('_rbac_sync_key') !== $syncKey || (string) session()->get('effective_role_slug') !== $effectiveRole)) {
         $cacheData = json_decode((string) @file_get_contents($cacheFile), true);
+
+        // If active addons changed since the cache was built, auto-rebuild 0ms cache immediately
+        if (is_array($cacheData) && $addonsHash !== '' && isset($cacheData['addons_hash']) && $cacheData['addons_hash'] !== $addonsHash) {
+            try {
+                $cacheData  = (new \App\Models\Addons\Rbac\RbacModel())->rebuildStaticCache();
+                $cacheMtime = is_file($cacheFile) ? (int) @filemtime($cacheFile) : time();
+                $syncKey    = $cacheMtime . '_' . $effectiveRole . '_' . $addonsHash;
+            } catch (\Throwable $e) {
+            }
+        }
+
         if (is_array($cacheData) && isset($cacheData['roles'][$effectiveRole])) {
             $roleInfo = $cacheData['roles'][$effectiveRole];
             session()->set([

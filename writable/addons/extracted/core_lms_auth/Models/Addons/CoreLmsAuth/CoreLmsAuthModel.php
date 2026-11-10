@@ -43,6 +43,9 @@ class CoreLmsAuthModel extends Model
 
     public function ensureSchema(): void
     {
+        if (is_file(WRITEPATH . 'addons/schema_addon_core_lms_auth_v70.lock')) {
+            return;
+        }
         try {
             if (! $this->db->tableExists('cms_user_meta')) {
                 $this->db->query("
